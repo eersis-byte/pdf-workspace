@@ -1,0 +1,1602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- Performance: Preconnect to CDNs -->
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://unpkg.com" crossorigin>
+    <title>PDF Workspace v9.0.0 - 47+ Privacy-First PDF Tools</title>
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- PWA Meta Tags -->
+    <meta name="description" content="Complete suite of privacy-first PDF tools. All processing happens in your browser - files never leave your device.">
+    <meta name="theme-color" content="#667eea">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="PDF Workspace">
+    
+    <!-- PDF Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js" defer crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js" defer crossorigin="anonymous"></script>
+    
+    <!-- OCR Library - NEW v7.10 -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js" defer crossorigin="anonymous"></script>
+    
+    <!-- Office Conversion Libraries - NEW v7.15.0 -->
+    <script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js" defer crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js" defer crossorigin="anonymous"></script>
+    <!-- DOCX library for PDF to Word conversion - NEW v7.16.0 -->
+    <script src="https://unpkg.com/docx@8.5.0/build/index.js" defer crossorigin="anonymous"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --color-primary: #0366d6;
+            --color-primary-hover: #0256b5;
+            --color-success: #28a745;
+            --color-danger: #dc3545;
+            --color-warning: #ffc107;
+            --color-bg: #f6f8fa;
+            --color-surface: #ffffff;
+            --color-surface-secondary: #fafbfc;
+            --color-border: #e1e4e8;
+            --color-text: #24292e;
+            --color-text-muted: #586069;
+            --spacing-xs: 4px;
+            --spacing-sm: 8px;
+            --spacing-md: 16px;
+            --spacing-lg: 24px;
+            --spacing-xl: 32px;
+            --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            --radius-sm: 4px;
+            --radius-md: 6px;
+            --radius-lg: 8px;
+        }
+        
+        body {
+            font-family: var(--font-sans);
+            background: var(--color-bg);
+            color: var(--color-text);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        
+        .app-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: var(--spacing-lg);
+        }
+        
+        .app-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: var(--spacing-md) var(--spacing-lg);
+            border-radius: var(--radius-lg);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: var(--spacing-lg);
+        }
+        
+        .header-layout {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: var(--spacing-md);
+            max-width: 100%;
+        }
+        
+        .header-tagline-left {
+            flex: 0 0 auto;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            opacity: 0.95;
+            white-space: nowrap;
+        }
+        
+        .header-tagline-left .lock-icon {
+            font-size: 18px;
+        }
+        
+        .header-center {
+            flex: 1 1 auto;
+            text-align: center;
+            min-width: 0;
+        }
+        
+        .app-header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            margin: 0;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .app-header h1 svg {
+            transition: transform 0.3s ease;
+        }
+        
+        .app-header h1:hover svg {
+            transform: scale(1.1) rotate(2deg);
+        }
+        
+        .header-subtitle {
+            font-size: 13px;
+            opacity: 0.9;
+            margin-top: 4px;
+        }
+        
+        .header-tagline-right {
+            flex: 0 0 auto;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            opacity: 0.95;
+            white-space: nowrap;
+        }
+        
+        .header-tagline-right .shield-icon {
+            font-size: 16px;
+        }
+        
+        /* Security Banner Styles - Compact Layout */
+        
+        /* Responsive: Stack header on small screens */
+        @media (max-width: 768px) {
+            .header-layout {
+                flex-direction: column;
+                gap: var(--spacing-sm);
+            }
+            
+            .header-tagline-left,
+            .header-tagline-right {
+                font-size: 12px;
+            }
+            
+            .app-header h1 {
+                font-size: 24px;
+            }
+            
+            .app-header h1 svg {
+                width: 32px;
+                height: 32px;
+                margin-right: 8px;
+            }
+            
+            .header-subtitle {
+                font-size: 12px;
+            }
+        }
+        
+        /* Footer Styles */
+        .app-footer {
+            background: var(--color-surface);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-xl);
+            margin-top: var(--spacing-xl);
+            border: 2px solid var(--color-border);
+        }
+        
+        .footer-content {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: var(--spacing-xl);
+            margin-bottom: var(--spacing-lg);
+        }
+        
+        .footer-section h3 {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--color-text);
+            margin: 0 0 var(--spacing-sm) 0;
+        }
+        
+        .footer-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .footer-list li {
+            font-size: 13px;
+            color: var(--color-text-muted);
+            padding: 4px 0;
+            line-height: 1.6;
+        }
+        
+        .footer-bottom {
+            border-top: 2px solid var(--color-border);
+            padding-top: var(--spacing-md);
+            text-align: center;
+        }
+        
+        .footer-bottom p {
+            margin: var(--spacing-xs) 0;
+            font-size: 13px;
+            color: var(--color-text-muted);
+        }
+        
+        .footer-version {
+            font-weight: 600;
+            color: var(--color-primary);
+        }
+        
+        .main-grid {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            gap: var(--spacing-lg);
+        }
+        
+        .tool-sidebar {
+            background: var(--color-surface);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-md);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+            height: fit-content;
+            position: sticky;
+            top: var(--spacing-lg);
+            max-height: calc(100vh - 40px);
+            overflow-y: auto;
+        }
+        
+        .tool-search {
+            width: 100%;
+            padding: var(--spacing-sm) var(--spacing-md);
+            border: 2px solid var(--color-border);
+            border-radius: var(--radius-md);
+            font-size: 13px;
+            margin-bottom: var(--spacing-md);
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        
+        .tool-search:focus {
+            border-color: var(--color-primary);
+        }
+        
+        /* Favorites Section */
+        .favorites-section {
+            margin-bottom: var(--spacing-md);
+            padding-bottom: var(--spacing-md);
+            border-bottom: 2px solid var(--color-border);
+        }
+        
+        .favorites-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: var(--spacing-sm) !important;
+        }
+        
+        .clear-favorites-btn {
+            background: none;
+            border: none;
+            font-size: 14px;
+            cursor: pointer;
+            opacity: 0.5;
+            padding: 4px 6px;
+            border-radius: var(--radius-sm);
+            transition: all 0.2s;
+        }
+        
+        .clear-favorites-btn:hover {
+            opacity: 1;
+            background: rgba(220, 53, 69, 0.1);
+        }
+        
+        #favoritesList {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        
+        .category-title {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--color-text-muted);
+            padding: var(--spacing-sm) 0;
+            letter-spacing: 0.5px;
+            margin-top: var(--spacing-md);
+        }
+        
+        .category-title:first-child {
+            margin-top: 0;
+        }
+        
+        .tool-button {
+            width: 100%;
+            padding: var(--spacing-sm) var(--spacing-md);
+            background: transparent;
+            border: none;
+            border-radius: var(--radius-md);
+            text-align: left;
+            font-size: 13px;
+            color: var(--color-text);
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: var(--spacing-sm);
+            margin-bottom: 2px;
+        }
+        
+        .tool-button-content {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+            flex: 1;
+        }
+        
+        .star-icon {
+            font-size: 16px;
+            cursor: pointer;
+            opacity: 0.3;
+            transition: all 0.2s;
+            padding: 4px;
+            flex-shrink: 0;
+        }
+        
+        .star-icon:hover {
+            opacity: 1;
+            transform: scale(1.2);
+        }
+        
+        .star-icon.favorited {
+            opacity: 1;
+            filter: drop-shadow(0 0 2px rgba(255, 193, 7, 0.8));
+        }
+        
+        .tool-button:hover {
+            background: var(--color-surface-secondary);
+            transform: translateX(2px);
+        }
+        
+        .tool-button.active {
+            background: var(--color-primary);
+            color: white;
+            font-weight: 500;
+        }
+        
+        .content-area {
+            background: var(--color-surface);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-xl);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+            min-height: 600px;
+        }
+        
+        .tool-header {
+            margin-bottom: var(--spacing-lg);
+            padding-bottom: var(--spacing-md);
+            border-bottom: 2px solid var(--color-border);
+        }
+        
+        .tool-header h2 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: var(--spacing-xs);
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+        }
+        
+        .tool-header p {
+            color: var(--color-text-muted);
+            font-size: 14px;
+        }
+        
+        .drop-area {
+            border: 3px dashed var(--color-border);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-xl);
+            text-align: center;
+            background: var(--color-surface-secondary);
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: var(--spacing-lg);
+        }
+        
+        .drop-area:hover,
+        .drop-area.dragover {
+            border-color: var(--color-primary);
+            background: #f0f7ff;
+            transform: scale(1.01);
+        }
+        
+        .drop-area-icon {
+            font-size: 48px;
+            margin-bottom: var(--spacing-md);
+            opacity: 0.5;
+        }
+        
+        .drop-area-text {
+            font-size: 16px;
+            color: var(--color-text);
+            margin-bottom: var(--spacing-sm);
+            font-weight: 500;
+        }
+        
+        .drop-area-hint {
+            font-size: 13px;
+            color: var(--color-text-muted);
+        }
+        
+        .form-group {
+            margin-bottom: var(--spacing-md);
+        }
+        
+        .form-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--color-text);
+            margin-bottom: var(--spacing-sm);
+        }
+        
+        .form-input,
+        .form-select,
+        .form-textarea {
+            width: 100%;
+            padding: var(--spacing-sm) var(--spacing-md);
+            border: 2px solid var(--color-border);
+            border-radius: var(--radius-md);
+            font-size: 13px;
+            font-family: var(--font-sans);
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        
+        .form-input:focus,
+        .form-select:focus,
+        .form-textarea:focus {
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px rgba(3, 102, 214, 0.1);
+        }
+        
+        /* ACCESSIBILITY: Comprehensive focus styles */
+        .btn:focus,
+        .tool-button:focus,
+        .drop-area:focus {
+            outline: 3px solid var(--color-primary);
+            outline-offset: 2px;
+        }
+        
+        .btn:focus:not(:focus-visible),
+        .tool-button:focus:not(:focus-visible),
+        .drop-area:focus:not(:focus-visible) {
+            outline: none;
+        }
+        
+        .star-icon:focus {
+            outline: 2px solid var(--color-warning);
+            outline-offset: 2px;
+            border-radius: 50%;
+        }
+        
+        .star-icon:focus:not(:focus-visible) {
+            outline: none;
+        }
+        
+        /* High contrast focus for critical actions */
+        .btn-primary:focus {
+            outline-color: var(--color-success);
+            outline-width: 4px;
+        }
+        
+        .btn-danger:focus {
+            outline-color: var(--color-danger);
+            outline-width: 4px;
+        }
+        
+        .form-textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+        
+        .range-group {
+            margin-bottom: var(--spacing-md);
+        }
+        
+        .range-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            margin-bottom: var(--spacing-sm);
+        }
+        
+        .range-value {
+            font-weight: 600;
+            color: var(--color-primary);
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: var(--color-border);
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--color-primary);
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--color-primary);
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: var(--spacing-sm) var(--spacing-lg);
+            border: none;
+            border-radius: var(--radius-md);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: var(--color-primary);
+            color: white;
+        }
+        
+        .btn-primary:hover:not(:disabled) {
+            background: var(--color-primary-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(3, 102, 214, 0.3);
+        }
+        
+        .btn-secondary {
+            background: var(--color-surface-secondary);
+            color: var(--color-text);
+            border: 2px solid var(--color-border);
+        }
+        
+        .btn-secondary:hover:not(:disabled) {
+            background: var(--color-bg);
+            border-color: var(--color-text-muted);
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: var(--spacing-sm);
+            margin-top: var(--spacing-lg);
+        }
+        
+        .file-list {
+            margin-top: var(--spacing-lg);
+        }
+        
+        .file-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--spacing-md);
+            background: var(--color-surface-secondary);
+            border-radius: var(--radius-md);
+            margin-bottom: var(--spacing-sm);
+            transition: all 0.2s;
+        }
+        
+        .file-item:hover {
+            background: #f0f0f0;
+            transform: translateX(4px);
+        }
+        
+        .file-info {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-md);
+        }
+        
+        .file-icon {
+            font-size: 24px;
+        }
+        
+        .file-details h4 {
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 2px;
+        }
+        
+        .file-details p {
+            font-size: 12px;
+            color: var(--color-text-muted);
+        }
+        
+        .file-remove {
+            color: var(--color-danger);
+            cursor: pointer;
+            font-size: 20px;
+            padding: var(--spacing-sm);
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.2s;
+        }
+        
+        .file-remove:hover {
+            background: rgba(220, 53, 69, 0.1);
+        }
+        
+        .progress-container {
+            display: none;
+            margin-top: var(--spacing-lg);
+            padding: var(--spacing-lg);
+            background: var(--color-surface-secondary);
+            border-radius: var(--radius-lg);
+        }
+        
+        .progress-container.active {
+            display: block;
+        }
+        
+        .progress-text {
+            font-size: 14px;
+            margin-bottom: var(--spacing-sm);
+            color: var(--color-text);
+            font-weight: 500;
+        }
+        
+        .progress-bar-container {
+            height: 10px;
+            background: var(--color-border);
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--color-primary), var(--color-success));
+            transition: width 0.3s;
+            width: 0%;
+        }
+        
+        .status-message {
+            padding: var(--spacing-md);
+            border-radius: var(--radius-md);
+            margin-top: var(--spacing-md);
+            font-size: 13px;
+            display: none;
+        }
+        
+        .status-message.active {
+            display: block;
+            animation: slideIn 0.3s ease;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .status-warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffc107;
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        /* PDF Preview Styles - NEW FEATURE #1 */
+        .pdf-preview-container {
+            background: var(--color-surface);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-lg);
+            margin-top: var(--spacing-lg);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .pdf-preview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--spacing-md);
+            padding-bottom: var(--spacing-md);
+            border-bottom: 2px solid var(--color-border);
+        }
+        
+        .pdf-preview-header h3 {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--color-text);
+        }
+        
+        .pdf-preview-controls {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+        }
+        
+        /* Thumbnail Sidebar - NEW v7.8 */
+        .pdf-preview-body {
+            display: flex;
+            gap: var(--spacing-md);
+            position: relative;
+        }
+        
+        .thumbnail-sidebar {
+            width: 0;
+            overflow: hidden;
+            transition: width 0.3s ease, opacity 0.3s ease;
+            opacity: 0;
+            background: var(--color-bg);
+            border-radius: var(--radius-md);
+            border: 2px solid var(--color-border);
+            flex-shrink: 0;
+        }
+        
+        .thumbnail-sidebar.visible {
+            width: 180px;
+            opacity: 1;
+        }
+        
+        .thumbnail-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: var(--spacing-sm);
+            border-bottom: 2px solid var(--color-border);
+            background: var(--color-surface-secondary);
+            border-radius: var(--radius-md) var(--radius-md) 0 0;
+        }
+        
+        .thumbnail-header span {
+            font-weight: 600;
+            font-size: 13px;
+            color: var(--color-text);
+        }
+        
+        .btn-close-thumbnails {
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: var(--color-text-muted);
+            cursor: pointer;
+            padding: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: var(--radius-sm);
+            transition: all 0.2s;
+        }
+        
+        .btn-close-thumbnails:hover {
+            background: var(--color-danger);
+            color: white;
+        }
+        
+        .thumbnail-container {
+            padding: var(--spacing-sm);
+            overflow-y: auto;
+            max-height: 600px;
+        }
+        
+        .thumbnail-item {
+            margin-bottom: var(--spacing-sm);
+            cursor: pointer;
+            border: 3px solid transparent;
+            border-radius: var(--radius-md);
+            padding: 4px;
+            transition: all 0.2s;
+            background: white;
+            position: relative;
+        }
+        
+        .thumbnail-item:hover {
+            border-color: var(--color-primary);
+            transform: translateX(4px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .thumbnail-item.selected {
+            border-color: var(--color-success);
+            background: rgba(40, 167, 69, 0.1);
+            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+        }
+        
+        /* ENHANCEMENT v7.14: Keyboard navigation styles */
+        .thumbnail-item:focus {
+            outline: 3px solid #2196F3;
+            outline-offset: 2px;
+            border-color: #2196F3;
+        }
+        
+        .thumbnail-item:focus:not(:focus-visible) {
+            outline: none;
+        }
+        
+        .thumbnail-item canvas {
+            width: 100%;
+            height: auto;
+            display: block;
+            border-radius: 4px;
+        }
+        
+        .thumbnail-label {
+            position: absolute;
+            bottom: 8px;
+            right: 8px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 2px 8px;
+            border-radius: var(--radius-sm);
+            font-size: 11px;
+            font-weight: 600;
+        }
+        
+        .thumbnail-item.selected .thumbnail-label {
+            background: var(--color-success);
+        }
+        
+        /* Drag-to-Reorder Styles - NEW v7.9 */
+        .thumbnail-item.dragging {
+            opacity: 0.4;
+            border-color: var(--color-primary);
+            transform: scale(0.95);
+        }
+        
+        .thumbnail-item.drag-over {
+            border-color: var(--color-warning);
+            background: rgba(255, 193, 7, 0.1);
+            transform: translateY(-4px);
+        }
+        
+        .thumbnail-drag-handle {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            background: rgba(0, 0, 0, 0.6);
+            color: white;
+            width: 20px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+            cursor: grab;
+            opacity: 0;
+            transition: opacity 0.2s;
+            user-select: none;
+            line-height: 1;
+        }
+        
+        .thumbnail-item:hover .thumbnail-drag-handle {
+            opacity: 1;
+        }
+        
+        .thumbnail-drag-handle:active {
+            cursor: grabbing;
+        }
+        
+        .thumbnail-reorder-controls {
+            display: none;
+            flex-direction: column;
+            gap: var(--spacing-xs);
+            padding: var(--spacing-sm);
+            border-bottom: 2px solid var(--color-border);
+            background: rgba(255, 193, 7, 0.1);
+        }
+        
+        .btn-save-reorder {
+            width: 100%;
+            padding: var(--spacing-xs);
+            background: var(--color-success);
+            color: white;
+            border: none;
+            border-radius: var(--radius-md);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn-save-reorder:hover {
+            background: #218838;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
+        }
+        
+        .btn-reset-order {
+            width: 100%;
+            padding: var(--spacing-xs);
+            background: var(--color-surface-secondary);
+            color: var(--color-text);
+            border: 2px solid var(--color-border);
+            border-radius: var(--radius-md);
+            font-size: 11px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn-reset-order:hover {
+            background: var(--color-bg);
+            border-color: var(--color-warning);
+        }
+        
+        .btn-preview {
+            padding: var(--spacing-xs) var(--spacing-md);
+            background: var(--color-surface-secondary);
+            border: 2px solid var(--color-border);
+            border-radius: var(--radius-md);
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn-preview:hover {
+            background: var(--color-bg);
+            border-color: var(--color-primary);
+        }
+        
+        #pageInfo {
+            font-size: 13px;
+            color: var(--color-text-muted);
+            padding: 0 var(--spacing-sm);
+            font-weight: 500;
+        }
+        
+        .pdf-preview-canvas-container {
+            background: #f0f0f0;
+            border-radius: var(--radius-md);
+            padding: var(--spacing-lg);
+            min-height: 400px;
+            overflow: auto;
+            position: relative;
+            text-align: center;
+            flex: 1;
+        }
+        
+        #pdfPreviewCanvas {
+            max-width: 100%;
+            height: auto;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            background: white;
+            display: inline-block;
+            position: relative;
+        }
+        
+        /* Signature Overlay in Preview */
+        .signature-overlay {
+            position: absolute;
+            border: 3px dashed var(--color-primary);
+            background: rgba(3, 102, 214, 0.15);
+            cursor: move;
+            user-select: none;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            z-index: 1000;
+            display: block;
+        }
+        
+        .signature-overlay:hover {
+            border-color: var(--color-success);
+            background: rgba(40, 167, 69, 0.1);
+        }
+        
+        .signature-overlay.dragging {
+            opacity: 0.8;
+            border-style: solid;
+        }
+        
+        .signature-overlay img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            pointer-events: none;
+        }
+        
+        .signature-delete-btn {
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--color-danger);
+            color: white;
+            border: 2px solid white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        
+        .signature-overlay:hover .signature-delete-btn {
+            opacity: 1;
+        }
+        
+        .pdf-preview-canvas-container {
+            position: relative;
+        }
+        
+        .info-box {
+            padding: var(--spacing-md);
+            background: #e7f3ff;
+            border-left: 4px solid var(--color-primary);
+            border-radius: var(--radius-md);
+            margin-bottom: var(--spacing-md);
+            font-size: 13px;
+        }
+        
+        .warning-box {
+            padding: var(--spacing-md);
+            background: #fff3cd;
+            border-left: 4px solid var(--color-warning);
+            border-radius: var(--radius-md);
+            margin-bottom: var(--spacing-md);
+            font-size: 13px;
+            color: #856404;
+        }
+        
+        /* Smart OCR Detection Badge - NEW v7.12 */
+        .ocr-detection-badge {
+            position: absolute;
+            top: 80px;
+            right: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 16px;
+            border-radius: var(--radius-lg);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+            cursor: pointer;
+            z-index: 1000;
+            max-width: 300px;
+            animation: slideInRight 0.3s ease;
+            transition: all 0.2s;
+        }
+        
+        .ocr-detection-badge:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 24px rgba(0,0,0,0.3);
+        }
+        
+        @keyframes slideInRight {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+            .tool-sidebar {
+                position: static;
+                max-height: none;
+            }
+        }
+        
+        /* ==================== ENHANCEMENT 1: Card Layout System ==================== */
+        .card {
+            background: #ffffff;
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            transition: box-shadow 0.3s ease, transform 0.2s ease;
+        }
+        
+        .card:hover {
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+        }
+        
+        .card-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--color-text);
+            margin: 0 0 16px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        /* Improved section spacing */
+        section {
+            margin-bottom: 32px;
+        }
+        
+        /* Better button styling */
+        .btn {
+            padding: 12px 20px;
+            border-radius: 10px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        /* ==================== ENHANCEMENT 2: File Info Bar ==================== */
+        .file-info-bar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 16px 24px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            display: none;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+            animation: slideDown 0.3s ease;
+        }
+        
+        .file-info-bar.visible {
+            display: flex;
+        }
+        
+        .file-info-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .file-info-name {
+            font-weight: 700;
+            font-size: 15px;
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .file-info-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            backdrop-filter: blur(10px);
+        }
+        
+        .file-info-badge.encrypted {
+            background: rgba(255, 87, 51, 0.9);
+        }
+        
+        .file-info-badge.scanned {
+            background: rgba(255, 193, 7, 0.9);
+            color: #333;
+        }
+        
+        .file-info-badge.large {
+            background: rgba(255, 152, 0, 0.9);
+        }
+        
+        .file-info-badge.searchable {
+            background: rgba(76, 175, 80, 0.9);
+        }
+        
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* ==================== ENHANCEMENT 3: Workflow Steps ==================== */
+        .workflow-steps {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            padding: 20px;
+            background: var(--color-bg-secondary);
+            border-radius: 12px;
+            margin-bottom: 24px;
+        }
+        
+        .workflow-step {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--color-text-muted);
+            background: white;
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+        
+        .workflow-step .step-number {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--color-bg-secondary);
+            color: var(--color-text-muted);
+            font-weight: 700;
+            font-size: 12px;
+        }
+        
+        .workflow-step.active {
+            color: var(--color-primary);
+            border-color: var(--color-primary);
+            background: rgba(102, 126, 234, 0.05);
+        }
+        
+        .workflow-step.active .step-number {
+            background: var(--color-primary);
+            color: white;
+        }
+        
+        .workflow-step.completed {
+            color: var(--color-success);
+            border-color: var(--color-success);
+        }
+        
+        .workflow-step.completed .step-number {
+            background: var(--color-success);
+            color: white;
+        }
+        
+        .workflow-arrow {
+            color: var(--color-text-muted);
+            font-size: 18px;
+            font-weight: 300;
+        }
+        
+        @media (max-width: 768px) {
+            .workflow-steps {
+                flex-direction: column;
+                gap: 8px;
+            }
+            
+            .workflow-arrow {
+                transform: rotate(90deg);
+            }
+            
+            .file-info-bar {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }
+        }
+    </style>
+    <!-- External CSS for better caching -->
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <div class="app-header">
+            <div class="header-layout">
+                <div class="header-tagline-left">
+                    <span class="lock-icon">🔒</span>
+                    <strong>Privacy-First</strong>
+                </div>
+                
+                <div class="header-center">
+                    <h1>
+                        <svg width="40" height="40" viewBox="0 0 40 40" style="vertical-align: middle; margin-right: 12px;" xmlns="http://www.w3.org/2000/svg">
+                            <!-- Document shape -->
+                            <path d="M8 2 L24 2 L32 10 L32 38 L8 38 Z" fill="white" stroke="rgba(255,255,255,0.9)" stroke-width="2"/>
+                            <!-- Folded corner -->
+                            <path d="M24 2 L24 10 L32 10" fill="rgba(102, 126, 234, 0.3)" stroke="rgba(255,255,255,0.9)" stroke-width="2"/>
+                            <!-- PDF text -->
+                            <text x="20" y="26" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#667eea" text-anchor="middle">PDF</text>
+                            <!-- Sparkle effect -->
+                            <circle cx="6" cy="6" r="2" fill="rgba(255,215,0,0.8)"/>
+                            <circle cx="34" cy="34" r="2" fill="rgba(255,215,0,0.8)"/>
+                        </svg>
+                        PDF Workspace
+                    </h1>
+                    <p class="header-subtitle">Annotate & Edit PDFs • Signatures • PDF to Office • 47+ Tools</p>
+                </div>
+                
+                <div class="header-tagline-right">
+                    <span class="shield-icon">🛡️</span>
+                    <span>Files never leave your browser</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- ENHANCEMENT: Library Health & Reset App -->
+        <div style="max-width: 1400px; margin: 12px auto 0; padding: 0 24px;">
+            <div id="libraryHealthBar" style="background: #f8f9fa; border: 1px solid #e0e0e0; padding: 8px 16px; border-radius: 6px; display: none; align-items: center; gap: 12px; font-size: 13px;">
+                <!-- Populated by JavaScript -->
+            </div>
+            <div id="libraryHealthWarning" style="background: #fff3cd; border: 1px solid #ffc107; padding: 12px 16px; border-radius: 6px; display: none; align-items: center; gap: 12px; margin-bottom: 8px;">
+                <span style="font-size: 20px;">⚠️</span>
+                <div style="flex: 1;">
+                    <strong>Some libraries failed to load</strong>
+                    <div id="libraryHealthDetails" style="font-size: 12px; margin-top: 4px; color: #856404;"></div>
+                </div>
+                <button onclick="location.reload()" class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;">Reload App</button>
+            </div>
+        </div>
+        
+        <!-- STRATEGIC ENHANCEMENT: Global Privacy Settings -->
+        <div style="max-width: 1400px; margin: 16px auto; padding: 0 24px;">
+            <div style="background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%); border: 2px solid #667eea40; padding: 12px 16px; border-radius: 8px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                <div style="display: flex; align-items: center; gap: 12px; flex: 1 1 auto; min-width: 200px;">
+                    <input type="checkbox" id="autoScrubMetadata" style="width: 18px; height: 18px; cursor: pointer; flex-shrink: 0;">
+                    <label for="autoScrubMetadata" style="cursor: pointer; font-weight: 500; display: flex; align-items: center; gap: 8px; margin: 0; user-select: none;">
+                        <span style="font-size: 18px;">🛡️</span>
+                        <span>Auto-Anonymize Files (Strip author/software metadata from all outputs)</span>
+                    </label>
+                </div>
+                <span style="font-size: 12px; color: #666; font-style: italic; white-space: nowrap;">Privacy Power-Up</span>
+                
+                <!-- Reset App Button -->
+                <button id="resetAppBtn" class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px; white-space: nowrap;" title="Clear offline cache and reload app">
+                    🔄 Reset App
+                </button>
+            </div>
+        </div>
+        
+        <div class="main-grid">
+            <aside class="tool-sidebar">
+                <input type="text" class="tool-search" id="toolSearch" placeholder="🔍 Search tools...">
+                
+                <div id="favoritesSection" class="favorites-section" style="display: none;">
+                    <div class="category-title favorites-title">
+                        ⭐ Favorites
+                        <button class="clear-favorites-btn" id="clearFavorites" title="Clear all favorites">🗑️</button>
+                    </div>
+                    <div id="favoritesList"></div>
+                </div>
+                
+                <div class="tool-categories">
+                    <div class="category-title">📑 Basic Operations</div>
+                    <button class="tool-button active" data-tool="merge">📑 Merge PDFs</button>
+                    <button class="tool-button" data-tool="split">✂️ Split PDF</button>
+                    <button class="tool-button" data-tool="extract">📄 Extract Pages</button>
+                    <button class="tool-button" data-tool="rotate">🔄 Rotate Pages</button>
+                    <button class="tool-button" data-tool="compress">⚙️ Optimize PDF</button>
+                    <button class="tool-button" data-tool="reverse">↩️ Reverse Pages</button>
+                    <button class="tool-button" data-tool="reorder">🔀 Reorder Pages</button>
+                    <button class="tool-button" data-tool="removeblank">🗑️ Remove Blank Pages</button>
+                    
+                    <div class="category-title">✍️ Signature & Forms</div>
+                    <button class="tool-button" data-tool="sign">✍️ Sign PDFs</button>
+                    <button class="tool-button" data-tool="annotate">💬 Annotate PDF</button>
+                    <button class="tool-button" data-tool="editpdf">✏️ Edit PDF</button>
+                    <button class="tool-button" data-tool="pdftexteditor">📝 PDF Text Editor</button>
+                    <button class="tool-button" data-tool="formfill">📝 Fill Forms</button>
+                    <button class="tool-button" data-tool="flatten">📋 Flatten PDF</button>
+                    
+                    <div class="category-title">🔒 Security</div>
+                    <button class="tool-button" data-tool="protect">🔒 Protect PDF</button>
+                    <button class="tool-button" data-tool="unlock">🔓 Unlock PDF</button>
+                    <button class="tool-button" data-tool="redact">🖍️ Redact Text</button>
+                    <button class="tool-button" data-tool="watermark">💧 Add Watermark</button>
+                    <button class="tool-button" data-tool="piiscan">🔍 PII Scanner</button>
+                    <button class="tool-button" data-tool="cleanslate">🧹 Clean Slate</button>
+                    
+                    <div class="category-title">🎨 Conversion</div>
+                    <button class="tool-button" data-tool="topng">🖼️ PDF to Images</button>
+                    <button class="tool-button" data-tool="imagestopdf">📷 Images to PDF</button>
+                    <button class="tool-button" data-tool="html2pdf">🌐 HTML to PDF</button>
+                    <button class="tool-button" data-tool="office2pdf">📄 Office to PDF</button>
+                    <button class="tool-button" data-tool="pdf2office">📝 PDF to Office</button>
+                    <button class="tool-button" data-tool="ocr">🔍 OCR (Make Searchable)</button>
+                    
+                    <div class="category-title">📊 Advanced Tools</div>
+                    <button class="tool-button" data-tool="pagenumber">🔢 Number Pages</button>
+                    <button class="tool-button" data-tool="metadata">🏷️ View/Clear Metadata</button>
+                    <button class="tool-button" data-tool="metaedit">✏️ Edit Metadata</button>
+                    <button class="tool-button" data-tool="bates">📋 Bates Numbering</button>
+                    <button class="tool-button" data-tool="oddeven">⚡ Split Odd/Even</button>
+                    <button class="tool-button" data-tool="interleave">🔗 Interleave PDFs</button>
+                    
+                    <div class="category-title">⚡ Niche Tools</div>
+                    <button class="tool-button" data-tool="splitmerge">📊 Split & Merge</button>
+                    
+                    <div class="category-title">📦 Batch & Special</div>
+                    <button class="tool-button" data-tool="categorize">📂 Auto Categorize</button>
+                    <button class="tool-button" data-tool="invoice">🧾 Invoice Splitter</button>
+                    <button class="tool-button" data-tool="batchslicer">🔪 Batch Slicer</button>
+                    <button class="tool-button" data-tool="validate">✓ Validate PDF</button>
+                    <button class="tool-button" data-tool="repair">🔧 Repair PDF</button>
+                    <button class="tool-button" data-tool="audit">📊 PDF Audit</button>
+                </div>
+            </aside>
+            
+            <main class="content-area">
+                <input type="file" id="fileInput" multiple accept=".pdf,.docx,.doc,.xlsx,.xls,.pptx,.ppt,.html,image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.openxmlformats-officedocument.presentationml.presentation" style="display: none;">
+                
+                <!-- ENHANCEMENT 3: Workflow Steps -->
+                <div class="workflow-steps" id="workflowSteps">
+                    <div class="workflow-step active" id="step1">
+                        <span class="step-number">1</span>
+                        <span>Upload File</span>
+                    </div>
+                    <span class="workflow-arrow">→</span>
+                    <div class="workflow-step" id="step2">
+                        <span class="step-number">2</span>
+                        <span>Review Settings</span>
+                    </div>
+                    <span class="workflow-arrow">→</span>
+                    <div class="workflow-step" id="step3">
+                        <span class="step-number">3</span>
+                        <span>Download Result</span>
+                    </div>
+                </div>
+                
+                <div id="toolContent"></div>
+                
+                <!-- ENHANCEMENT 1: File Info Bar -->
+                <div class="file-info-bar" id="fileInfoBar">
+                    <!-- Populated dynamically by JavaScript -->
+                </div>
+                
+                <!-- Wrap in card -->
+                <div class="card">
+                    <div class="drop-area" id="dropArea" 
+                         role="button" 
+                         tabindex="0"
+                         aria-label="Drop files here or click to browse. Supports PDF, images, HTML, and Office files"
+                         aria-describedby="dropAreaHint">
+                        <div class="drop-area-icon" aria-hidden="true">📎</div>
+                        <div class="drop-area-text">Drop files here or click to browse</div>
+                        <div class="drop-area-hint" id="dropAreaHint">Supports PDF, images, HTML, and Office files (Word, Excel, PowerPoint)</div>
+                    </div>
+                    
+                    <div class="file-list" id="fileList"></div>
+                </div>
+                
+                <div class="card">
+                    <div class="progress-container" id="progressContainer" role="status" aria-live="polite">
+                        <div class="progress-text" id="progressText">Processing...</div>
+                        <div class="progress-bar-container">
+                            <div class="progress-bar" id="progressBar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="status-message" id="statusMessage" role="status" aria-live="polite" aria-atomic="true"></div>
+                    
+                    <div class="btn-group">
+                        <button class="btn btn-primary" id="processBtn" disabled>Continue →</button>
+                        <button class="btn btn-secondary" id="clearBtn">Clear All</button>
+                    </div>
+                </div>
+            </main>
+        </div>
+        
+        <footer class="app-footer">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>🔒 Privacy & Security</h3>
+                    <ul class="footer-list">
+                        <li>✅ 100% Client-Side Processing</li>
+                        <li>✅ No File Uploads to Servers</li>
+                        <li>✅ No Data Collection or Tracking</li>
+                        <li>✅ Works Completely Offline</li>
+                    </ul>
+                </div>
+                
+                <div class="footer-section">
+                    <h3>⚡ Features</h3>
+                    <ul class="footer-list">
+                        <li>47+ Professional PDF Tools</li>
+                        <li>Auto Categorize by Content</li>
+                        <li>Visual Redaction & PII Scanner</li>
+                        <li>Drag & Drop Positioning</li>
+                    </ul>
+                </div>
+                
+                <div class="footer-section">
+                    <h3>📊 Technical</h3>
+                    <ul class="footer-list">
+                        <li>Powered by pdf-lib & pdf.js</li>
+                        <li>All Processing in Browser</li>
+                        <li>Modern Web Standards</li>
+                        <li>No Installation Required</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="footer-bottom">
+                <p>🛡️ Your files never leave your device. All operations happen locally in your browser.</p>
+                <p class="footer-version">PDF Workspace v9.0.0 • Deployment Ready • 47+ Tools</p>
+            </div>
+        </footer>
+    </div>
+    
+    <script>
+// PDF Workspace v9.0.0 - Deployment & Reliability Fixes
+// Reset App Button • Enhanced Health Checks • BASE_URL Awareness • All Fixes Applied
+
+console.log('🚀 PDF Workspace v9.0.0 - Loading...');
+console.log('🔄 NEW: Reset App button + Enhanced library health checks');
+console.log('🔒 100% Client-Side Processing - Your Files Never Leave Your Browser');
+    </script>
+    <script src="app.js" defer></script>
+</body>
+</html>

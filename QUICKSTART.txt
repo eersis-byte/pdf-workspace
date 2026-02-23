@@ -1,0 +1,98 @@
+# 🚀 QUICK START - GitHub Pages
+
+## Super Fast Setup (5 Minutes!)
+
+### 1. Create GitHub Account
+→ https://github.com → Sign up
+
+### 2. Create Repository
+1. Click **+** → New repository
+2. Name: `pdf-workspace` (or anything)
+3. Public ✅
+4. Don't initialize with README
+5. Create!
+
+### 3. Upload Files
+1. Click **"uploading an existing file"**
+2. Drag ALL files from this folder:
+   - index.html
+   - app.js
+   - styles.css
+   - service-worker.js
+   - manifest.json
+   - .nojekyll
+   - README.md (optional but nice)
+3. Commit!
+
+### 4. Enable GitHub Pages
+1. Repository → **Settings**
+2. **Pages** (left sidebar)
+3. Source: **main** branch, **/ (root)**
+4. **Save**
+
+### 5. Done! 🎉
+Your site is live at:
+```
+https://YOUR-USERNAME.github.io/pdf-workspace/
+```
+
+Wait 1-2 minutes, then visit and test!
+
+---
+
+## 🌐 Want a Custom Domain?
+
+### With Cloudflare (Recommended)
+
+**Quick Steps:**
+1. Buy domain (~$10/year)
+2. Sign up for Cloudflare (free)
+3. Point domain to Cloudflare nameservers
+4. Add DNS records (see SETUP_GUIDE.md)
+5. Add CNAME file to repo with your domain
+6. Enable HTTPS in GitHub settings
+
+**Full instructions in SETUP_GUIDE.md!**
+
+---
+
+## ⚡ That's It!
+
+No more InfinityFree issues. GitHub Pages just works!
+
+- ✅ No ads
+- ✅ Fast
+- ✅ Reliable
+- ✅ Free HTTPS
+- ✅ Global CDN
+
+**See SETUP_GUIDE.md for detailed instructions.**
+
+---
+
+## 📁 Files Included
+
+- index.html - Main application
+- app.js - All 47 tools
+- styles.css - Styling
+- service-worker.js - Offline support
+- manifest.json - PWA config
+- .nojekyll - Tells GitHub to skip Jekyll
+- README.md - For GitHub repo
+- SETUP_GUIDE.md - Detailed setup
+- QUICKSTART.txt - This file
+- CNAME.example - Template for custom domain
+
+---
+
+## 🎯 URLs
+
+**Without custom domain:**
+https://USERNAME.github.io/REPO-NAME/
+
+**With custom domain:**
+https://yourdomain.com
+
+---
+
+**Much better than InfinityFree!** 🎉
