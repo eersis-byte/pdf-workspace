@@ -38,6 +38,25 @@
     <script src="https://unpkg.com/docx@8.5.0/build/index.js" defer crossorigin="anonymous"></script>
     
     <style>
+        /* Skip to content link for keyboard/screen reader users */
+        .skip-to-content {
+            position: absolute;
+            top: -40px;
+            left: 0;
+            background: var(--color-primary);
+            color: white;
+            padding: 8px 16px;
+            text-decoration: none;
+            border-radius: 0 0 var(--radius-md) 0;
+            z-index: 9999;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .skip-to-content:focus {
+            top: 0;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -65,6 +84,7 @@
             --radius-sm: 4px;
             --radius-md: 6px;
             --radius-lg: 8px;
+            --color-bg-secondary: #f7fafc;
         }
         
         body {
@@ -1349,10 +1369,11 @@
             }
         }
     </style>
-    <!-- External CSS for better caching -->
-    <link rel="stylesheet" href="/styles.css">
+    <!-- NOTE: styles.css was removed from loading (v9.0.0) - it conflicted with inline
+         styles on .app-container layout and :root CSS variables. All styles are inline. -->
 </head>
 <body>
+    <a class="skip-to-content" href="#mainContent">Skip to main content</a>
     <div class="app-container">
         <div class="app-header">
             <div class="header-layout">
@@ -1488,7 +1509,7 @@
                 </div>
             </aside>
             
-            <main class="content-area">
+            <main class="content-area" id="mainContent">
                 <input type="file" id="fileInput" multiple accept=".pdf,.docx,.doc,.xlsx,.xls,.pptx,.ppt,.html,image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.openxmlformats-officedocument.presentationml.presentation" style="display: none;">
                 
                 <!-- ENHANCEMENT 3: Workflow Steps -->
@@ -1542,7 +1563,7 @@
                     <div class="status-message" id="statusMessage" role="status" aria-live="polite" aria-atomic="true"></div>
                     
                     <div class="btn-group">
-                        <button class="btn btn-primary" id="processBtn" disabled>Continue →</button>
+                        <button class="btn btn-primary" id="processBtn" disabled>Review Settings →</button>
                         <button class="btn btn-secondary" id="clearBtn">Clear All</button>
                     </div>
                 </div>
@@ -1592,10 +1613,6 @@
     <script>
 // PDF Workspace v9.0.0 - Deployment & Reliability Fixes
 // Reset App Button • Enhanced Health Checks • BASE_URL Awareness • All Fixes Applied
-
-console.log('🚀 PDF Workspace v9.0.0 - Loading...');
-console.log('🔄 NEW: Reset App button + Enhanced library health checks');
-console.log('🔒 100% Client-Side Processing - Your Files Never Leave Your Browser');
     </script>
     <script src="app.js" defer></script>
 </body>
