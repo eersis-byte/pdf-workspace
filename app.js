@@ -11146,7 +11146,7 @@ const FavoritesManager = {
             if (processBtn) {
                 switch (this.currentStep) {
                     case 1:
-                        processBtn.textContent = 'Continue →';
+                        processBtn.textContent = 'Review Settings →';
                         break;
                     case 2:
                         processBtn.textContent = 'Generate File →';

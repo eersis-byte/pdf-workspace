@@ -1,5 +1,11 @@
-/* PDF Workspace v8.3.12 - Main Styles */
-/* Extracted from inline CSS for better caching and maintainability */
+/* PDF Workspace - Legacy External Stylesheet (NOT LOADED) */
+/* This file was superseded by inline styles in index.html (v9.0.0).
+ * It is no longer linked from index.html because its rules for
+ * .app-container, :root CSS variables, and other selectors conflicted
+ * with the active inline styles and broke the layout.
+ * Kept for reference only. Do not re-add the <link> tag without
+ * first reconciling all conflicting declarations.
+ */
 
 /* CSS Variables for easy theming */
 :root {
