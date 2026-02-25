@@ -1,9 +1,8 @@
-// PDF Workspace Service Worker v9.0.0 - Netlify Agent Improvements
-// ✅ All Netlify recommendations implemented
-// 🎨 CSS caching support
-// 📊 Enhanced performance
-// All previous fixes included
-const VERSION = '9.0.0';
+// PDF Workspace Service Worker v9.2.0 - 20 Enhancements
+// ✅ Lazy loading, dark mode, keyboard shortcuts, mobile sidebar
+// 🔒 CSP, SRI framework, beforeunload protection
+// 📊 All previous fixes included
+const VERSION = '9.2.0';
 const CACHE_NAME = `pdf-workspace-v${VERSION}`;
 const RUNTIME_CACHE = 'pdf-workspace-runtime';
 
@@ -17,7 +16,9 @@ const LOCAL_ASSETS = [
     './',
     './index.html',
     './app.js',
-    './manifest.json'  // PWA manifest - required for offline install
+    './styles.css',
+    './manifest.json',  // PWA manifest - required for offline install
+    './favicon.ico'
 ];
 
 // CDN libraries - cached at runtime or best-effort during install
