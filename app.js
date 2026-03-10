@@ -1706,6 +1706,290 @@ const TOOL_FILE_TYPES = {
     splitmerge: ['pdf'], categorize: ['pdf'], invoice: ['pdf'],
     batchslicer: ['pdf'], validate: ['pdf'], repair: ['pdf'], audit: ['pdf'],
     compare: ['pdf'], workflow: ['pdf'],
+    docscan: ['image'],
+};
+
+// ========================================================================================
+// DOCUMENT SCANNER UTILITIES
+// Pure-JS image processing: grayscale → blur → Sobel edges → extremal corner detection
+// → perspective warp (DLT homography) → optional enhancement → PDF export
+// ========================================================================================
+const DocScanUtils = {
+
+    // Show a corner-detection preview on the configHTML canvas
+    async showPreview(file) {
+        const previewDiv = document.getElementById('docScanPreview');
+        const canvas = document.getElementById('docScanCanvas');
+        if (!previewDiv || !canvas) return;
+        try {
+            const img = await this._loadImage(file);
+            const maxW = (canvas.parentElement?.clientWidth || 500) - 16;
+            const ratio = img.naturalWidth / img.naturalHeight;
+            canvas.width  = Math.min(maxW, img.naturalWidth);
+            canvas.height = Math.round(canvas.width / ratio);
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            const corners = this.detectCorners(canvas);
+            if (corners) this._drawCornerOverlay(ctx, corners);
+            previewDiv.style.display = 'block';
+        } catch (e) {
+            console.warn('[DocScan] Preview failed:', e);
+        }
+    },
+
+    // Draw the detected quad + coloured corner dots
+    _drawCornerOverlay(ctx, corners) {
+        const [tl, tr, br, bl] = corners;
+        ctx.beginPath();
+        ctx.moveTo(tl.x, tl.y);
+        ctx.lineTo(tr.x, tr.y);
+        ctx.lineTo(br.x, br.y);
+        ctx.lineTo(bl.x, bl.y);
+        ctx.closePath();
+        ctx.strokeStyle = '#00e676';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(0,230,118,0.08)';
+        ctx.fill();
+        ['#ff5252','#ff9800','#2196F3','#4caf50'].forEach((color, i) => {
+            const pt = corners[i];
+            ctx.beginPath();
+            ctx.arc(pt.x, pt.y, 8, 0, Math.PI * 2);
+            ctx.fillStyle = color;
+            ctx.fill();
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        });
+    },
+
+    // Main pipeline: detect → warp → enhance.  Returns a canvas.
+    async processImage(file, enhancement, maxOutputDim = 2000) {
+        const img = await this._loadImage(file);
+        // Scale source to a reasonable working size
+        const srcScale = Math.min(1, maxOutputDim / Math.max(img.naturalWidth, img.naturalHeight));
+        const srcW = Math.round(img.naturalWidth  * srcScale);
+        const srcH = Math.round(img.naturalHeight * srcScale);
+        const srcCanvas = document.createElement('canvas');
+        srcCanvas.width = srcW; srcCanvas.height = srcH;
+        srcCanvas.getContext('2d').drawImage(img, 0, 0, srcW, srcH);
+
+        const corners = this.detectCorners(srcCanvas);
+        let result;
+        if (corners && this._isValidQuad(corners, srcW, srcH)) {
+            result = this._perspectiveWarp(srcCanvas, corners, maxOutputDim);
+        } else {
+            console.log('[DocScan] No valid document quad found – using full image');
+            result = srcCanvas;
+        }
+        this._applyEnhancement(result, enhancement);
+        return result;
+    },
+
+    // Edge detection + extremal-point corner finding.
+    // Returns [tl, tr, br, bl] in canvas coordinates, or null.
+    detectCorners(canvas) {
+        const W = canvas.width, H = canvas.height;
+        // Downsample for speed
+        const maxDim = 600;
+        const scale = Math.min(1, maxDim / Math.max(W, H));
+        const w = Math.round(W * scale), h = Math.round(H * scale);
+        const work = document.createElement('canvas');
+        work.width = w; work.height = h;
+        work.getContext('2d').drawImage(canvas, 0, 0, w, h);
+        const px = work.getContext('2d').getImageData(0, 0, w, h).data;
+
+        // Grayscale
+        const gray = new Float32Array(w * h);
+        for (let i = 0; i < w * h; i++)
+            gray[i] = 0.299*px[i*4] + 0.587*px[i*4+1] + 0.114*px[i*4+2];
+
+        const blurred = this._gaussianBlur(gray, w, h);
+        const edges   = this._sobelEdges(blurred, w, h);
+
+        // Threshold at 15% of max edge magnitude
+        let maxE = 0;
+        for (let i = 0; i < edges.length; i++) if (edges[i] > maxE) maxE = edges[i];
+        const thresh = maxE * 0.15;
+
+        // Find four extremal edge pixels  (TL=min x+y, TR=max x-y, BR=max x+y, BL=max y-x)
+        const margin = Math.round(Math.min(w, h) * 0.02);
+        let tlVal =  Infinity, trVal = -Infinity, brVal = -Infinity, blVal = -Infinity;
+        let tl = null, tr = null, br = null, bl = null;
+
+        for (let y = margin; y < h - margin; y++) {
+            for (let x = margin; x < w - margin; x++) {
+                if (edges[y*w + x] < thresh) continue;
+                const s = x + y, d = x - y;
+                if (s  < tlVal) { tlVal =  s; tl = {x, y}; }
+                if (d  > trVal) { trVal =  d; tr = {x, y}; }
+                if (s  > brVal) { brVal =  s; br = {x, y}; }
+                if (-d > blVal) { blVal = -d; bl = {x, y}; }
+            }
+        }
+        if (!tl || !tr || !br || !bl) return null;
+
+        // Scale back to original canvas coordinates
+        const inv = 1 / scale;
+        return [
+            {x: tl.x*inv, y: tl.y*inv},
+            {x: tr.x*inv, y: tr.y*inv},
+            {x: br.x*inv, y: br.y*inv},
+            {x: bl.x*inv, y: bl.y*inv},
+        ];
+    },
+
+    // Reject degenerate quads (area < 10% of image)
+    _isValidQuad(corners, W, H) {
+        const [tl, tr, br, bl] = corners;
+        const area = 0.5 * Math.abs(
+            tl.x*(tr.y-bl.y) + tr.x*(br.y-tl.y) +
+            br.x*(bl.y-tr.y) + bl.x*(tl.y-br.y)
+        );
+        return area / (W * H) > 0.10;
+    },
+
+    // Backward-mapped perspective warp using DLT homography + bilinear interpolation
+    _perspectiveWarp(srcCanvas, corners, maxOutputDim) {
+        const [tl, tr, br, bl] = corners;
+        let outW = Math.round(Math.max(
+            Math.hypot(tr.x-tl.x, tr.y-tl.y),
+            Math.hypot(br.x-bl.x, br.y-bl.y)
+        ));
+        let outH = Math.round(Math.max(
+            Math.hypot(bl.x-tl.x, bl.y-tl.y),
+            Math.hypot(br.x-tr.x, br.y-tr.y)
+        ));
+        const s = Math.min(1, maxOutputDim / Math.max(outW, outH));
+        outW = Math.round(outW * s);
+        outH = Math.round(outH * s);
+        if (outW < 10 || outH < 10) return srcCanvas;
+
+        // Inverse homography: output rectangle → source corners
+        const dstRect = [{x:0,y:0},{x:outW,y:0},{x:outW,y:outH},{x:0,y:outH}];
+        const H = this._computeHomography(dstRect, corners);
+        if (!H) return srcCanvas;
+
+        const sW = srcCanvas.width, sH = srcCanvas.height;
+        const srcData = srcCanvas.getContext('2d').getImageData(0, 0, sW, sH).data;
+        const dstCanvas = document.createElement('canvas');
+        dstCanvas.width = outW; dstCanvas.height = outH;
+        const dstCtx = dstCanvas.getContext('2d');
+        const dstImg = dstCtx.createImageData(outW, outH);
+        const d = dstImg.data;
+
+        for (let y = 0; y < outH; y++) {
+            for (let x = 0; x < outW; x++) {
+                const den = H[6]*x + H[7]*y + H[8];
+                if (Math.abs(den) < 1e-10) continue;
+                const sx = (H[0]*x + H[1]*y + H[2]) / den;
+                const sy = (H[3]*x + H[4]*y + H[5]) / den;
+                const x0 = Math.floor(sx), y0 = Math.floor(sy);
+                const x1 = x0+1, y1 = y0+1;
+                const di = (y*outW + x)*4;
+                if (x0 < 0 || y0 < 0 || x1 >= sW || y1 >= sH) {
+                    d[di]=d[di+1]=d[di+2]=255; d[di+3]=255; continue;
+                }
+                const tx = sx-x0, ty = sy-y0;
+                for (let c = 0; c < 3; c++) {
+                    const a = srcData[(y0*sW+x0)*4+c], b = srcData[(y0*sW+x1)*4+c];
+                    const cc= srcData[(y1*sW+x0)*4+c], dd= srcData[(y1*sW+x1)*4+c];
+                    d[di+c] = Math.round(a*(1-tx)*(1-ty) + b*tx*(1-ty) + cc*(1-tx)*ty + dd*tx*ty);
+                }
+                d[di+3] = 255;
+            }
+        }
+        dstCtx.putImageData(dstImg, 0, 0);
+        return dstCanvas;
+    },
+
+    // DLT: compute 3×3 homography mapping src[i] → dst[i], returned as Float64Array(9)
+    _computeHomography(src, dst) {
+        const A = [];
+        for (let i = 0; i < 4; i++) {
+            const {x: sx, y: sy} = src[i], {x: dx, y: dy} = dst[i];
+            A.push([-sx,-sy,-1, 0,  0,  0, dx*sx, dx*sy, dx]);
+            A.push([ 0,  0,  0,-sx,-sy,-1, dy*sx, dy*sy, dy]);
+        }
+        // Set h[8]=1, solve 8×8 system
+        const B   = A.map(row => row.slice(0, 8));
+        const rhs = A.map(row => -row[8]);
+        const h   = this._solveLinear(B, rhs);
+        return h ? [...h, 1] : null;
+    },
+
+    // Gaussian elimination with partial pivoting for n×n systems
+    _solveLinear(A, b) {
+        const n = b.length;
+        const M = A.map((row, i) => [...row, b[i]]);
+        for (let col = 0; col < n; col++) {
+            let max = col;
+            for (let r = col+1; r < n; r++)
+                if (Math.abs(M[r][col]) > Math.abs(M[max][col])) max = r;
+            [M[col], M[max]] = [M[max], M[col]];
+            if (Math.abs(M[col][col]) < 1e-10) return null;
+            for (let r = 0; r < n; r++) {
+                if (r === col) continue;
+                const f = M[r][col] / M[col][col];
+                for (let j = col; j <= n; j++) M[r][j] -= f * M[col][j];
+            }
+        }
+        return M.map((row, i) => row[n] / row[i]);
+    },
+
+    // 5×5 Gaussian blur (separable approximation via full kernel)
+    _gaussianBlur(gray, w, h) {
+        const K = [1,4,6,4,1, 4,16,24,16,4, 6,24,36,24,6, 4,16,24,16,4, 1,4,6,4,1].map(v=>v/256);
+        const out = new Float32Array(w * h);
+        for (let y = 2; y < h-2; y++)
+            for (let x = 2; x < w-2; x++) {
+                let s = 0;
+                for (let ky=-2; ky<=2; ky++)
+                    for (let kx=-2; kx<=2; kx++)
+                        s += gray[(y+ky)*w+(x+kx)] * K[(ky+2)*5+(kx+2)];
+                out[y*w+x] = s;
+            }
+        return out;
+    },
+
+    // Sobel gradient magnitude
+    _sobelEdges(gray, w, h) {
+        const edges = new Float32Array(w * h);
+        for (let y = 1; y < h-1; y++)
+            for (let x = 1; x < w-1; x++) {
+                const gx = -gray[(y-1)*w+(x-1)] + gray[(y-1)*w+(x+1)]
+                           -2*gray[y*w+(x-1)]   + 2*gray[y*w+(x+1)]
+                           -gray[(y+1)*w+(x-1)] + gray[(y+1)*w+(x+1)];
+                const gy = -gray[(y-1)*w+(x-1)] - 2*gray[(y-1)*w+x] - gray[(y-1)*w+(x+1)]
+                           +gray[(y+1)*w+(x-1)] + 2*gray[(y+1)*w+x] + gray[(y+1)*w+(x+1)];
+                edges[y*w+x] = Math.sqrt(gx*gx + gy*gy);
+            }
+        return edges;
+    },
+
+    // Post-processing: grayscale or black-and-white
+    _applyEnhancement(canvas, type) {
+        if (type === 'none') return;
+        const ctx = canvas.getContext('2d');
+        const id  = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const px  = id.data;
+        for (let i = 0; i < px.length; i += 4) {
+            const g = Math.round(0.299*px[i] + 0.587*px[i+1] + 0.114*px[i+2]);
+            px[i] = px[i+1] = px[i+2] = (type === 'blackwhite') ? (g > 128 ? 255 : 0) : g;
+        }
+        ctx.putImageData(id, 0, 0);
+    },
+
+    // Load a File object as an HTMLImageElement
+    _loadImage(file) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            const url = URL.createObjectURL(file);
+            img.onload  = () => { URL.revokeObjectURL(url); resolve(img); };
+            img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Failed to load image: ' + file.name)); };
+            img.src = url;
+        });
+    }
 };
 
 const Tools = {
@@ -10388,6 +10672,133 @@ const Tools = {
                 }
             }
         }
+    },
+
+    // ==================== DOCUMENT SCANNER ====================
+    docscan: {
+        name: 'Document Scanner',
+        description: 'Detect a document in a photo, crop to its borders, deskew, and export as PDF',
+        icon: '📸',
+
+        configHTML: `
+            <div class="info-box" style="background: #e7f3ff; border-color: var(--color-primary);">
+                📸 <strong>Document Scanner</strong> — Upload a photo of any document (receipt, letter,
+                form, ID card, etc.). The tool automatically detects the document edges, straightens
+                perspective, crops to the border, and saves a clean PDF. All processing happens
+                entirely in your browser.
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Output Page Size</label>
+                <select class="form-select" id="docScanPageSize">
+                    <option value="auto">Auto — fit document dimensions</option>
+                    <option value="Letter" selected>Letter (8.5 × 11 in)</option>
+                    <option value="A4">A4 (210 × 297 mm)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Image Enhancement</label>
+                <select class="form-select" id="docScanEnhancement">
+                    <option value="none">None — keep original colours</option>
+                    <option value="grayscale">Grayscale</option>
+                    <option value="blackwhite">Black &amp; White (high contrast)</option>
+                </select>
+            </div>
+
+            <div id="docScanPreview" style="display: none; margin-top: 16px;">
+                <label class="form-label">Detected Document Area</label>
+                <canvas id="docScanCanvas" style="max-width:100%; border:1px solid var(--color-border); border-radius:8px; display:block;"></canvas>
+                <p style="font-size:12px; color:var(--color-text-muted); margin-top:6px;">
+                    Green outline = detected document region.
+                    If detection looks wrong the tool will still fall back to the full image.
+                </p>
+            </div>
+        `,
+
+        init() {
+            const imageFiles = AppState.files.filter(f => f.type.startsWith('image/'));
+            if (imageFiles.length > 0) {
+                DocScanUtils.showPreview(imageFiles[0]);
+            }
+        },
+
+        async process(files) {
+            const imageFiles = files.filter(f => f.type.startsWith('image/'));
+            if (imageFiles.length === 0) {
+                Utils.showStatus('Please upload one or more image files (JPEG, PNG, WEBP, etc.)', 'error');
+                return;
+            }
+
+            const pageSize    = document.getElementById('docScanPageSize')?.value    || 'Letter';
+            const enhancement = document.getElementById('docScanEnhancement')?.value || 'none';
+
+            Utils.updateProgress(5, 'Initializing...');
+            const pdfDoc = await PDFLib.PDFDocument.create();
+
+            for (let i = 0; i < imageFiles.length; i++) {
+                const file = imageFiles[i];
+                Utils.updateProgress(
+                    10 + (i / imageFiles.length) * 82,
+                    `Processing ${file.name} (${i+1}/${imageFiles.length})…`
+                );
+                try {
+                    // Detect corners, crop, deskew
+                    const processedCanvas = await DocScanUtils.processImage(file, enhancement);
+
+                    // Encode to JPEG for pdf-lib embedding
+                    const blob = await new Promise(res => processedCanvas.toBlob(res, 'image/jpeg', 0.92));
+                    const arrayBuffer = await blob.arrayBuffer();
+                    const embeddedImg = await pdfDoc.embedJpg(arrayBuffer);
+
+                    // Determine PDF page dimensions
+                    let pgW, pgH;
+                    if (pageSize === 'Letter') {
+                        pgW = 612;    pgH = 792;
+                    } else if (pageSize === 'A4') {
+                        pgW = 595.28; pgH = 841.89;
+                    } else {
+                        // Auto: use pixel dimensions directly (1 px = 1 pt at 72 DPI)
+                        pgW = embeddedImg.width;
+                        pgH = embeddedImg.height;
+                    }
+
+                    const page  = pdfDoc.addPage([pgW, pgH]);
+                    const scale = Math.min(pgW / embeddedImg.width, pgH / embeddedImg.height);
+                    const drawW = embeddedImg.width  * scale;
+                    const drawH = embeddedImg.height * scale;
+                    page.drawImage(embeddedImg, {
+                        x: (pgW - drawW) / 2,
+                        y: (pgH - drawH) / 2,
+                        width:  drawW,
+                        height: drawH,
+                    });
+                } catch (err) {
+                    console.error(`[DocScan] Failed on ${file.name}:`, err);
+                    Utils.showStatus(`Skipped ${file.name}: ${err.message}`, 'warning');
+                }
+            }
+
+            if (pdfDoc.getPageCount() === 0) {
+                Utils.showStatus('No pages were created. Please check your images and try again.', 'error');
+                return;
+            }
+
+            Utils.updateProgress(95, 'Saving PDF…');
+            if (AppState.autoScrubMetadata) Utils.scrubMetadata(pdfDoc);
+
+            const pdfBytes = await pdfDoc.save();
+            const filename = imageFiles.length === 1
+                ? withExt(imageFiles[0].name, '_scanned.pdf')
+                : 'scanned-document.pdf';
+
+            saveAs(new Blob([pdfBytes], { type: 'application/pdf' }), filename);
+            Utils.updateProgress(100, 'Complete!');
+            Utils.showStatus(
+                `Scanned ${pdfDoc.getPageCount()} page(s) to PDF successfully!`,
+                'success'
+            );
+        }
     }
 };
 
@@ -10567,7 +10978,10 @@ const ToolManager = {
             receiptparser: ['mammoth'],
             
             // Workflow tool (no external libs needed)
-            workflow: []
+            workflow: [],
+
+            // Document Scanner: uses Canvas API (built-in) + PDFLib
+            docscan: ['PDFLib', 'saveAs'],
         };
         
         const requiredLibs = libraryRequirements[toolId] || [];
