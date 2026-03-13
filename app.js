@@ -1736,32 +1736,44 @@ const DocScanUtils = {
     async showPreview(file) {
         const previewDiv = document.getElementById('docScanPreview');
         const canvas = document.getElementById('docScanCanvas');
-        if (!previewDiv || !canvas) return;
+        if (!previewDiv || !canvas) {
+            console.warn('[DocScan] showPreview: DOM elements not found');
+            return;
+        }
+
+        // Make the section visible unconditionally — outside the try so it
+        // always runs even if the image load or corner detection fails.
+        previewDiv.style.display = 'block';
+
         try {
-            // Show the div first so clientWidth reflects the real layout width
-            previewDiv.style.display = 'block';
             const img = await this._loadImage(file);
             const maxW = Math.max(200, (canvas.parentElement?.clientWidth || 600) - 16);
-            const ratio = img.naturalWidth / img.naturalHeight;
-            canvas.width  = Math.min(maxW, img.naturalWidth);
+            const ratio = img.naturalWidth / img.naturalHeight || 1;
+            canvas.width  = Math.min(maxW, img.naturalWidth  || 200);
             canvas.height = Math.round(canvas.width / ratio);
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-            // Store image for redraws
+            // Store state for redraws and processImage
             this._previewState.img        = img;
             this._previewState.canvasW    = canvas.width;
             this._previewState.canvasH    = canvas.height;
             this._previewState.sourceFile = file;
 
-            const corners = this.detectCorners(canvas);
+            // Corner detection — wrap separately so a detection error
+            // still lets us show the image with default corner positions.
+            let corners = null;
+            try {
+                corners = this.detectCorners(canvas);
+            } catch (detErr) {
+                console.warn('[DocScan] Corner detection failed (using defaults):', detErr);
+            }
             this._previewState.corners = corners || this._defaultCorners(canvas.width, canvas.height);
             this._drawCornerOverlay(ctx, this._previewState.corners);
 
             this._attachDragListeners(canvas);
 
-            // Wire reset button (safe to call multiple times — addEventListener is idempotent
-            // only when the same function reference is used, so we use the dataset guard)
+            // Wire reset button (dataset guard prevents double-binding)
             const resetBtn = document.getElementById('docScanResetBtn');
             if (resetBtn && !resetBtn.dataset.wired) {
                 resetBtn.dataset.wired = '1';
@@ -1771,10 +1783,16 @@ const DocScanUtils = {
                 });
             }
 
-            // Show initial warp preview
-            this._updateWarpPreview(canvas);
+            // Defer warp preview so the browser paints the corner preview
+            // first before the synchronous pixel-warp loop runs.
+            setTimeout(() => {
+                try { this._updateWarpPreview(canvas); }
+                catch (warpErr) { console.warn('[DocScan] Warp preview failed:', warpErr); }
+            }, 50);
+
         } catch (e) {
-            console.warn('[DocScan] Preview failed:', e);
+            console.error('[DocScan] showPreview failed:', e);
+            Utils.showStatus('Preview failed: ' + e.message, 'warning');
         }
     },
 
