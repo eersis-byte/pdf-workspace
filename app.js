@@ -1273,22 +1273,9 @@ const PDFPreview = {
         overlay.style.top = screenY + 'px';
         overlay.style.width = screenWidth + 'px';
         overlay.style.height = screenHeight + 'px';
-        
-        console.log('[PDFPreview] Overlay positioned at:', {
-            left: screenX,
-            top: screenY,
-            width: screenWidth,
-            height: screenHeight,
-            actualPageWidth: actualPageWidth
-        });
     },
     
     updateSignatureOverlay() {
-        console.log('[PDFPreview] updateSignatureOverlay called');
-        console.log('[PDFPreview] Current tool:', AppState.currentTool);
-        console.log('[PDFPreview] Has signature:', !!Tools.sign?.signatureImage);
-        console.log('[PDFPreview] Canvas exists:', !!document.getElementById('pdfPreviewCanvas'));
-        
         // FIX v7.12: Always remove and recreate overlay to prevent page size drift
         this.removeSignatureOverlay();
         
@@ -4576,12 +4563,12 @@ const Tools = {
             </div>
             
             <div class="form-group">
-                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-bottom: 8px;">
-                    <input type="checkbox" id="deskewPages" style="width: 18px; height: 18px;">
+                <label style="display: flex; align-items: center; gap: 8px; cursor: not-allowed; margin-bottom: 8px; opacity: 0.5;">
+                    <input type="checkbox" id="deskewPages" style="width: 18px; height: 18px;" disabled>
                     <span><strong>Auto-Deskew Pages</strong></span>
                 </label>
                 <p style="font-size: 11px; color: var(--color-text-muted); margin-left: 26px; margin-top: -4px;">
-                    Automatically straighten crooked scanned pages (experimental)
+                    Not available — deskew requires a full Hough-transform implementation
                 </p>
             </div>
             
@@ -6414,19 +6401,16 @@ const Tools = {
             const page       = pages[Math.min(pageIndex, pages.length - 1)];
             const { width: pw, height: ph } = page.getSize();
 
-            const annoImg = await pdfDoc.embedPng(annotatedDataUrl);
-            // Draw annotated version as full-page overlay (annotations only layer)
-            // We draw the annotation canvas scaled to the PDF page
-            const scaleX = pw / base.width;
-            const scaleY = ph / base.height;
-
-            // Embed just the overlay canvas
+            // Embed the annotation overlay onto the PDF page
             const overlayCanvas = document.createElement('canvas');
             overlayCanvas.width  = base.width;
             overlayCanvas.height = base.height;
             overlayCanvas.getContext('2d').drawImage(this._canvas, 0, 0);
-            const overlayDataUrl = overlayCanvas.toDataURL('image/png');
-            const overlayImg = await pdfDoc.embedPng(overlayDataUrl);
+            const overlayBytes = Uint8Array.from(
+                atob(overlayCanvas.toDataURL('image/png').split(',')[1]),
+                c => c.charCodeAt(0)
+            );
+            const overlayImg = await pdfDoc.embedPng(overlayBytes);
 
             page.drawImage(overlayImg, { x: 0, y: 0, width: pw, height: ph });
 
@@ -7499,7 +7483,7 @@ const Tools = {
             Utils.updateProgress(10, 'Loading PDF...');
             
             const arrayBuffer = await pdfFile.arrayBuffer();
-            const pdfDoc = await Utils.loadPDFWithEncryptionHandler(arrayBuffer, file.name);
+            const pdfDoc = await Utils.loadPDFWithEncryptionHandler(arrayBuffer, pdfFile.name);
             const form = pdfDoc.getForm();
             
             Utils.updateProgress(30, 'Filling form fields...');
@@ -7864,18 +7848,18 @@ const Tools = {
         
         async process(files) {
             const password = document.getElementById('unlockPassword')?.value;
-            
+
             if (!password) {
                 Utils.showStatus('Please enter the PDF password', 'error');
                 return;
             }
-            
+
             const pdfFiles = files.filter(FileType.isPDF);
-            
+
             for (let i = 0; i < pdfFiles.length; i++) {
                 try {
                     const arrayBuffer = await pdfFiles[i].arrayBuffer();
-                    const pdfDoc = await Utils.loadPDFWithEncryptionHandler(arrayBuffer, file.name);
+                    const pdfDoc = await Utils.loadPDFWithEncryptionHandler(arrayBuffer, pdfFiles[i].name);
                     const pdfBytes = await pdfDoc.save();
                     saveAs(new Blob([pdfBytes], { type: 'application/pdf' }), `unlocked_${pdfFiles[i].name}`);
                 } catch (e) {
