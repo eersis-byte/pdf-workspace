@@ -1734,37 +1734,56 @@ const DocScanUtils = {
 
     // Show a corner-detection preview on the configHTML canvas
     async showPreview(file) {
+        console.log('[DocScan] showPreview called:', file?.name, file?.type, file?.size);
+
+        // Re-query DOM every call — the tool panel is re-created on each tool switch
         const previewDiv = document.getElementById('docScanPreview');
-        const canvas = document.getElementById('docScanCanvas');
+        const canvas     = document.getElementById('docScanCanvas');
+
         if (!previewDiv || !canvas) {
-            console.warn('[DocScan] showPreview: DOM elements not found');
+            console.error('[DocScan] showPreview: DOM elements not found', {previewDiv: !!previewDiv, canvas: !!canvas});
             return;
         }
 
-        // Make the section visible unconditionally — outside the try so it
-        // always runs even if the image load or corner detection fails.
+        // Always show the section immediately, synchronously, before any async work.
+        previewDiv.style.cssText = previewDiv.style.cssText.replace(/display\s*:\s*none\s*;?/gi, '');
         previewDiv.style.display = 'block';
+        console.log('[DocScan] previewDiv display set to block. Current display:', getComputedStyle(previewDiv).display);
+
+        // Draw "Loading…" placeholder so user sees the section appeared
+        canvas.width  = canvas.parentElement ? Math.max(200, canvas.parentElement.clientWidth - 16) : 400;
+        canvas.height = Math.round(canvas.width * 0.6);
+        const pCtx = canvas.getContext('2d');
+        pCtx.fillStyle = '#f0f0f0';
+        pCtx.fillRect(0, 0, canvas.width, canvas.height);
+        pCtx.fillStyle = '#888';
+        pCtx.font = `${Math.max(14, canvas.width / 20)}px sans-serif`;
+        pCtx.textAlign = 'center';
+        pCtx.fillText('Loading image…', canvas.width / 2, canvas.height / 2);
 
         try {
+            console.log('[DocScan] loading image…');
             const img = await this._loadImage(file);
+            console.log('[DocScan] image loaded:', img.naturalWidth, 'x', img.naturalHeight);
+
             const maxW = Math.max(200, (canvas.parentElement?.clientWidth || 600) - 16);
             const ratio = img.naturalWidth / img.naturalHeight || 1;
             canvas.width  = Math.min(maxW, img.naturalWidth  || 200);
             canvas.height = Math.round(canvas.width / ratio);
+
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            console.log('[DocScan] image drawn to canvas', canvas.width, 'x', canvas.height);
 
-            // Store state for redraws and processImage
             this._previewState.img        = img;
             this._previewState.canvasW    = canvas.width;
             this._previewState.canvasH    = canvas.height;
             this._previewState.sourceFile = file;
 
-            // Corner detection — wrap separately so a detection error
-            // still lets us show the image with default corner positions.
             let corners = null;
             try {
                 corners = this.detectCorners(canvas);
+                console.log('[DocScan] corners detected:', JSON.stringify(corners));
             } catch (detErr) {
                 console.warn('[DocScan] Corner detection failed (using defaults):', detErr);
             }
@@ -1773,7 +1792,6 @@ const DocScanUtils = {
 
             this._attachDragListeners(canvas);
 
-            // Wire reset button (dataset guard prevents double-binding)
             const resetBtn = document.getElementById('docScanResetBtn');
             if (resetBtn && !resetBtn.dataset.wired) {
                 resetBtn.dataset.wired = '1';
@@ -1783,15 +1801,28 @@ const DocScanUtils = {
                 });
             }
 
-            // Defer warp preview so the browser paints the corner preview
-            // first before the synchronous pixel-warp loop runs.
-            setTimeout(() => {
-                try { this._updateWarpPreview(canvas); }
-                catch (warpErr) { console.warn('[DocScan] Warp preview failed:', warpErr); }
-            }, 50);
+            // Use requestAnimationFrame to defer warp so browser paints corner preview first
+            requestAnimationFrame(() => {
+                setTimeout(() => {
+                    try { this._updateWarpPreview(canvas); }
+                    catch (warpErr) { console.warn('[DocScan] Warp preview failed:', warpErr); }
+                }, 0);
+            });
+
+            console.log('[DocScan] showPreview complete ✓');
 
         } catch (e) {
             console.error('[DocScan] showPreview failed:', e);
+            // Draw error message on canvas so the user knows what went wrong
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+                ctx.fillStyle = '#fff0f0';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#c00';
+                ctx.font = '14px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('Preview error: ' + e.message, canvas.width / 2, canvas.height / 2);
+            }
             Utils.showStatus('Preview failed: ' + e.message, 'warning');
         }
     },
@@ -10941,7 +10972,7 @@ const Tools = {
                 </select>
             </div>
 
-            <div id="docScanPreview" style="display: none; margin-top: 16px;">
+            <div id="docScanPreview" style="margin-top: 16px;">
                 <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
                     <label class="form-label" style="margin:0;">Detected Document Area</label>
                     <button id="docScanResetBtn" class="btn btn-secondary"
@@ -10963,12 +10994,31 @@ const Tools = {
         `,
 
         init() {
+            console.log('[DocScan] init() called, files:', AppState.files.length);
             const imageFiles = AppState.files.filter(f => f.type.startsWith('image/'));
+            console.log('[DocScan] init() image files:', imageFiles.length);
             if (imageFiles.length > 0) {
                 DocScanUtils.showPreview(imageFiles[0]);
+            } else {
+                // Draw placeholder so the preview area is visible from the start
+                const canvas = document.getElementById('docScanCanvas');
+                if (canvas) {
+                    const w = canvas.parentElement ? Math.max(200, canvas.parentElement.clientWidth - 16) : 400;
+                    canvas.width  = w;
+                    canvas.height = Math.round(w * 0.55);
+                    const ctx = canvas.getContext('2d');
+                    ctx.fillStyle = '#f5f5f5';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.fillStyle = '#aaa';
+                    ctx.font = `${Math.max(13, w / 22)}px sans-serif`;
+                    ctx.textAlign = 'center';
+                    ctx.fillText('Add an image above to see the preview', canvas.width / 2, canvas.height / 2);
+                }
             }
+            // Reset button (showPreview also wires it with a dataset guard)
             const resetBtn = document.getElementById('docScanResetBtn');
-            if (resetBtn) {
+            if (resetBtn && !resetBtn.dataset.wired) {
+                resetBtn.dataset.wired = '1';
                 resetBtn.addEventListener('click', () => {
                     const canvas = document.getElementById('docScanCanvas');
                     if (canvas && DocScanUtils._previewState.img) {
