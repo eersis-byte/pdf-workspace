@@ -2029,8 +2029,8 @@ const DocScanUtils = {
         });
     },
 
-    // Main pipeline: detect (or use user-adjusted) → warp → enhance.  Returns a canvas.
-    async processImage(file, enhancement, maxOutputDim = 2000) {
+    // Main pipeline: detect (or use user-adjusted) → warp → enhance → (optional) remove bg.  Returns a canvas.
+    async processImage(file, enhancement, maxOutputDim = 2000, removeBg = false, bgTolerance = 40) {
         const img = await this._loadImage(file);
         const srcScale = Math.min(1, maxOutputDim / Math.max(img.naturalWidth, img.naturalHeight));
         const srcW = Math.round(img.naturalWidth  * srcScale);
@@ -2060,6 +2060,7 @@ const DocScanUtils = {
             console.log('[DocScan] No valid document quad found – using full image');
             result = srcCanvas;
         }
+        if (removeBg) this._removeBackground(result, bgTolerance);
         this._applyEnhancement(result, enhancement);
         return result;
     },
@@ -2243,6 +2244,40 @@ const DocScanUtils = {
                 edges[y*w+x] = Math.sqrt(gx*gx + gy*gy);
             }
         return edges;
+    },
+
+    // Background removal: sample corner patches → whiten pixels within colour distance
+    _removeBackground(canvas, tolerance) {
+        const ctx = canvas.getContext('2d');
+        const W = canvas.width, H = canvas.height;
+        const id  = ctx.getImageData(0, 0, W, H);
+        const px  = id.data;
+
+        // Sample 5% patches at all four corners to estimate paper/background colour
+        const pw = Math.max(4, Math.round(W * 0.05));
+        const ph = Math.max(4, Math.round(H * 0.05));
+        let rSum = 0, gSum = 0, bSum = 0, cnt = 0;
+        const sample = (x0, y0) => {
+            for (let y = y0; y < y0 + ph && y < H; y++)
+                for (let x = x0; x < x0 + pw && x < W; x++) {
+                    const i = (y * W + x) * 4;
+                    rSum += px[i]; gSum += px[i+1]; bSum += px[i+2]; cnt++;
+                }
+        };
+        sample(0, 0);              // TL
+        sample(W - pw, 0);         // TR
+        sample(0, H - ph);         // BL
+        sample(W - pw, H - ph);    // BR
+
+        const bgR = rSum / cnt, bgG = gSum / cnt, bgB = bSum / cnt;
+        const tSq = tolerance * tolerance;
+
+        for (let i = 0; i < px.length; i += 4) {
+            const dr = px[i] - bgR, dg = px[i+1] - bgG, db = px[i+2] - bgB;
+            if (dr*dr + dg*dg + db*db < tSq)
+                px[i] = px[i+1] = px[i+2] = 255;
+        }
+        ctx.putImageData(id, 0, 0);
     },
 
     // Post-processing: grayscale or black-and-white
@@ -10984,6 +11019,18 @@ const Tools = {
                 </select>
             </div>
 
+            <div class="form-group">
+                <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                    <input type="checkbox" id="docScanRemoveBg" style="width:16px; height:16px; cursor:pointer;">
+                    <span><strong>Remove background</strong> — whiten the paper/desk colour, keep text &amp; images</span>
+                </label>
+                <div style="margin-top:6px; display:flex; align-items:center; gap:8px;" id="docScanBgToleranceRow">
+                    <label class="form-label" style="margin:0; white-space:nowrap; font-size:12px;">Sensitivity</label>
+                    <input type="range" id="docScanBgTolerance" min="10" max="120" value="40" style="flex:1;">
+                    <span id="docScanBgToleranceVal" style="font-size:12px; min-width:28px; text-align:right;">40</span>
+                </div>
+            </div>
+
             <div id="docScanPreview" style="margin-top: 16px;">
                 <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
                     <label class="form-label" style="margin:0;">Detected Document Area</label>
@@ -11027,6 +11074,13 @@ const Tools = {
                     ctx.fillText('Add an image above to see the preview', canvas.width / 2, canvas.height / 2);
                 }
             }
+            // Wire slider label
+            const tolSlider = document.getElementById('docScanBgTolerance');
+            const tolVal    = document.getElementById('docScanBgToleranceVal');
+            if (tolSlider && tolVal) {
+                tolSlider.addEventListener('input', () => { tolVal.textContent = tolSlider.value; });
+            }
+
             // Reset button (showPreview also wires it with a dataset guard)
             const resetBtn = document.getElementById('docScanResetBtn');
             if (resetBtn && !resetBtn.dataset.wired) {
@@ -11049,6 +11103,8 @@ const Tools = {
 
             const pageSize    = document.getElementById('docScanPageSize')?.value    || 'Letter';
             const enhancement = document.getElementById('docScanEnhancement')?.value || 'none';
+            const removeBg    = document.getElementById('docScanRemoveBg')?.checked  || false;
+            const bgTolerance = parseInt(document.getElementById('docScanBgTolerance')?.value || '40', 10);
 
             Utils.updateProgress(5, 'Initializing...');
             const pdfDoc = await PDFLib.PDFDocument.create();
@@ -11060,8 +11116,8 @@ const Tools = {
                     `Processing ${file.name} (${i+1}/${imageFiles.length})…`
                 );
                 try {
-                    // Detect corners, crop, deskew
-                    const processedCanvas = await DocScanUtils.processImage(file, enhancement);
+                    // Detect corners, crop, deskew, optionally remove background
+                    const processedCanvas = await DocScanUtils.processImage(file, enhancement, 2000, removeBg, bgTolerance);
 
                     // Encode to JPEG for pdf-lib embedding
                     const blob = await new Promise((res, rej) =>
