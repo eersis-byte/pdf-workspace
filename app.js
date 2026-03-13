@@ -1732,10 +1732,22 @@ const DocScanUtils = {
         sourceFile: null,   // File object currently previewed
     },
 
+    // Draw a text placeholder centred on a canvas (used for loading/empty states)
+    _drawCanvasPlaceholder(canvas, text) {
+        const w = canvas.parentElement ? Math.max(200, canvas.parentElement.clientWidth - 16) : 400;
+        canvas.width  = w;
+        canvas.height = Math.round(w * 0.55);
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#f5f5f5';
+        ctx.fillRect(0, 0, w, canvas.height);
+        ctx.fillStyle = '#aaa';
+        ctx.font = `${Math.max(13, w / 22)}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.fillText(text, w / 2, canvas.height / 2);
+    },
+
     // Show a corner-detection preview on the configHTML canvas
     async showPreview(file) {
-        console.log('[DocScan] showPreview called:', file?.name, file?.type, file?.size);
-
         // Re-query DOM every call — the tool panel is re-created on each tool switch
         const previewDiv = document.getElementById('docScanPreview');
         const canvas     = document.getElementById('docScanCanvas');
@@ -1745,26 +1757,13 @@ const DocScanUtils = {
             return;
         }
 
-        // Always show the section immediately, synchronously, before any async work.
-        previewDiv.style.cssText = previewDiv.style.cssText.replace(/display\s*:\s*none\s*;?/gi, '');
         previewDiv.style.display = 'block';
-        console.log('[DocScan] previewDiv display set to block. Current display:', getComputedStyle(previewDiv).display);
 
-        // Draw "Loading…" placeholder so user sees the section appeared
-        canvas.width  = canvas.parentElement ? Math.max(200, canvas.parentElement.clientWidth - 16) : 400;
-        canvas.height = Math.round(canvas.width * 0.6);
-        const pCtx = canvas.getContext('2d');
-        pCtx.fillStyle = '#f0f0f0';
-        pCtx.fillRect(0, 0, canvas.width, canvas.height);
-        pCtx.fillStyle = '#888';
-        pCtx.font = `${Math.max(14, canvas.width / 20)}px sans-serif`;
-        pCtx.textAlign = 'center';
-        pCtx.fillText('Loading image…', canvas.width / 2, canvas.height / 2);
+        // Draw "Loading…" placeholder so user sees the section appeared before async work
+        this._drawCanvasPlaceholder(canvas, 'Loading image…');
 
         try {
-            console.log('[DocScan] loading image…');
             const img = await this._loadImage(file);
-            console.log('[DocScan] image loaded:', img.naturalWidth, 'x', img.naturalHeight);
 
             const maxW = Math.max(200, (canvas.parentElement?.clientWidth || 600) - 16);
             const ratio = img.naturalWidth / img.naturalHeight || 1;
@@ -1773,7 +1772,6 @@ const DocScanUtils = {
 
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            console.log('[DocScan] image drawn to canvas', canvas.width, 'x', canvas.height);
 
             this._previewState.img        = img;
             this._previewState.canvasW    = canvas.width;
@@ -1783,7 +1781,6 @@ const DocScanUtils = {
             let corners = null;
             try {
                 corners = this.detectCorners(canvas);
-                console.log('[DocScan] corners detected:', JSON.stringify(corners));
             } catch (detErr) {
                 console.warn('[DocScan] Corner detection failed (using defaults):', detErr);
             }
@@ -1801,15 +1798,11 @@ const DocScanUtils = {
                 });
             }
 
-            // Use requestAnimationFrame to defer warp so browser paints corner preview first
+            // Defer warp so the browser paints the corner overlay first
             requestAnimationFrame(() => {
-                setTimeout(() => {
-                    try { this._updateWarpPreview(canvas); }
-                    catch (warpErr) { console.warn('[DocScan] Warp preview failed:', warpErr); }
-                }, 0);
+                try { this._updateWarpPreview(canvas); }
+                catch (warpErr) { console.warn('[DocScan] Warp preview failed:', warpErr); }
             });
-
-            console.log('[DocScan] showPreview complete ✓');
 
         } catch (e) {
             console.error('[DocScan] showPreview failed:', e);
@@ -1846,8 +1839,6 @@ const DocScanUtils = {
         if (canvas.dataset.docScanDrag) return; // already attached
         canvas.dataset.docScanDrag = '1';
         canvas.style.cursor = 'crosshair';
-        console.log('[DocScan] _attachDragListeners: attached to canvas', canvas.width, 'x', canvas.height,
-            'corners:', JSON.stringify(this._previewState.corners));
 
         // Hit radius in canvas pixels — scale with canvas size so it's usable on any image
         const HIT = Math.max(24, Math.round(Math.min(canvas.width, canvas.height) * 0.06));
@@ -1886,7 +1877,6 @@ const DocScanUtils = {
         canvas.addEventListener('mousedown', e => {
             const {x, y} = this._getCanvasPos(canvas, e);
             const idx = getIdx(x, y);
-            console.log('[DocScan] mousedown canvas pos:', x, y, '→ corner idx:', idx, 'HIT:', HIT);
             if (idx !== null) {
                 this._previewState.dragging = idx;
                 canvas.style.cursor = 'grabbing';
@@ -2030,7 +2020,7 @@ const DocScanUtils = {
     },
 
     // Main pipeline: detect (or use user-adjusted) → warp → enhance → (optional) remove bg.  Returns a canvas.
-    async processImage(file, enhancement, maxOutputDim = 2000, removeBg = false, bgTolerance = 40) {
+    async processImage(file, enhancement, { maxOutputDim = 2000, removeBg = false, bgTolerance = 40 } = {}) {
         const img = await this._loadImage(file);
         const srcScale = Math.min(1, maxOutputDim / Math.max(img.naturalWidth, img.naturalHeight));
         const srcW = Math.round(img.naturalWidth  * srcScale);
@@ -2047,7 +2037,6 @@ const DocScanUtils = {
             const sx = srcW / ps.canvasW, sy = srcH / ps.canvasH;
             corners = ps.corners.map(pt => ({x: pt.x * sx, y: pt.y * sy}));
             cornersFromUser = true;
-            console.log('[DocScan] Using user-adjusted corners');
         } else {
             corners = this.detectCorners(srcCanvas);
         }
@@ -2057,7 +2046,6 @@ const DocScanUtils = {
         if (corners && (cornersFromUser || this._isValidQuad(corners, srcW, srcH))) {
             result = this._perspectiveWarp(srcCanvas, corners, maxOutputDim);
         } else {
-            console.log('[DocScan] No valid document quad found – using full image');
             result = srcCanvas;
         }
         if (removeBg) this._removeBackground(result, bgTolerance);
@@ -11053,26 +11041,13 @@ const Tools = {
         `,
 
         init() {
-            console.log('[DocScan] init() called, files:', AppState.files.length);
             const imageFiles = AppState.files.filter(f => f.type.startsWith('image/'));
-            console.log('[DocScan] init() image files:', imageFiles.length);
             if (imageFiles.length > 0) {
                 DocScanUtils.showPreview(imageFiles[0]);
             } else {
                 // Draw placeholder so the preview area is visible from the start
                 const canvas = document.getElementById('docScanCanvas');
-                if (canvas) {
-                    const w = canvas.parentElement ? Math.max(200, canvas.parentElement.clientWidth - 16) : 400;
-                    canvas.width  = w;
-                    canvas.height = Math.round(w * 0.55);
-                    const ctx = canvas.getContext('2d');
-                    ctx.fillStyle = '#f5f5f5';
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
-                    ctx.fillStyle = '#aaa';
-                    ctx.font = `${Math.max(13, w / 22)}px sans-serif`;
-                    ctx.textAlign = 'center';
-                    ctx.fillText('Add an image above to see the preview', canvas.width / 2, canvas.height / 2);
-                }
+                if (canvas) DocScanUtils._drawCanvasPlaceholder(canvas, 'Add an image above to see the preview');
             }
             // Wire slider label
             const tolSlider = document.getElementById('docScanBgTolerance');
@@ -11080,18 +11055,7 @@ const Tools = {
             if (tolSlider && tolVal) {
                 tolSlider.addEventListener('input', () => { tolVal.textContent = tolSlider.value; });
             }
-
-            // Reset button (showPreview also wires it with a dataset guard)
-            const resetBtn = document.getElementById('docScanResetBtn');
-            if (resetBtn && !resetBtn.dataset.wired) {
-                resetBtn.dataset.wired = '1';
-                resetBtn.addEventListener('click', () => {
-                    const canvas = document.getElementById('docScanCanvas');
-                    if (canvas && DocScanUtils._previewState.img) {
-                        DocScanUtils._resetToAutoDetect(canvas);
-                    }
-                });
-            }
+            // Note: reset button is wired inside showPreview() with a dataset guard
         },
 
         async process(files) {
@@ -11103,7 +11067,7 @@ const Tools = {
 
             const pageSize    = document.getElementById('docScanPageSize')?.value    || 'Letter';
             const enhancement = document.getElementById('docScanEnhancement')?.value || 'none';
-            const removeBg    = document.getElementById('docScanRemoveBg')?.checked  || false;
+            const removeBg    = document.getElementById('docScanRemoveBg')?.checked ?? false;
             const bgTolerance = parseInt(document.getElementById('docScanBgTolerance')?.value || '40', 10);
 
             Utils.updateProgress(5, 'Initializing...');
@@ -11117,7 +11081,7 @@ const Tools = {
                 );
                 try {
                     // Detect corners, crop, deskew, optionally remove background
-                    const processedCanvas = await DocScanUtils.processImage(file, enhancement, 2000, removeBg, bgTolerance);
+                    const processedCanvas = await DocScanUtils.processImage(file, enhancement, { removeBg, bgTolerance });
 
                     // Encode to JPEG for pdf-lib embedding
                     const blob = await new Promise((res, rej) =>
