@@ -1845,9 +1845,12 @@ const DocScanUtils = {
     _attachDragListeners(canvas) {
         if (canvas.dataset.docScanDrag) return; // already attached
         canvas.dataset.docScanDrag = '1';
-        canvas.style.cursor = 'default';
+        canvas.style.cursor = 'crosshair';
+        console.log('[DocScan] _attachDragListeners: attached to canvas', canvas.width, 'x', canvas.height,
+            'corners:', JSON.stringify(this._previewState.corners));
 
-        const HIT = 18; // px hit radius for corners
+        // Hit radius in canvas pixels — scale with canvas size so it's usable on any image
+        const HIT = Math.max(24, Math.round(Math.min(canvas.width, canvas.height) * 0.06));
         const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
         const getIdx = (cx, cy) => {
@@ -1883,6 +1886,7 @@ const DocScanUtils = {
         canvas.addEventListener('mousedown', e => {
             const {x, y} = this._getCanvasPos(canvas, e);
             const idx = getIdx(x, y);
+            console.log('[DocScan] mousedown canvas pos:', x, y, '→ corner idx:', idx, 'HIT:', HIT);
             if (idx !== null) {
                 this._previewState.dragging = idx;
                 canvas.style.cursor = 'grabbing';
@@ -1988,6 +1992,8 @@ const DocScanUtils = {
     // Draw the detected quad + coloured corner dots with labels
     _drawCornerOverlay(ctx, corners) {
         const [tl, tr, br, bl] = corners;
+        // Scale dot radius with canvas so it looks good at any resolution
+        const dotR = Math.max(10, Math.round(Math.min(ctx.canvas.width, ctx.canvas.height) * 0.035));
         ctx.beginPath();
         ctx.moveTo(tl.x, tl.y);
         ctx.lineTo(tr.x, tr.y);
@@ -1995,22 +2001,28 @@ const DocScanUtils = {
         ctx.lineTo(bl.x, bl.y);
         ctx.closePath();
         ctx.strokeStyle = '#00e676';
-        ctx.lineWidth = 3;
+        ctx.lineWidth = Math.max(2, dotR * 0.3);
         ctx.stroke();
         ctx.fillStyle = 'rgba(0,230,118,0.08)';
         ctx.fill();
         const labels = ['TL','TR','BR','BL'];
         ['#ff5252','#ff9800','#2196F3','#4caf50'].forEach((color, i) => {
             const pt = corners[i];
+            // Outer white halo so dot is visible against any background
             ctx.beginPath();
-            ctx.arc(pt.x, pt.y, 10, 0, Math.PI * 2);
+            ctx.arc(pt.x, pt.y, dotR + 3, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255,255,255,0.7)';
+            ctx.fill();
+            // Colored dot
+            ctx.beginPath();
+            ctx.arc(pt.x, pt.y, dotR, 0, Math.PI * 2);
             ctx.fillStyle = color;
             ctx.fill();
             ctx.strokeStyle = 'white';
             ctx.lineWidth = 2;
             ctx.stroke();
             ctx.fillStyle = 'white';
-            ctx.font = 'bold 9px sans-serif';
+            ctx.font = `bold ${Math.max(9, dotR - 2)}px sans-serif`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(labels[i], pt.x, pt.y);
