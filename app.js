@@ -1716,6 +1716,16 @@ const TOOL_FILE_TYPES = {
 // ========================================================================================
 const DocScanUtils = {
 
+    // Mutable state shared between preview UI and processImage
+    _previewState: {
+        img:        null,   // loaded HTMLImageElement
+        corners:    null,   // [tl,tr,br,bl] in preview-canvas pixels
+        canvasW:    0,      // preview canvas width  (for coord scaling)
+        canvasH:    0,      // preview canvas height
+        dragging:   null,   // corner index being dragged (0-3), or null
+        sourceFile: null,   // File object currently previewed
+    },
+
     // Show a corner-detection preview on the configHTML canvas
     async showPreview(file) {
         const previewDiv = document.getElementById('docScanPreview');
@@ -1729,15 +1739,112 @@ const DocScanUtils = {
             canvas.height = Math.round(canvas.width / ratio);
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+            // Store image for redraws
+            this._previewState.img        = img;
+            this._previewState.canvasW    = canvas.width;
+            this._previewState.canvasH    = canvas.height;
+            this._previewState.sourceFile = file;
+
             const corners = this.detectCorners(canvas);
-            if (corners) this._drawCornerOverlay(ctx, corners);
+            this._previewState.corners = corners || this._defaultCorners(canvas.width, canvas.height);
+            this._drawCornerOverlay(ctx, this._previewState.corners);
+
+            this._attachDragListeners(canvas);
             previewDiv.style.display = 'block';
         } catch (e) {
             console.warn('[DocScan] Preview failed:', e);
         }
     },
 
-    // Draw the detected quad + coloured corner dots
+    // Default corners = 10% inset rectangle (fallback when detection fails)
+    _defaultCorners(w, h) {
+        const m = Math.round(Math.min(w, h) * 0.10);
+        return [{x:m,y:m},{x:w-m,y:m},{x:w-m,y:h-m},{x:m,y:h-m}];
+    },
+
+    // Redraw image + overlay from current _previewState
+    _redrawPreview(canvas) {
+        const ctx = canvas.getContext('2d');
+        const {img, corners, canvasW, canvasH} = this._previewState;
+        ctx.drawImage(img, 0, 0, canvasW, canvasH);
+        this._drawCornerOverlay(ctx, corners);
+    },
+
+    // Attach mouse + touch drag listeners (idempotent via dataset flag)
+    _attachDragListeners(canvas) {
+        if (canvas.dataset.docScanDrag) return; // already attached
+        canvas.dataset.docScanDrag = '1';
+        canvas.style.cursor = 'default';
+
+        const HIT = 18; // px hit radius for corners
+
+        const getIdx = (cx, cy) => {
+            const corners = this._previewState.corners;
+            if (!corners) return null;
+            let best = null, bestDist = HIT * HIT;
+            corners.forEach((pt, i) => {
+                const d = (pt.x-cx)**2 + (pt.y-cy)**2;
+                if (d < bestDist) { bestDist = d; best = i; }
+            });
+            return best;
+        };
+
+        // Mouse
+        canvas.addEventListener('mousedown', e => {
+            const {x, y} = this._getCanvasPos(canvas, e);
+            const idx = getIdx(x, y);
+            if (idx !== null) {
+                this._previewState.dragging = idx;
+                canvas.style.cursor = 'grabbing';
+                e.preventDefault();
+            }
+        });
+        canvas.addEventListener('mousemove', e => {
+            const {x, y} = this._getCanvasPos(canvas, e);
+            if (this._previewState.dragging !== null) {
+                this._previewState.corners[this._previewState.dragging] = {x, y};
+                this._redrawPreview(canvas);
+            } else {
+                canvas.style.cursor = getIdx(x, y) !== null ? 'grab' : 'default';
+            }
+        });
+        canvas.addEventListener('mouseup',    () => { this._previewState.dragging = null; canvas.style.cursor = 'default'; });
+        canvas.addEventListener('mouseleave', () => { this._previewState.dragging = null; });
+
+        // Touch
+        canvas.addEventListener('touchstart', e => {
+            const t = e.touches[0];
+            const {x, y} = this._getCanvasPos(canvas, t);
+            const idx = getIdx(x, y);
+            if (idx !== null) {
+                this._previewState.dragging = idx;
+                e.preventDefault();
+            }
+        }, {passive: false});
+        canvas.addEventListener('touchmove', e => {
+            if (this._previewState.dragging === null) return;
+            const t = e.touches[0];
+            const {x, y} = this._getCanvasPos(canvas, t);
+            this._previewState.corners[this._previewState.dragging] = {x, y};
+            this._redrawPreview(canvas);
+            e.preventDefault();
+        }, {passive: false});
+        canvas.addEventListener('touchend', () => { this._previewState.dragging = null; });
+    },
+
+    // Convert a mouse/touch event to canvas-local coordinates
+    _getCanvasPos(canvas, e) {
+        const r  = canvas.getBoundingClientRect();
+        const sx = canvas.width  / r.width;
+        const sy = canvas.height / r.height;
+        return {
+            x: Math.round((e.clientX - r.left) * sx),
+            y: Math.round((e.clientY - r.top)  * sy),
+        };
+    },
+
+    // Draw the detected quad + coloured corner dots with labels
     _drawCornerOverlay(ctx, corners) {
         const [tl, tr, br, bl] = corners;
         ctx.beginPath();
@@ -1751,22 +1858,27 @@ const DocScanUtils = {
         ctx.stroke();
         ctx.fillStyle = 'rgba(0,230,118,0.08)';
         ctx.fill();
+        const labels = ['TL','TR','BR','BL'];
         ['#ff5252','#ff9800','#2196F3','#4caf50'].forEach((color, i) => {
             const pt = corners[i];
             ctx.beginPath();
-            ctx.arc(pt.x, pt.y, 8, 0, Math.PI * 2);
+            ctx.arc(pt.x, pt.y, 10, 0, Math.PI * 2);
             ctx.fillStyle = color;
             ctx.fill();
             ctx.strokeStyle = 'white';
             ctx.lineWidth = 2;
             ctx.stroke();
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 9px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(labels[i], pt.x, pt.y);
         });
     },
 
-    // Main pipeline: detect → warp → enhance.  Returns a canvas.
+    // Main pipeline: detect (or use user-adjusted) → warp → enhance.  Returns a canvas.
     async processImage(file, enhancement, maxOutputDim = 2000) {
         const img = await this._loadImage(file);
-        // Scale source to a reasonable working size
         const srcScale = Math.min(1, maxOutputDim / Math.max(img.naturalWidth, img.naturalHeight));
         const srcW = Math.round(img.naturalWidth  * srcScale);
         const srcH = Math.round(img.naturalHeight * srcScale);
@@ -1774,7 +1886,17 @@ const DocScanUtils = {
         srcCanvas.width = srcW; srcCanvas.height = srcH;
         srcCanvas.getContext('2d').drawImage(img, 0, 0, srcW, srcH);
 
-        const corners = this.detectCorners(srcCanvas);
+        // Prefer user-adjusted corners from the preview (scaled to source resolution)
+        let corners = null;
+        const ps = this._previewState;
+        if (ps.sourceFile === file && ps.corners && ps.canvasW > 0) {
+            const sx = srcW / ps.canvasW, sy = srcH / ps.canvasH;
+            corners = ps.corners.map(pt => ({x: pt.x * sx, y: pt.y * sy}));
+            console.log('[DocScan] Using user-adjusted corners');
+        } else {
+            corners = this.detectCorners(srcCanvas);
+        }
+
         let result;
         if (corners && this._isValidQuad(corners, srcW, srcH)) {
             result = this._perspectiveWarp(srcCanvas, corners, maxOutputDim);
@@ -10711,7 +10833,8 @@ const Tools = {
                 <canvas id="docScanCanvas" style="max-width:100%; border:1px solid var(--color-border); border-radius:8px; display:block;"></canvas>
                 <p style="font-size:12px; color:var(--color-text-muted); margin-top:6px;">
                     Green outline = detected document region.
-                    If detection looks wrong the tool will still fall back to the full image.
+                    <strong>Drag any corner dot to correct it.</strong>
+                    The adjusted corners will be used when you click Process.
                 </p>
             </div>
         `,
