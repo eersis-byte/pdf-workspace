@@ -10802,6 +10802,11 @@ const Tools = {
     }
 };
 
+// Backward-compatibility alias: sidebar/history still use `compress` tool id
+if (!Tools.compress && Tools.compressAdvanced) {
+    Tools.compress = Tools.compressAdvanced;
+}
+
 // Tool Manager
 const ToolManager = {
     loadTool(toolId) {
