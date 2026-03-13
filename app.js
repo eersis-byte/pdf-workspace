@@ -1724,12 +1724,13 @@ const DocScanUtils = {
 
     // Mutable state shared between preview UI and processImage
     _previewState: {
-        img:        null,   // loaded HTMLImageElement
-        corners:    null,   // [tl,tr,br,bl] in preview-canvas pixels
-        canvasW:    0,      // preview canvas width  (for coord scaling)
-        canvasH:    0,      // preview canvas height
-        dragging:   null,   // corner index being dragged (0-3), or null
-        sourceFile: null,   // File object currently previewed
+        img:           null,   // loaded HTMLImageElement
+        corners:       null,   // [tl,tr,br,bl] in preview-canvas pixels
+        canvasW:       0,      // preview canvas width  (for coord scaling)
+        canvasH:       0,      // preview canvas height
+        dragging:      null,   // corner index being dragged (0-3), or null
+        hoveredCorner: null,   // corner index under the pointer (0-3), or null
+        sourceFile:    null,   // File object currently previewed
     },
 
     // Draw a text placeholder centred on a canvas (used for loading/empty states)
@@ -1829,9 +1830,10 @@ const DocScanUtils = {
     // Redraw image + overlay from current _previewState
     _redrawPreview(canvas) {
         const ctx = canvas.getContext('2d');
-        const {img, corners, canvasW, canvasH} = this._previewState;
+        const {img, corners, canvasW, canvasH, dragging, hoveredCorner} = this._previewState;
         ctx.drawImage(img, 0, 0, canvasW, canvasH);
-        this._drawCornerOverlay(ctx, corners);
+        const activeIdx = dragging !== null ? dragging : (hoveredCorner ?? -1);
+        this._drawCornerOverlay(ctx, corners, activeIdx);
     },
 
     // Attach mouse + touch drag listeners (idempotent via dataset flag)
@@ -1893,12 +1895,21 @@ const DocScanUtils = {
                 };
                 this._redrawPreview(canvas);
             } else {
-                canvas.style.cursor = getIdx(x, y) !== null ? 'grab' : 'default';
+                const nearIdx = getIdx(x, y);
+                canvas.style.cursor = nearIdx !== null ? 'grab' : 'default';
+                if (nearIdx !== this._previewState.hoveredCorner) {
+                    this._previewState.hoveredCorner = nearIdx;
+                    this._redrawPreview(canvas);
+                }
             }
         });
         canvas.addEventListener('mouseleave', () => {
             // Don't end drag on leave — document mouseup handler covers that
             canvas.style.cursor = 'default';
+            if (this._previewState.hoveredCorner !== null) {
+                this._previewState.hoveredCorner = null;
+                this._redrawPreview(canvas);
+            }
         });
 
         // Touch
@@ -1923,6 +1934,24 @@ const DocScanUtils = {
             e.preventDefault();
         }, {passive: false});
         canvas.addEventListener('touchend', endDrag);
+
+        // Keyboard nudge — arrow keys move the hovered corner (Shift = 10px step)
+        canvas.addEventListener('keydown', e => {
+            const idx = this._previewState.hoveredCorner;
+            if (idx === null || !this._previewState.corners) return;
+            const DIRS = {ArrowLeft:[-1,0], ArrowRight:[1,0], ArrowUp:[0,-1], ArrowDown:[0,1]};
+            const delta = DIRS[e.key];
+            if (!delta) return;
+            e.preventDefault();
+            const step = e.shiftKey ? 10 : 1;
+            const pt = this._previewState.corners[idx];
+            this._previewState.corners[idx] = {
+                x: clamp(pt.x + delta[0] * step, 0, canvas.width  - 1),
+                y: clamp(pt.y + delta[1] * step, 0, canvas.height - 1),
+            };
+            this._redrawPreview(canvas);
+            this._updateWarpPreview(canvas);
+        });
     },
 
     // Run a fast low-res warp and display it in #docScanWarpPreview
@@ -1979,11 +2008,28 @@ const DocScanUtils = {
         };
     },
 
-    // Draw the detected quad + coloured corner dots with labels
-    _drawCornerOverlay(ctx, corners) {
+    // Draw the detected quad + coloured corner dots with labels.
+    // activeIdx: index of the hovered/dragged corner to highlight (-1 = none)
+    _drawCornerOverlay(ctx, corners, activeIdx = -1) {
         const [tl, tr, br, bl] = corners;
+        const W = ctx.canvas.width, H = ctx.canvas.height;
         // Scale dot radius with canvas so it looks good at any resolution
-        const dotR = Math.max(10, Math.round(Math.min(ctx.canvas.width, ctx.canvas.height) * 0.035));
+        const dotR = Math.max(10, Math.round(Math.min(W, H) * 0.035));
+
+        // Dark scrim outside the quad — even-odd fill rule punches a hole at the quad shape
+        ctx.save();
+        ctx.fillStyle = 'rgba(0,0,0,0.45)';
+        ctx.beginPath();
+        ctx.rect(0, 0, W, H);                    // outer rect (clockwise)
+        ctx.moveTo(tl.x, tl.y);                  // quad counter-clockwise → becomes a hole
+        ctx.lineTo(bl.x, bl.y);
+        ctx.lineTo(br.x, br.y);
+        ctx.lineTo(tr.x, tr.y);
+        ctx.closePath();
+        ctx.fill('evenodd');
+        ctx.restore();
+
+        // Quad outline
         ctx.beginPath();
         ctx.moveTo(tl.x, tl.y);
         ctx.lineTo(tr.x, tr.y);
@@ -1993,26 +2039,26 @@ const DocScanUtils = {
         ctx.strokeStyle = '#00e676';
         ctx.lineWidth = Math.max(2, dotR * 0.3);
         ctx.stroke();
-        ctx.fillStyle = 'rgba(0,230,118,0.08)';
-        ctx.fill();
+
         const labels = ['TL','TR','BR','BL'];
         ['#ff5252','#ff9800','#2196F3','#4caf50'].forEach((color, i) => {
             const pt = corners[i];
+            const r  = (i === activeIdx) ? Math.round(dotR * 1.35) : dotR;
             // Outer white halo so dot is visible against any background
             ctx.beginPath();
-            ctx.arc(pt.x, pt.y, dotR + 3, 0, Math.PI * 2);
+            ctx.arc(pt.x, pt.y, r + 3, 0, Math.PI * 2);
             ctx.fillStyle = 'rgba(255,255,255,0.7)';
             ctx.fill();
             // Colored dot
             ctx.beginPath();
-            ctx.arc(pt.x, pt.y, dotR, 0, Math.PI * 2);
+            ctx.arc(pt.x, pt.y, r, 0, Math.PI * 2);
             ctx.fillStyle = color;
             ctx.fill();
             ctx.strokeStyle = 'white';
             ctx.lineWidth = 2;
             ctx.stroke();
             ctx.fillStyle = 'white';
-            ctx.font = `bold ${Math.max(9, dotR - 2)}px sans-serif`;
+            ctx.font = `bold ${Math.max(9, r - 2)}px sans-serif`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(labels[i], pt.x, pt.y);
@@ -11027,7 +11073,7 @@ const Tools = {
                         ↺ Reset corners
                     </button>
                 </div>
-                <canvas id="docScanCanvas" style="max-width:100%; border:1px solid var(--color-border); border-radius:8px; display:block;"></canvas>
+                <canvas id="docScanCanvas" tabindex="0" style="max-width:100%; border:1px solid var(--color-border); border-radius:8px; display:block; outline:none;"></canvas>
                 <p style="font-size:12px; color:var(--color-text-muted); margin-top:6px;">
                     Green outline = detected document region.
                     <strong>Drag any corner dot to adjust it.</strong>
