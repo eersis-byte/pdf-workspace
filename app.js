@@ -1460,6 +1460,12 @@ const FileManager = {
         if (AppState.currentTool === 'formfill' && Tools.formfill && Tools.formfill.detectFormFields) {
             setTimeout(() => Tools.formfill.detectFormFields(), 100);
         }
+
+        // Trigger document scanner preview when images are added while docscan is active
+        if (AppState.currentTool === 'docscan') {
+            const imgFiles = AppState.files.filter(f => f.type.startsWith('image/'));
+            if (imgFiles.length > 0) setTimeout(() => DocScanUtils.showPreview(imgFiles[0]), 150);
+        }
         
         // Show success message with file count and size
         if (validFiles.length > 0) {
@@ -1732,8 +1738,10 @@ const DocScanUtils = {
         const canvas = document.getElementById('docScanCanvas');
         if (!previewDiv || !canvas) return;
         try {
+            // Show the div first so clientWidth reflects the real layout width
+            previewDiv.style.display = 'block';
             const img = await this._loadImage(file);
-            const maxW = (canvas.parentElement?.clientWidth || 500) - 16;
+            const maxW = Math.max(200, (canvas.parentElement?.clientWidth || 600) - 16);
             const ratio = img.naturalWidth / img.naturalHeight;
             canvas.width  = Math.min(maxW, img.naturalWidth);
             canvas.height = Math.round(canvas.width / ratio);
@@ -1751,7 +1759,6 @@ const DocScanUtils = {
             this._drawCornerOverlay(ctx, this._previewState.corners);
 
             this._attachDragListeners(canvas);
-            previewDiv.style.display = 'block';
         } catch (e) {
             console.warn('[DocScan] Preview failed:', e);
         }
