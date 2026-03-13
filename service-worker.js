@@ -18,7 +18,10 @@ const LOCAL_ASSETS = [
     './app.js',
     './styles.css',
     './manifest.json',  // PWA manifest - required for offline install
-    './favicon.ico'
+    './favicon.ico',
+    './favicon-32.png',
+    './icon-192.png',
+    './icon-512.png'
 ];
 
 // CDN libraries - cached at runtime or best-effort during install
