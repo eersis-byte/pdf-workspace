@@ -1759,6 +1759,20 @@ const DocScanUtils = {
             this._drawCornerOverlay(ctx, this._previewState.corners);
 
             this._attachDragListeners(canvas);
+
+            // Wire reset button (safe to call multiple times — addEventListener is idempotent
+            // only when the same function reference is used, so we use the dataset guard)
+            const resetBtn = document.getElementById('docScanResetBtn');
+            if (resetBtn && !resetBtn.dataset.wired) {
+                resetBtn.dataset.wired = '1';
+                resetBtn.addEventListener('click', () => {
+                    const c = document.getElementById('docScanCanvas');
+                    if (c && this._previewState.img) this._resetToAutoDetect(c);
+                });
+            }
+
+            // Show initial warp preview
+            this._updateWarpPreview(canvas);
         } catch (e) {
             console.warn('[DocScan] Preview failed:', e);
         }
@@ -1785,6 +1799,7 @@ const DocScanUtils = {
         canvas.style.cursor = 'default';
 
         const HIT = 18; // px hit radius for corners
+        const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
         const getIdx = (cx, cy) => {
             const corners = this._previewState.corners;
@@ -1796,6 +1811,24 @@ const DocScanUtils = {
             });
             return best;
         };
+
+        const endDrag = () => {
+            if (this._previewState.dragging !== null) {
+                this._previewState.dragging = null;
+                canvas.style.cursor = 'default';
+                if (document.contains(canvas)) this._updateWarpPreview(canvas);
+            }
+        };
+
+        // Document-level mouseup so drag ends even when released outside canvas
+        const onDocMouseUp = () => {
+            if (!document.contains(canvas)) {
+                document.removeEventListener('mouseup', onDocMouseUp);
+                return;
+            }
+            endDrag();
+        };
+        document.addEventListener('mouseup', onDocMouseUp);
 
         // Mouse
         canvas.addEventListener('mousedown', e => {
@@ -1810,14 +1843,20 @@ const DocScanUtils = {
         canvas.addEventListener('mousemove', e => {
             const {x, y} = this._getCanvasPos(canvas, e);
             if (this._previewState.dragging !== null) {
-                this._previewState.corners[this._previewState.dragging] = {x, y};
+                // Clamp to canvas bounds so corners stay inside the image
+                this._previewState.corners[this._previewState.dragging] = {
+                    x: clamp(x, 0, canvas.width  - 1),
+                    y: clamp(y, 0, canvas.height - 1),
+                };
                 this._redrawPreview(canvas);
             } else {
                 canvas.style.cursor = getIdx(x, y) !== null ? 'grab' : 'default';
             }
         });
-        canvas.addEventListener('mouseup',    () => { this._previewState.dragging = null; canvas.style.cursor = 'default'; });
-        canvas.addEventListener('mouseleave', () => { this._previewState.dragging = null; });
+        canvas.addEventListener('mouseleave', () => {
+            // Don't end drag on leave — document mouseup handler covers that
+            canvas.style.cursor = 'default';
+        });
 
         // Touch
         canvas.addEventListener('touchstart', e => {
@@ -1833,11 +1872,57 @@ const DocScanUtils = {
             if (this._previewState.dragging === null) return;
             const t = e.touches[0];
             const {x, y} = this._getCanvasPos(canvas, t);
-            this._previewState.corners[this._previewState.dragging] = {x, y};
+            this._previewState.corners[this._previewState.dragging] = {
+                x: clamp(x, 0, canvas.width  - 1),
+                y: clamp(y, 0, canvas.height - 1),
+            };
             this._redrawPreview(canvas);
             e.preventDefault();
         }, {passive: false});
-        canvas.addEventListener('touchend', () => { this._previewState.dragging = null; });
+        canvas.addEventListener('touchend', endDrag);
+    },
+
+    // Run a fast low-res warp and display it in #docScanWarpPreview
+    _updateWarpPreview(previewCanvas) {
+        const warpCanvas = document.getElementById('docScanWarpPreview');
+        const warpWrap   = document.getElementById('docScanWarpWrap');
+        if (!warpCanvas || !warpWrap) return;
+        const {img, corners, canvasW, canvasH} = this._previewState;
+        if (!img || !corners) return;
+
+        // Build a small source canvas (max 350px) for speed
+        const maxDim = 350;
+        const srcScale = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight));
+        const sW = Math.round(img.naturalWidth  * srcScale);
+        const sH = Math.round(img.naturalHeight * srcScale);
+        const srcCanvas = document.createElement('canvas');
+        srcCanvas.width = sW; srcCanvas.height = sH;
+        srcCanvas.getContext('2d').drawImage(img, 0, 0, sW, sH);
+
+        // Scale preview-canvas corners down to the small source canvas
+        const cx = sW / canvasW, cy = sH / canvasH;
+        const scaledCorners = corners.map(p => ({x: p.x * cx, y: p.y * cy}));
+
+        const warped = this._perspectiveWarp(srcCanvas, scaledCorners, maxDim);
+        warpCanvas.width  = warped.width;
+        warpCanvas.height = warped.height;
+        warpCanvas.getContext('2d').drawImage(warped, 0, 0);
+        warpWrap.style.display = 'block';
+    },
+
+    // Re-run auto corner detection and reset draggable corners
+    _resetToAutoDetect(canvas) {
+        const {img, canvasW, canvasH} = this._previewState;
+        if (!img) return;
+        // Redraw clean image so detectCorners sees pixels, not the overlay
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvasW, canvasH);
+        const detected = this.detectCorners(canvas);
+        this._previewState.corners = detected || this._defaultCorners(canvasW, canvasH);
+        // Redraw with fresh overlay
+        ctx.drawImage(img, 0, 0, canvasW, canvasH);
+        this._drawCornerOverlay(ctx, this._previewState.corners);
+        this._updateWarpPreview(canvas);
     },
 
     // Convert a mouse/touch event to canvas-local coordinates
@@ -1895,17 +1980,20 @@ const DocScanUtils = {
 
         // Prefer user-adjusted corners from the preview (scaled to source resolution)
         let corners = null;
+        let cornersFromUser = false;
         const ps = this._previewState;
         if (ps.sourceFile === file && ps.corners && ps.canvasW > 0) {
             const sx = srcW / ps.canvasW, sy = srcH / ps.canvasH;
             corners = ps.corners.map(pt => ({x: pt.x * sx, y: pt.y * sy}));
+            cornersFromUser = true;
             console.log('[DocScan] Using user-adjusted corners');
         } else {
             corners = this.detectCorners(srcCanvas);
         }
 
         let result;
-        if (corners && this._isValidQuad(corners, srcW, srcH)) {
+        // Always trust user-placed corners; only validate auto-detected ones
+        if (corners && (cornersFromUser || this._isValidQuad(corners, srcW, srcH))) {
             result = this._perspectiveWarp(srcCanvas, corners, maxOutputDim);
         } else {
             console.log('[DocScan] No valid document quad found – using full image');
@@ -10836,13 +10924,23 @@ const Tools = {
             </div>
 
             <div id="docScanPreview" style="display: none; margin-top: 16px;">
-                <label class="form-label">Detected Document Area</label>
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+                    <label class="form-label" style="margin:0;">Detected Document Area</label>
+                    <button id="docScanResetBtn" class="btn btn-secondary"
+                            style="padding:4px 10px; font-size:12px;" title="Re-run automatic corner detection">
+                        ↺ Reset corners
+                    </button>
+                </div>
                 <canvas id="docScanCanvas" style="max-width:100%; border:1px solid var(--color-border); border-radius:8px; display:block;"></canvas>
                 <p style="font-size:12px; color:var(--color-text-muted); margin-top:6px;">
                     Green outline = detected document region.
-                    <strong>Drag any corner dot to correct it.</strong>
-                    The adjusted corners will be used when you click Process.
+                    <strong>Drag any corner dot to adjust it.</strong>
+                    Use ↺ Reset to re-run auto detection.
                 </p>
+                <div id="docScanWarpWrap" style="display:none; margin-top:14px;">
+                    <label class="form-label">Straightened preview</label>
+                    <canvas id="docScanWarpPreview" style="max-width:100%; border:1px solid var(--color-border); border-radius:8px; display:block;"></canvas>
+                </div>
             </div>
         `,
 
@@ -10850,6 +10948,15 @@ const Tools = {
             const imageFiles = AppState.files.filter(f => f.type.startsWith('image/'));
             if (imageFiles.length > 0) {
                 DocScanUtils.showPreview(imageFiles[0]);
+            }
+            const resetBtn = document.getElementById('docScanResetBtn');
+            if (resetBtn) {
+                resetBtn.addEventListener('click', () => {
+                    const canvas = document.getElementById('docScanCanvas');
+                    if (canvas && DocScanUtils._previewState.img) {
+                        DocScanUtils._resetToAutoDetect(canvas);
+                    }
+                });
             }
         },
 
@@ -10877,7 +10984,12 @@ const Tools = {
                     const processedCanvas = await DocScanUtils.processImage(file, enhancement);
 
                     // Encode to JPEG for pdf-lib embedding
-                    const blob = await new Promise(res => processedCanvas.toBlob(res, 'image/jpeg', 0.92));
+                    const blob = await new Promise((res, rej) =>
+                        processedCanvas.toBlob(
+                            b => b ? res(b) : rej(new Error('Canvas export failed — image may be corrupted or cross-origin')),
+                            'image/jpeg', 0.92
+                        )
+                    );
                     const arrayBuffer = await blob.arrayBuffer();
                     const embeddedImg = await pdfDoc.embedJpg(arrayBuffer);
 
