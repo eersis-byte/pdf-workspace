@@ -93,6 +93,47 @@ const Utils = {
         setTimeout(() => statusEl.classList.remove('active'), duration);
     },
     
+    // Centralised error handler — friendly messages + console logging
+    handleError(toolName, error, fallback) {
+        const raw = error?.message || fallback || 'An unexpected error occurred.';
+        let msg;
+        if (raw.includes('encrypt') || raw.includes('password')) msg = `${toolName}: PDF is password-protected — use the Unlock tool first.`;
+        else if (raw.includes('network') || raw.includes('fetch') || raw.includes('Failed to fetch')) msg = `${toolName}: Network error — check your connection and try again.`;
+        else if (raw.includes('memory') || raw.includes('out of memory')) msg = `${toolName}: File too large to process in-browser.`;
+        else if (raw.includes('Invalid PDF') || raw.includes('not a PDF')) msg = `${toolName}: File does not appear to be a valid PDF.`;
+        else msg = `${toolName}: ${raw}`;
+        this.showStatus(msg, 'error');
+        console.error(`[${toolName}]`, error);
+    },
+
+    // Wire live validation feedback to a page-range text input.
+    // totalPagesGetter: () => number (or 0 if unknown)
+    wirePageRangeValidation(inputEl, totalPagesGetter) {
+        if (!inputEl) return;
+        let hint = inputEl.nextElementSibling;
+        if (!hint || !hint.classList.contains('page-range-hint')) {
+            hint = document.createElement('p');
+            hint.className = 'page-range-hint';
+            hint.style.cssText = 'font-size:11px;margin-top:3px;min-height:16px;transition:color 0.15s;';
+            inputEl.insertAdjacentElement('afterend', hint);
+        }
+        const validate = () => {
+            const val = inputEl.value.trim();
+            if (!val) { hint.textContent = ''; return; }
+            const total = totalPagesGetter?.() || 0;
+            if (!total) { hint.textContent = ''; return; }
+            const pages = Utils.parsePageRanges(val, total);
+            if (pages.length > 0) {
+                hint.style.color = 'var(--color-success, #28a745)';
+                hint.textContent = `✓ ${pages.length} page${pages.length > 1 ? 's' : ''} selected (of ${total})`;
+            } else {
+                hint.style.color = 'var(--color-danger, #dc3545)';
+                hint.textContent = '✗ No valid pages — use format: 1-3, 5, 7-10';
+            }
+        };
+        inputEl.addEventListener('input', validate);
+    },
+
     updateProgress(percent, text) {
         const container = document.getElementById('progressContainer');
         const bar = document.getElementById('progressBar');
@@ -207,20 +248,22 @@ const Utils = {
     },
     
     // STRATEGIC ENHANCEMENT: ZIP bundling for batch downloads
-    async createZipBundle(files, zipName = 'output.zip') {
+    // folderName: optional subfolder name inside the ZIP (e.g. 'pages' → pages/file.pdf)
+    async createZipBundle(files, zipName = 'output.zip', folderName = null) {
         const zip = new JSZip();
-        
+        const target = folderName ? zip.folder(folderName) : zip;
+
         files.forEach((fileData, index) => {
             const filename = fileData.name || `file_${index + 1}.pdf`;
-            zip.file(filename, fileData.blob || fileData.data);
+            target.file(filename, fileData.blob || fileData.data);
         });
-        
-        const zipBlob = await zip.generateAsync({ 
+
+        const zipBlob = await zip.generateAsync({
             type: 'blob',
             compression: 'DEFLATE',
             compressionOptions: { level: 6 }
         });
-        
+
         saveAs(zipBlob, zipName);
         return zipBlob;
     },
@@ -234,7 +277,7 @@ const Utils = {
             // Check if it's an encryption error
             if (error.message && error.message.includes('encrypted')) {
                 // Ask user if they want to continue
-                const proceed = confirm(
+                const proceed = await Modal.confirm(
                     `🔒 Encrypted PDF Detected: "${fileName}"\n\n` +
                     `This PDF is password-protected or encrypted.\n\n` +
                     `⚠️ Warning: Processing encrypted PDFs may:\n` +
@@ -420,9 +463,102 @@ const ToolSettings = {
         }
         keys.forEach(key => localStorage.removeItem(key));
         console.log(`[ToolSettings] Cleared all (${keys.length} tools)`);
+    },
+
+    // Restore previously-saved input values into the active tool's DOM
+    autoRestore(toolId) {
+        const saved = this.load(toolId);
+        if (!saved) return;
+        Object.entries(saved).forEach(([id, value]) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            if (el.type === 'checkbox' || el.type === 'radio') {
+                el.checked = !!value;
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+            } else if (el.tagName === 'SELECT' || el.type === 'range' || el.type === 'text' || el.type === 'number' || el.tagName === 'TEXTAREA') {
+                el.value = value;
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        });
+    },
+
+    // Scrape all named inputs in #toolContent and save them
+    _scrapeAndSave(toolId) {
+        const container = document.getElementById('toolContent');
+        if (!container) return;
+        const settings = {};
+        container.querySelectorAll('input[id], select[id], textarea[id]').forEach(el => {
+            if (!el.id || el.type === 'file' || el.type === 'button' || el.type === 'submit') return;
+            settings[el.id] = (el.type === 'checkbox' || el.type === 'radio') ? el.checked : el.value;
+        });
+        this.save(toolId, settings);
+    },
+
+    // Wire input/change events so settings are saved automatically after 500 ms idle
+    wireAutoSave(toolId) {
+        const container = document.getElementById('toolContent');
+        if (!container) return;
+        let timer;
+        const save = () => { clearTimeout(timer); timer = setTimeout(() => this._scrapeAndSave(toolId), 500); };
+        container.querySelectorAll('input[id], select[id], textarea[id]').forEach(el => {
+            if (el.type === 'file' || el.type === 'button' || el.type === 'submit') return;
+            el.addEventListener('input', save);
+            el.addEventListener('change', save);
+        });
     }
 };
 
+// ─── Accessible confirmation modal (replaces browser confirm()) ───────────────
+const Modal = {
+    _el: null,
+    _resolve: null,
+
+    _build() {
+        const wrap = document.createElement('div');
+        wrap.id = 'confirmModalWrap';
+        wrap.setAttribute('role', 'dialog');
+        wrap.setAttribute('aria-modal', 'true');
+        wrap.setAttribute('aria-labelledby', 'confirmModalMsg');
+        wrap.innerHTML = `
+            <div id="confirmBackdrop" style="position:fixed;inset:0;background:rgba(0,0,0,0.55);
+                z-index:9500;display:flex;align-items:center;justify-content:center;">
+                <div style="background:var(--color-surface);border-radius:var(--radius-lg);
+                    padding:24px 28px;max-width:420px;width:90%;
+                    box-shadow:0 8px 40px rgba(0,0,0,0.3);border:1px solid var(--color-border);">
+                    <p id="confirmModalMsg" style="font-size:15px;color:var(--color-text);
+                        line-height:1.6;margin-bottom:22px;white-space:pre-wrap;"></p>
+                    <div style="display:flex;gap:10px;justify-content:flex-end;">
+                        <button id="confirmCancelBtn" class="btn btn-secondary">Cancel</button>
+                        <button id="confirmOkBtn" class="btn btn-primary">OK</button>
+                    </div>
+                </div>
+            </div>`;
+        document.body.appendChild(wrap);
+        this._el = wrap;
+        document.getElementById('confirmOkBtn').addEventListener('click', () => this._close(true));
+        document.getElementById('confirmCancelBtn').addEventListener('click', () => this._close(false));
+        document.getElementById('confirmBackdrop').addEventListener('click', e => {
+            if (e.target.id === 'confirmBackdrop') this._close(false);
+        });
+        document.addEventListener('keydown', e => {
+            if (this._el?.style.display !== 'none' && this._el?.style.display !== '' && e.key === 'Escape') this._close(false);
+        });
+    },
+
+    _close(result) {
+        if (this._el) this._el.style.display = 'none';
+        if (this._resolve) { this._resolve(result); this._resolve = null; }
+    },
+
+    confirm(message) {
+        if (!this._el) this._build();
+        document.getElementById('confirmModalMsg').textContent = message;
+        this._el.style.display = 'block';
+        // Focus the OK button for keyboard users
+        setTimeout(() => document.getElementById('confirmOkBtn')?.focus(), 50);
+        return new Promise(resolve => { this._resolve = resolve; });
+    }
+};
 
 // PDF Preview Component - NEW FEATURE #1
 const PDFPreview = {
@@ -452,7 +588,7 @@ const PDFPreview = {
                         <h3>📄 PDF Preview</h3>
                         <div class="pdf-preview-controls">
                             <button id="prevPage" class="btn-preview">◀ Previous</button>
-                            <span id="pageInfo">Page 1 of 1</span>
+                            <span id="pageInfo" aria-live="polite" aria-atomic="true">Page 1 of 1</span>
                             <button id="nextPage" class="btn-preview">Next ▶</button>
                             <select id="fileSelector" class="form-select" style="max-width: 200px; margin-left: 10px;">
                                 <option>Select file to preview...</option>
@@ -839,115 +975,109 @@ const PDFPreview = {
     
     async renderThumbnails() {
         if (!this.currentPdf) return;
-        
         const container = document.getElementById('thumbnailContainer');
         if (!container) return;
-        
-        container.innerHTML = '<div style="padding: 10px; text-align: center; color: var(--color-text-muted);">Loading thumbnails...</div>';
-        
-        try {
-            // FIX: Render thumbnails in batches to prevent freezing on large PDFs
-            const BATCH_SIZE = 5; // Render 5 thumbnails at a time
-            const thumbnails = [];
-            
-            container.innerHTML = ''; // Clear loading message
-            
-            for (let pageNum = 1; pageNum <= this.totalPages; pageNum++) {
-                const thumbnail = await this.renderThumbnail(pageNum);
-                thumbnails.push(thumbnail);
-                container.appendChild(thumbnail);
-                
-                // Yield to browser every BATCH_SIZE pages
-                if (pageNum % BATCH_SIZE === 0) {
-                    await new Promise(resolve => setTimeout(resolve, 0));
-                }
-            }
-            
-            this.updateThumbnailSelection();
-        } catch (error) {
-            console.error('[PDFPreview] Error rendering thumbnails:', error);
-            container.innerHTML = '<div style="padding: 10px; text-align: center; color: var(--color-danger);">Error loading thumbnails. Please try again.</div>';
-            Utils.showStatus('Failed to load thumbnails', 'error');
+
+        // Disconnect any previous observer to avoid stale callbacks
+        if (this._thumbObserver) { this._thumbObserver.disconnect(); this._thumbObserver = null; }
+
+        container.innerHTML = '';
+
+        // 1. Immediately create lightweight placeholder wrappers for every page.
+        //    This gives the sidebar correct scroll height from the start.
+        for (let pageNum = 1; pageNum <= this.totalPages; pageNum++) {
+            const wrapper = this._makeThumbnailPlaceholder(pageNum);
+            container.appendChild(wrapper);
         }
+
+        this.updateThumbnailSelection();
+
+        // 2. Use IntersectionObserver to render the canvas only when each
+        //    placeholder scrolls into view (plus 120 px lookahead).
+        const renderCanvas = async (wrapper) => {
+            if (wrapper.dataset.rendered) return;
+            wrapper.dataset.rendered = '1';
+            const pageNum = parseInt(wrapper.dataset.page, 10);
+            try {
+                await this._renderThumbnailCanvas(pageNum, wrapper);
+            } catch (e) {
+                console.warn(`[PDFPreview] Thumbnail render failed for page ${pageNum}:`, e);
+            }
+        };
+
+        this._thumbObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => { if (entry.isIntersecting) renderCanvas(entry.target); });
+        }, { root: container, rootMargin: '0px 0px 120px 0px', threshold: 0 });
+
+        container.querySelectorAll('.thumbnail-item').forEach(w => this._thumbObserver.observe(w));
     },
-    
-    async renderThumbnail(pageNum) {
-        const page = await this.currentPdf.getPage(pageNum);
-        const scale = 0.2; // Small thumbnail
-        const viewport = page.getViewport({ scale });
-        
-        const canvas = document.createElement('canvas');
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        const ctx = canvas.getContext('2d');
-        
-        await page.render({
-            canvasContext: ctx,
-            viewport: viewport
-        }).promise;
-        
-        // Create thumbnail wrapper
+
+    // Create a placeholder div with full interactivity but no canvas yet
+    _makeThumbnailPlaceholder(pageNum) {
         const wrapper = document.createElement('div');
         wrapper.className = 'thumbnail-item';
         wrapper.dataset.page = pageNum;
         wrapper.dataset.originalIndex = pageNum;
-        
-        // ENHANCEMENT v7.14: Make keyboard accessible
         wrapper.tabIndex = 0;
         wrapper.setAttribute('role', 'button');
         wrapper.setAttribute('aria-label', `Page ${pageNum} thumbnail. Click to view, use arrow keys to reorder.`);
-        
-        // Make draggable
         wrapper.draggable = true;
-        
-        // Add page number label
+
+        // Placeholder canvas-sized box so layout doesn't jump when real canvas loads
+        const placeholder = document.createElement('div');
+        placeholder.className = 'thumbnail-placeholder';
+        placeholder.style.cssText = 'width:100%;aspect-ratio:0.77;background:var(--color-bg);border-radius:4px;display:flex;align-items:center;justify-content:center;';
+        placeholder.innerHTML = `<span style="font-size:11px;color:var(--color-text-muted);">${pageNum}</span>`;
+
         const label = document.createElement('div');
         label.className = 'thumbnail-label';
         label.textContent = pageNum;
-        
-        // Add drag handle indicator
+
         const dragHandle = document.createElement('div');
         dragHandle.className = 'thumbnail-drag-handle';
         dragHandle.innerHTML = '⋮⋮';
         dragHandle.title = 'Drag to reorder or use arrow keys';
-        
-        // Add canvas
-        wrapper.appendChild(canvas);
+
+        wrapper.appendChild(placeholder);
         wrapper.appendChild(label);
         wrapper.appendChild(dragHandle);
-        
-        // Click to navigate
+
         wrapper.addEventListener('click', (e) => {
             if (e.target.classList.contains('thumbnail-drag-handle')) return;
-            
             this.currentPage = pageNum;
             this.renderPage(pageNum);
             this.updatePageInfo();
             this.updateThumbnailSelection();
         });
-        
-        // ENHANCEMENT v7.14: Keyboard reordering
         wrapper.addEventListener('keydown', (e) => {
-            if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                this.moveThumbnailUp(wrapper);
-            } else if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                this.moveThumbnailDown(wrapper);
-            } else if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                wrapper.click();
-            }
+            if (e.key === 'ArrowUp') { e.preventDefault(); this.moveThumbnailUp(wrapper); }
+            else if (e.key === 'ArrowDown') { e.preventDefault(); this.moveThumbnailDown(wrapper); }
+            else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); wrapper.click(); }
         });
-        
-        // Drag & Drop handlers
+
+        // Drag-to-reorder
         wrapper.addEventListener('dragstart', (e) => this.handleDragStart(e, wrapper));
-        wrapper.addEventListener('dragover', (e) => this.handleDragOver(e, wrapper));
-        wrapper.addEventListener('drop', (e) => this.handleDrop(e, wrapper));
-        wrapper.addEventListener('dragend', (e) => this.handleDragEnd(e));
+        wrapper.addEventListener('dragover',  (e) => this.handleDragOver(e, wrapper));
+        wrapper.addEventListener('drop',      (e) => this.handleDrop(e, wrapper));
+        wrapper.addEventListener('dragend',   (e) => this.handleDragEnd(e));
         wrapper.addEventListener('dragleave', (e) => this.handleDragLeave(e, wrapper));
-        
         return wrapper;
+    },
+
+    // Actually render the PDF page into a canvas inside the wrapper
+    async _renderThumbnailCanvas(pageNum, wrapper) {
+        const page = await this.currentPdf.getPage(pageNum);
+        const scale = 0.2;
+        const viewport = page.getViewport({ scale });
+        const canvas = document.createElement('canvas');
+        canvas.width  = viewport.width;
+        canvas.height = viewport.height;
+        await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+
+        // Swap placeholder → real canvas
+        const placeholder = wrapper.querySelector('.thumbnail-placeholder');
+        if (placeholder) wrapper.replaceChild(canvas, placeholder);
+        else wrapper.insertBefore(canvas, wrapper.firstChild);
     },
     
     // ENHANCEMENT v7.14: Move thumbnail up with keyboard
@@ -1526,9 +1656,31 @@ const FileManager = {
         }
     },
     
+    _updateFileBadge() {
+        const n = AppState.files.length;
+        let badge = document.getElementById('globalFileBadge');
+        if (!badge) {
+            const dropArea = document.getElementById('dropArea');
+            if (!dropArea) return;
+            badge = document.createElement('span');
+            badge.id = 'globalFileBadge';
+            badge.style.cssText = 'position:absolute;top:8px;right:10px;background:var(--color-primary);color:#fff;' +
+                'border-radius:12px;padding:2px 9px;font-size:12px;font-weight:700;pointer-events:none;transition:opacity 0.2s;';
+            dropArea.style.position = 'relative';
+            dropArea.appendChild(badge);
+        }
+        if (n > 0) {
+            badge.textContent = `${n} file${n > 1 ? 's' : ''} ready`;
+            badge.style.opacity = '1';
+        } else {
+            badge.style.opacity = '0';
+        }
+    },
+
     renderFileList() {
         const container = document.getElementById('fileList');
-        
+        this._updateFileBadge();
+
         if (AppState.files.length === 0) {
             container.innerHTML = '';
             return;
@@ -2450,7 +2602,7 @@ const Tools = {
             }
             
             if (deleteBtn) {
-                deleteBtn.onclick = () => {
+                deleteBtn.onclick = async () => {
                     const select = document.getElementById('workflowTemplateSelect');
                     const idx = parseInt(select?.value);
                     if (isNaN(idx) || !this.savedWorkflows[idx]) {
@@ -2458,7 +2610,7 @@ const Tools = {
                         return;
                     }
                     const name = this.savedWorkflows[idx].name;
-                    if (!confirm(`Delete workflow "${name}"?`)) return;
+                    if (!await Modal.confirm(`Delete workflow "${name}"?`)) return;
                     this.savedWorkflows.splice(idx, 1);
                     this.saveToStorage();
                     this.updateTemplateList();
@@ -2553,7 +2705,7 @@ const Tools = {
                     completedSteps++;
                 } catch (error) {
                     console.error(`[Workflow] Error in step ${i + 1}:`, error);
-                    const shouldContinue = confirm(
+                    const shouldContinue = await Modal.confirm(
                         `Error in step ${i + 1} (${this.currentWorkflow[i].tool}):\n\n${error.message}\n\nContinue with remaining steps?`
                     );
                     if (!shouldContinue) {
@@ -3917,8 +4069,8 @@ const Tools = {
             }
         },
         
-        resetCurrentPage() {
-            if (!confirm('Reset all edits on this page?')) return;
+        async resetCurrentPage() {
+            if (!await Modal.confirm('Reset all edits on this page?')) return;
             
             // Remove edits for current page
             const keysToRemove = [];
@@ -3955,7 +4107,7 @@ const Tools = {
                 return;
             }
             
-            if (!confirm(`Save ${this.editedItems.size} edit(s) to a new PDF?`)) return;
+            if (!await Modal.confirm(`Save ${this.editedItems.size} edit(s) to a new PDF?`)) return;
             
             try {
                 Utils.updateProgress(0, 'Preparing PDF...');
@@ -4244,7 +4396,7 @@ const Tools = {
             </div>
             <div class="form-group">
                 <label class="form-label">Pages to <span id="extractModeLabel">Extract</span></label>
-                <input type="text" class="form-input" id="extractPages" placeholder="e.g., 1-3, 5, 7-10">
+                <input type="text" class="form-input" id="extractPages" placeholder="e.g., 1-3, 5, 7-10" data-page-range>
                 <p style="font-size: 12px; color: var(--color-text-muted); margin-top: 4px;">
                     Use page numbers or ranges (1-based indexing)
                 </p>
@@ -4336,7 +4488,7 @@ const Tools = {
             </div>
             <div class="form-group">
                 <label class="form-label">Pages to Rotate (leave empty for all)</label>
-                <input type="text" class="form-input" id="rotatePages" placeholder="e.g., 1-3, 5, 7">
+                <input type="text" class="form-input" id="rotatePages" placeholder="e.g., 1-3, 5, 7" data-page-range>
             </div>
         `,
         
@@ -5690,7 +5842,7 @@ const Tools = {
                 </div>
                 <div class="form-group" id="pageRangeGroup" style="display: none;">
                     <label class="form-label">Page Range</label>
-                    <input type="text" class="form-input" id="signaturePageRange" placeholder="e.g., 2-4,7,10-12">
+                    <input type="text" class="form-input" id="signaturePageRange" placeholder="e.g., 2-4,7,10-12" data-page-range>
                 </div>
             </div>
         `,
@@ -6095,7 +6247,8 @@ const Tools = {
         _lineWidth: 3,
         _fontSize: 18,
         _fontFamily: 'Arial',
-        _annotations: [],   // { type, data } - for undo
+        _annotations: [],   // ImageData stack — each entry is a committed state
+        _redoStack:   [],   // ImageData stack for redo
         _drawing: false,
         _startX: 0, _startY: 0,
         _snapshot: null,   // ImageData for live shape preview
@@ -6162,8 +6315,9 @@ const Tools = {
             </div>
 
             <!-- Actions -->
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px;">
-                <button type="button" class="btn btn-secondary" onclick="Tools.annotate.undo()">↶ Undo</button>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:4px;">
+                <button type="button" class="btn btn-secondary" onclick="Tools.annotate.undo()" title="Undo (Ctrl+Z)">↶ Undo</button>
+                <button type="button" class="btn btn-secondary" onclick="Tools.annotate.redo()" title="Redo (Ctrl+Y)">↷ Redo</button>
                 <button type="button" class="btn btn-secondary" onclick="Tools.annotate.clearAll()">🗑️ Clear All</button>
             </div>
 
@@ -6287,6 +6441,7 @@ const Tools = {
             this._ctx.globalAlpha = 1;
             this._ctx.globalCompositeOperation = 'source-over';
             this._annotations.push(this._ctx.getImageData(0, 0, this._canvas.width, this._canvas.height));
+            this._redoStack = []; // new stroke invalidates redo history
         },
 
         _drawShape(type, x1, y1, x2, y2) {
@@ -6329,10 +6484,13 @@ const Tools = {
             ctx.globalCompositeOperation = 'source-over';
             ctx.fillText(text, pos.x, pos.y);
             this._annotations.push(ctx.getImageData(0, 0, this._canvas.width, this._canvas.height));
+            this._redoStack = [];
         },
 
         undo() {
-            this._annotations.pop();
+            if (!this._canvas) return;
+            const popped = this._annotations.pop();
+            if (popped) this._redoStack.push(popped);
             if (this._annotations.length > 0) {
                 this._ctx.putImageData(this._annotations[this._annotations.length - 1], 0, 0);
             } else {
@@ -6340,10 +6498,18 @@ const Tools = {
             }
         },
 
-        clearAll() {
-            if (!confirm('Clear all annotations?')) return;
+        redo() {
+            if (!this._canvas || !this._redoStack.length) return;
+            const state = this._redoStack.pop();
+            this._annotations.push(state);
+            this._ctx.putImageData(state, 0, 0);
+        },
+
+        async clearAll() {
+            if (!await Modal.confirm('Clear all annotations?')) return;
             this._ctx.clearRect(0, 0, this._canvas.width, this._canvas.height);
             this._annotations = [];
+            this._redoStack   = [];
         },
 
         init() {
@@ -6363,11 +6529,22 @@ const Tools = {
                 await origRender(pageNum);
                 this._attachCanvas();
             };
+
+            // Global Ctrl+Z / Ctrl+Y keyboard shortcuts for undo/redo
+            if (this._kbHandler) document.removeEventListener('keydown', this._kbHandler);
+            this._kbHandler = (e) => {
+                if (AppState.currentTool !== 'annotate') return;
+                if (!(e.ctrlKey || e.metaKey)) return;
+                if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); this.undo(); }
+                else if (e.key === 'y' || (e.key === 'z' && e.shiftKey)) { e.preventDefault(); this.redo(); }
+            };
+            document.addEventListener('keydown', this._kbHandler);
         },
 
         cleanup() {
             const old = document.getElementById('annoOverlayCanvas');
             if (old) old.remove();
+            if (this._kbHandler) { document.removeEventListener('keydown', this._kbHandler); this._kbHandler = null; }
         },
 
         async process(files) {
@@ -6775,8 +6952,8 @@ const Tools = {
             this._render();
         },
 
-        clearAll() {
-            if (!confirm('Remove all added elements?')) return;
+        async clearAll() {
+            if (!await Modal.confirm('Remove all added elements?')) return;
             this._saveHistory();
             this._elements = [];
             this._selected = -1;
@@ -7612,7 +7789,7 @@ const Tools = {
                 // Individual download mode
                 // CRITICAL FIX BUG #10: Warn about browser download blocking
                 if (totalRows > 2) {
-                    const proceed = confirm(
+                    const proceed = await Modal.confirm(
                         `You are about to download ${totalRows} files individually.\n\n` +
                         `⚠️ Your browser may block some downloads.\n` +
                         `Please allow pop-ups/downloads if prompted.\n\n` +
@@ -9521,7 +9698,7 @@ const Tools = {
                 return;
             }
             
-            if (!confirm('Clear all metadata from this PDF? This will download a new file with metadata removed.')) {
+            if (!await Modal.confirm('Clear all metadata from this PDF? This will download a new file with metadata removed.')) {
                 return;
             }
             
@@ -10874,16 +11051,21 @@ const Tools = {
                 const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
                 const pdf = await loadingTask.promise;
                 
-                // Create OCR worker
+                // Reuse cached worker if same language; avoids re-downloading ~20 MB model
                 Utils.updateProgress(20, 'Starting OCR engine...');
-                worker = await Tesseract.createWorker(language, 1, {
-                    logger: m => {
-                        if (m.status === 'recognizing text') {
-                            const progress = Math.round(m.progress * 100);
-                            console.log(`[OCR] Page progress: ${progress}%`);
+                if (!Tools.ocr._worker || Tools.ocr._workerLang !== language) {
+                    if (Tools.ocr._worker) { await Tools.ocr._worker.terminate(); Tools.ocr._worker = null; }
+                    Tools.ocr._worker = await Tesseract.createWorker(language, 1, {
+                        logger: m => {
+                            if (m.status === 'recognizing text') {
+                                const progress = Math.round(m.progress * 100);
+                                console.log(`[OCR] Page progress: ${progress}%`);
+                            }
                         }
-                    }
-                });
+                    });
+                    Tools.ocr._workerLang = language;
+                }
+                worker = Tools.ocr._worker;
                 
                 // Process each page
                 const ocrResults = [];
@@ -10992,15 +11174,9 @@ const Tools = {
                 console.error('[OCR] Error:', error);
                 Utils.showStatus('OCR failed: ' + error.message, 'error');
             } finally {
-                // CRITICAL FIX: Always terminate worker to prevent memory leak
-                if (worker) {
-                    try {
-                        await worker.terminate();
-                        console.log('[OCR] Worker terminated successfully');
-                    } catch (e) {
-                        console.warn('[OCR] Failed to terminate worker:', e);
-                    }
-                }
+                // Worker is kept alive in Tools.ocr._worker for reuse on the next run.
+                // It will be terminated if the language changes or the page unloads.
+                worker = null;
             }
         }
     },
@@ -11176,8 +11352,7 @@ const Tools = {
 
 // Tool Manager
 const ToolManager = {
-    loadTool(toolId) {
-        console.log(`[ToolManager] Loading tool: ${toolId}`);
+    async loadTool(toolId) {
         
         // CRITICAL FIX BUG #7: Call cleanup on old tool before switching
         const oldToolId = AppState.currentTool;
@@ -11223,10 +11398,30 @@ const ToolManager = {
         
         // Initialize PDF Preview
         PDFPreview.init();
-        
+
+        // Restore saved settings immediately after HTML is in the DOM
+        ToolSettings.autoRestore(toolId);
+
         // Initialize tool-specific functionality
         if (tool.init) {
-            setTimeout(() => tool.init(), 100);
+            setTimeout(() => {
+                tool.init();
+                // Wire auto-save after init has had a chance to set default values
+                setTimeout(() => {
+                    ToolSettings.wireAutoSave(toolId);
+                    // Wire live page-range validation on any input with data-page-range attribute
+                    document.querySelectorAll('input[data-page-range]').forEach(input => {
+                        Utils.wirePageRangeValidation(input, () => PDFPreview.totalPages || 0);
+                    });
+                }, 200);
+            }, 100);
+        } else {
+            setTimeout(() => {
+                ToolSettings.wireAutoSave(toolId);
+                document.querySelectorAll('input[data-page-range]').forEach(input => {
+                    Utils.wirePageRangeValidation(input, () => PDFPreview.totalPages || 0);
+                });
+            }, 150);
         }
         
         // Update active button with aria-pressed for accessibility
@@ -11285,7 +11480,7 @@ const ToolManager = {
         // Enhancement #12: Confirmation before destructive operations
         const destructiveTools = ['redact', 'cleanslate', 'flatten'];
         if (destructiveTools.includes(toolId) && AppState.files.length > 0) {
-            const confirmed = confirm(
+            const confirmed = await Modal.confirm(
                 `⚠️ "${tool.name}" makes irreversible changes to your PDF.\n\n` +
                 `This cannot be undone. Make sure you have a backup of your original file.\n\n` +
                 `Continue?`
