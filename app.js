@@ -10458,7 +10458,7 @@ const Tools = {
                         <div style="font-size: 12px; color: var(--color-text-muted);">
                             ${items.map(item => `
                                 <div style="padding: 4px 0; display: flex; justify-content: space-between; align-items: center;">
-                                    <span>📄 ${item.file.name}</span>
+                                    <span>📄 ${Utils.escapeHtml(item.file.name)}</span>
                                     <span style="background: ${item.confidence > 5 ? '#28a745' : item.confidence > 2 ? '#ffc107' : '#dc3545'}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 10px;">
                                         ${item.confidence > 0 ? 'Confidence: ' + item.confidence : 'Low confidence'}
                                     </span>
@@ -10766,7 +10766,7 @@ const Tools = {
             for (let i = 0; i < pdfFiles.length; i++) {
                 try {
                     const arrayBuffer = await pdfFiles[i].arrayBuffer();
-                    const pdfDoc = await Utils.loadPDFWithEncryptionHandler(arrayBuffer, file.name);
+                    const pdfDoc = await Utils.loadPDFWithEncryptionHandler(arrayBuffer, pdfFiles[i].name);
                     const pageCount = pdfDoc.getPageCount();
                     
                     console.log(`✓ ${pdfFiles[i].name}: Valid (${pageCount} pages)`);
@@ -11905,10 +11905,10 @@ const FavoritesManager = {
         });
     },
     
-    clearAll() {
+    async clearAll() {
         if (this.favorites.size === 0) return;
-        
-        if (confirm('Clear all favorites?')) {
+
+        if (await Modal.confirm('Clear all favorites?')) {
             this.favorites.clear();
             this.saveFavorites();
             this.updateFavoritesList();
@@ -12048,7 +12048,7 @@ const FavoritesManager = {
             if (!resetBtn) return;
             
             resetBtn.addEventListener('click', async () => {
-                if (!confirm('This will clear all offline caches and reload the app. Continue?')) {
+                if (!await Modal.confirm('This will clear all offline caches and reload the app. Continue?')) {
                     return;
                 }
                 
@@ -12081,7 +12081,7 @@ const FavoritesManager = {
                     
                 } catch (error) {
                     console.error('Reset failed:', error);
-                    alert('Reset failed. Please manually refresh the page (Ctrl+Shift+R).');
+                    Utils.showStatus('Reset failed. Please manually refresh the page (Ctrl+Shift+R).', 'error');
                     resetBtn.disabled = false;
                     resetBtn.textContent = '🔄 Reset App';
                 }
