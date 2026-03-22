@@ -10544,14 +10544,14 @@ const Tools = {
             
             <div class="form-group">
                 <label class="form-label">File Naming</label>
-                <select class="form-select" id="invoiceNamingMode">
+                <select class="form-select" id="invoiceNamingMode" onchange="document.getElementById('invoiceNameFieldGroup').style.display=this.value==='student'?'block':'none'">
                     <option value="numbered">invoice_001.pdf, invoice_002.pdf...</option>
                     <option value="original">original_name_001.pdf, original_name_002.pdf...</option>
                     <option value="student">student_name_001.pdf (from PDF text)</option>
                 </select>
             </div>
 
-            <div class="form-group">
+            <div class="form-group" id="invoiceNameFieldGroup" style="display:none">
                 <label class="form-label">Name Field Label (for student naming)</label>
                 <input type="text" class="form-input" id="invoiceNameFieldLabel" placeholder="Student Name" value="Student Name">
                 <p style="font-size: 12px; color: var(--color-text-muted); margin-top: 4px;">
@@ -10641,10 +10641,12 @@ const Tools = {
         
         async splitInvoices(file, keyword, namingMode, nameFieldLabel = 'Student Name') {
             const splitFiles = [];
-            
+
             // Load PDF for text extraction
+            // Use Uint8Array so PDF.js copies rather than transfers the buffer,
+            // allowing the same arrayBuffer to be reused by pdf-lib below.
             const arrayBuffer = await file.arrayBuffer();
-            const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+            const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) });
             const pdf = await loadingTask.promise;
             
             // Find pages with keyword
@@ -10740,7 +10742,6 @@ const Tools = {
             
             const patterns = [
                 new RegExp(`${escapedLabel}\\s*[:\\-]\\s*([A-Za-z][A-Za-z'.,\\-]*(?:\\s+[A-Za-z][A-Za-z'.,\\-]*){0,5})`, 'i'),
-                /student(?:\s+name)?\s*[:\-]\s*([A-Za-z][A-Za-z'.,\-]*(?:\s+[A-Za-z][A-Za-z'.,\-]*){0,5})/i
             ];
             
             for (const pattern of patterns) {
