@@ -10521,11 +10521,12 @@ const Tools = {
         name: 'Invoice Splitter',
         description: 'Split PDFs by detecting invoice patterns',
         icon: '🧾',
+        _pickedRegion: null,  // { nx1, ny1, nx2, ny2 } normalised 0-1, top-left origin
         configHTML: `
             <div class="info-box" style="background: #e7f3ff; border-color: var(--color-primary);">
                 🧾 <strong>Invoice Splitter</strong> - Automatically split multi-invoice PDFs into individual files.
             </div>
-            
+
             <div class="form-group">
                 <label class="form-label">Split Trigger</label>
                 <input type="text" class="form-input" id="invoiceKeyword" placeholder="INVOICE" value="INVOICE">
@@ -10533,7 +10534,7 @@ const Tools = {
                     Creates a new file each time this keyword is found (case-insensitive)
                 </p>
             </div>
-            
+
             <div class="form-group">
                 <label class="form-label">Output Format</label>
                 <select class="form-select" id="invoiceOutputMode">
@@ -10541,24 +10542,27 @@ const Tools = {
                     <option value="individual">Individual Downloads</option>
                 </select>
             </div>
-            
+
             <div class="form-group">
                 <label class="form-label">File Naming</label>
-                <select class="form-select" id="invoiceNamingMode" onchange="document.getElementById('invoiceNameFieldGroup').style.display=this.value==='student'?'block':'none'">
+                <select class="form-select" id="invoiceNamingMode" onchange="Tools.invoice._onNamingModeChange(this.value)">
                     <option value="numbered">invoice_001.pdf, invoice_002.pdf...</option>
                     <option value="original">original_name_001.pdf, original_name_002.pdf...</option>
-                    <option value="student">student_name_001.pdf (from PDF text)</option>
+                    <option value="region">custom name from page region</option>
                 </select>
             </div>
 
-            <div class="form-group" id="invoiceNameFieldGroup" style="display:none">
-                <label class="form-label">Name Field Label (for student naming)</label>
-                <input type="text" class="form-input" id="invoiceNameFieldLabel" placeholder="Student Name" value="Student Name">
-                <p style="font-size: 12px; color: var(--color-text-muted); margin-top: 4px;">
-                    The tool will look for text like "Student Name: Jane Doe" on each invoice's first page.
+            <div class="form-group" id="invoiceRegionGroup" style="display:none">
+                <label class="form-label">Name Region</label>
+                <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                    <button type="button" class="btn btn-secondary" onclick="Tools.invoice.startRegionPick()" style="font-size:13px;">🎯 Pick Region</button>
+                    <button type="button" class="btn btn-secondary" id="invoiceClearRegionBtn" onclick="Tools.invoice.clearRegion()" style="font-size:13px; display:none;">✕ Clear</button>
+                </div>
+                <p id="invoiceRegionStatus" style="font-size:12px; margin-top:6px; color:var(--color-text-muted);">
+                    Load a PDF in the preview, then drag a box over the name field.
                 </p>
             </div>
-            
+
             <div class="info-box" style="background: #fff3cd; border-color: #ffc107;">
                 💡 <strong>How it works:</strong> Scans each page for your keyword. When found, starts a new invoice file.
                 If a 10-page PDF has "INVOICE" on pages 1, 4, and 7, you'll get 3 separate invoices.
@@ -10576,10 +10580,14 @@ const Tools = {
             const keyword = document.getElementById('invoiceKeyword')?.value || 'INVOICE';
             const outputMode = document.getElementById('invoiceOutputMode')?.value || 'zip';
             const namingMode = document.getElementById('invoiceNamingMode')?.value || 'numbered';
-            const nameFieldLabel = document.getElementById('invoiceNameFieldLabel')?.value || 'Student Name';
-            
+
             if (!keyword.trim()) {
                 Utils.showStatus('Please enter a split keyword', 'error');
+                return;
+            }
+
+            if (namingMode === 'region' && !this._pickedRegion) {
+                Utils.showStatus('Please pick a name region from the PDF preview first.', 'error');
                 return;
             }
             
@@ -10595,7 +10603,7 @@ const Tools = {
                 Utils.updateProgress(baseProgress + 5, `Analyzing ${file.name}...`);
                 
                 try {
-                    const splitFiles = await this.splitInvoices(file, keyword, namingMode, nameFieldLabel);
+                    const splitFiles = await this.splitInvoices(file, keyword, namingMode, this._pickedRegion);
                     const dedupedFiles = splitFiles.map((splitFile) => ({
                         ...splitFile,
                         name: this.ensureUniqueFileName(splitFile.name, usedFileNames)
@@ -10639,10 +10647,10 @@ const Tools = {
             }
         },
         
-        async splitInvoices(file, keyword, namingMode, nameFieldLabel = 'Student Name') {
+        async splitInvoices(file, keyword, namingMode, pickedRegion = null) {
             const splitFiles = [];
 
-            // Load PDF for text extraction
+            // Load PDF for text extraction.
             // Use Uint8Array so PDF.js copies rather than transfers the buffer,
             // allowing the same arrayBuffer to be reused by pdf-lib below.
             const arrayBuffer = await file.arrayBuffer();
@@ -10709,14 +10717,12 @@ const Tools = {
                 let fileName;
                 const invoiceNum = String(i + 1).padStart(3, '0');
 
-                if (namingMode === 'student') {
-                    const firstPageText = pageTextByNumber[range.start] || '';
-                    const extractedName = this.extractInvoiceNameFromText(firstPageText, nameFieldLabel);
-                    if (extractedName) {
-                        fileName = `${extractedName}_${invoiceNum}.pdf`;
-                    } else {
-                        fileName = `invoice_${invoiceNum}.pdf`;
-                    }
+                if (namingMode === 'region' && pickedRegion) {
+                    const firstPage = await pdf.getPage(range.start);
+                    const extractedName = await this.extractTextFromRegion(firstPage, pickedRegion);
+                    fileName = extractedName
+                        ? `${extractedName}_${invoiceNum}.pdf`
+                        : `invoice_${invoiceNum}.pdf`;
                 } else if (namingMode === 'original') {
                     const baseName = withExt(file.name, '');
                     fileName = `${baseName}_${invoiceNum}.pdf`;
@@ -10733,31 +10739,181 @@ const Tools = {
             return splitFiles;
         },
 
-        extractInvoiceNameFromText(pageText, fieldLabel = 'Student Name') {
-            if (!pageText || typeof pageText !== 'string') return null;
-            
-            const escapeRegExp = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const label = fieldLabel && fieldLabel.trim() ? fieldLabel.trim() : 'Student Name';
-            const escapedLabel = escapeRegExp(label);
-            
-            const patterns = [
-                new RegExp(`${escapedLabel}\\s*[:\\-]\\s*([A-Za-z][A-Za-z'.,\\-]*(?:\\s+[A-Za-z][A-Za-z'.,\\-]*){0,5})`, 'i'),
-            ];
-            
-            for (const pattern of patterns) {
-                const match = pageText.match(pattern);
-                if (match && match[1]) {
-                    const cleaned = match[1].trim().replace(/\s+/g, ' ').replace(/[.,;:]+$/, '');
-                    const safe = cleaned
-                        .replace(/[^a-z0-9_-]/gi, '_')
-                        .replace(/_+/g, '_')
-                        .replace(/^_+|_+$/g, '')
-                        .substring(0, 60);
-                    if (safe) return safe;
-                }
+        // Extract text that falls inside a normalised region from a PDF.js page.
+        // region: { nx1, ny1, nx2, ny2 } — values 0-1 with top-left origin.
+        // PDF.js text items use bottom-left origin, so we flip the y axis.
+        async extractTextFromRegion(page, region) {
+            const viewport = page.getViewport({ scale: 1 });
+            const pw = viewport.width;
+            const ph = viewport.height;
+
+            // Convert normalised (top-left) → PDF points (bottom-left)
+            const pdfX1 = region.nx1 * pw;
+            const pdfX2 = region.nx2 * pw;
+            const pdfY1 = (1 - region.ny2) * ph;   // bottom edge in PDF coords
+            const pdfY2 = (1 - region.ny1) * ph;   // top edge in PDF coords
+
+            const textContent = await page.getTextContent();
+            const inRegion = textContent.items.filter(item => {
+                const tx = item.transform[4];
+                const ty = item.transform[5];
+                return tx >= pdfX1 && tx <= pdfX2 && ty >= pdfY1 && ty <= pdfY2;
+            });
+
+            const raw = inRegion.map(item => item.str).join(' ').trim().replace(/\s+/g, ' ');
+            if (!raw) return null;
+
+            // Sanitise for use as a filename
+            const safe = raw
+                .replace(/[^a-z0-9_\- ]/gi, '_')
+                .replace(/\s+/g, '_')
+                .replace(/_+/g, '_')
+                .replace(/^_+|_+$/g, '')
+                .substring(0, 60);
+            return safe || null;
+        },
+
+        _onNamingModeChange(value) {
+            const group = document.getElementById('invoiceRegionGroup');
+            if (group) group.style.display = value === 'region' ? 'block' : 'none';
+        },
+
+        clearRegion() {
+            this._pickedRegion = null;
+            const status = document.getElementById('invoiceRegionStatus');
+            if (status) {
+                status.textContent = 'Load a PDF in the preview, then drag a box over the name field.';
+                status.style.color = '';
             }
-            
-            return null;
+            const clearBtn = document.getElementById('invoiceClearRegionBtn');
+            if (clearBtn) clearBtn.style.display = 'none';
+        },
+
+        startRegionPick() {
+            const previewCanvas = document.getElementById('pdfPreviewCanvas');
+            if (!previewCanvas || !PDFPreview.currentPdf) {
+                Utils.showStatus('Load a PDF in the preview first, then pick the region.', 'warning');
+                return;
+            }
+
+            const wrapper = previewCanvas.parentElement;
+
+            // Remove any stale overlay
+            const old = document.getElementById('invoiceRegionOverlay');
+            if (old) old.remove();
+
+            const overlay = document.createElement('canvas');
+            overlay.id = 'invoiceRegionOverlay';
+            overlay.width  = previewCanvas.width;
+            overlay.height = previewCanvas.height;
+            overlay.style.cssText =
+                `position:absolute;top:0;left:0;` +
+                `width:${previewCanvas.style.width  || previewCanvas.width  + 'px'};` +
+                `height:${previewCanvas.style.height || previewCanvas.height + 'px'};` +
+                `cursor:crosshair;z-index:20;`;
+            wrapper.appendChild(overlay);
+
+            const ctx = overlay.getContext('2d');
+
+            const drawInstruction = () => {
+                ctx.clearRect(0, 0, overlay.width, overlay.height);
+                ctx.fillStyle = 'rgba(0,0,0,0.35)';
+                ctx.fillRect(0, 0, overlay.width, overlay.height);
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 14px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('Drag to select the name region', overlay.width / 2, overlay.height / 2);
+                ctx.textBaseline = 'alphabetic';
+            };
+            drawInstruction();
+
+            let startX = 0, startY = 0, dragging = false;
+
+            const getPos = (e) => {
+                const r = overlay.getBoundingClientRect();
+                const sx = overlay.width  / r.width;
+                const sy = overlay.height / r.height;
+                const src = e.touches ? e.touches[0] : e;
+                return {
+                    x: (src.clientX - r.left) * sx,
+                    y: (src.clientY - r.top)  * sy,
+                };
+            };
+
+            const onDown = (e) => {
+                e.preventDefault();
+                const p = getPos(e);
+                startX = p.x; startY = p.y;
+                dragging = true;
+            };
+
+            const onMove = (e) => {
+                if (!dragging) return;
+                e.preventDefault();
+                const p = getPos(e);
+                const x = Math.min(startX, p.x), y = Math.min(startY, p.y);
+                const w = Math.abs(p.x - startX),  h = Math.abs(p.y - startY);
+                ctx.clearRect(0, 0, overlay.width, overlay.height);
+                ctx.fillStyle = 'rgba(0,0,0,0.35)';
+                ctx.fillRect(0, 0, overlay.width, overlay.height);
+                ctx.clearRect(x, y, w, h);
+                ctx.strokeStyle = '#007bff';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(x, y, w, h);
+            };
+
+            const onUp = (e) => {
+                if (!dragging) return;
+                e.preventDefault();
+                dragging = false;
+                const p = getPos(e);
+                const x1 = Math.min(startX, p.x), y1 = Math.min(startY, p.y);
+                const x2 = Math.max(startX, p.x), y2 = Math.max(startY, p.y);
+
+                overlay.remove();
+                document.removeEventListener('keydown', onKeyDown);
+
+                if (x2 - x1 < 5 || y2 - y1 < 5) {
+                    Utils.showStatus('Region too small — try again.', 'warning');
+                    return;
+                }
+
+                this._pickedRegion = {
+                    nx1: x1 / overlay.width,
+                    ny1: y1 / overlay.height,
+                    nx2: x2 / overlay.width,
+                    ny2: y2 / overlay.height,
+                };
+
+                const status = document.getElementById('invoiceRegionStatus');
+                if (status) {
+                    status.textContent =
+                        `Region set: (${Math.round(x1)}, ${Math.round(y1)}) → ` +
+                        `(${Math.round(x2)}, ${Math.round(y2)}) px on preview`;
+                    status.style.color = 'var(--color-success, #28a745)';
+                }
+                const clearBtn = document.getElementById('invoiceClearRegionBtn');
+                if (clearBtn) clearBtn.style.display = 'inline-block';
+
+                Utils.showStatus('Region saved! Click Process to split.', 'success');
+            };
+
+            const onKeyDown = (e) => {
+                if (e.key === 'Escape') {
+                    overlay.remove();
+                    document.removeEventListener('keydown', onKeyDown);
+                    Utils.showStatus('Region pick cancelled.', 'info');
+                }
+            };
+
+            overlay.addEventListener('mousedown',  onDown, { passive: false });
+            overlay.addEventListener('mousemove',  onMove, { passive: false });
+            overlay.addEventListener('mouseup',    onUp,   { passive: false });
+            overlay.addEventListener('touchstart', onDown, { passive: false });
+            overlay.addEventListener('touchmove',  onMove, { passive: false });
+            overlay.addEventListener('touchend',   onUp,   { passive: false });
+            document.addEventListener('keydown', onKeyDown);
         },
 
         ensureUniqueFileName(fileName, usedFileNames) {
