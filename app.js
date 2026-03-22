@@ -93,6 +93,47 @@ const Utils = {
         setTimeout(() => statusEl.classList.remove('active'), duration);
     },
     
+    // Centralised error handler — friendly messages + console logging
+    handleError(toolName, error, fallback) {
+        const raw = error?.message || fallback || 'An unexpected error occurred.';
+        let msg;
+        if (raw.includes('encrypt') || raw.includes('password')) msg = `${toolName}: PDF is password-protected — use the Unlock tool first.`;
+        else if (raw.includes('network') || raw.includes('fetch') || raw.includes('Failed to fetch')) msg = `${toolName}: Network error — check your connection and try again.`;
+        else if (raw.includes('memory') || raw.includes('out of memory')) msg = `${toolName}: File too large to process in-browser.`;
+        else if (raw.includes('Invalid PDF') || raw.includes('not a PDF')) msg = `${toolName}: File does not appear to be a valid PDF.`;
+        else msg = `${toolName}: ${raw}`;
+        this.showStatus(msg, 'error');
+        console.error(`[${toolName}]`, error);
+    },
+
+    // Wire live validation feedback to a page-range text input.
+    // totalPagesGetter: () => number (or 0 if unknown)
+    wirePageRangeValidation(inputEl, totalPagesGetter) {
+        if (!inputEl) return;
+        let hint = inputEl.nextElementSibling;
+        if (!hint || !hint.classList.contains('page-range-hint')) {
+            hint = document.createElement('p');
+            hint.className = 'page-range-hint';
+            hint.style.cssText = 'font-size:11px;margin-top:3px;min-height:16px;transition:color 0.15s;';
+            inputEl.insertAdjacentElement('afterend', hint);
+        }
+        const validate = () => {
+            const val = inputEl.value.trim();
+            if (!val) { hint.textContent = ''; return; }
+            const total = totalPagesGetter?.() || 0;
+            if (!total) { hint.textContent = ''; return; }
+            const pages = Utils.parsePageRanges(val, total);
+            if (pages.length > 0) {
+                hint.style.color = 'var(--color-success, #28a745)';
+                hint.textContent = `✓ ${pages.length} page${pages.length > 1 ? 's' : ''} selected (of ${total})`;
+            } else {
+                hint.style.color = 'var(--color-danger, #dc3545)';
+                hint.textContent = '✗ No valid pages — use format: 1-3, 5, 7-10';
+            }
+        };
+        inputEl.addEventListener('input', validate);
+    },
+
     updateProgress(percent, text) {
         const container = document.getElementById('progressContainer');
         const bar = document.getElementById('progressBar');
@@ -207,20 +248,22 @@ const Utils = {
     },
     
     // STRATEGIC ENHANCEMENT: ZIP bundling for batch downloads
-    async createZipBundle(files, zipName = 'output.zip') {
+    // folderName: optional subfolder name inside the ZIP (e.g. 'pages' → pages/file.pdf)
+    async createZipBundle(files, zipName = 'output.zip', folderName = null) {
         const zip = new JSZip();
-        
+        const target = folderName ? zip.folder(folderName) : zip;
+
         files.forEach((fileData, index) => {
             const filename = fileData.name || `file_${index + 1}.pdf`;
-            zip.file(filename, fileData.blob || fileData.data);
+            target.file(filename, fileData.blob || fileData.data);
         });
-        
-        const zipBlob = await zip.generateAsync({ 
+
+        const zipBlob = await zip.generateAsync({
             type: 'blob',
             compression: 'DEFLATE',
             compressionOptions: { level: 6 }
         });
-        
+
         saveAs(zipBlob, zipName);
         return zipBlob;
     },
@@ -234,7 +277,7 @@ const Utils = {
             // Check if it's an encryption error
             if (error.message && error.message.includes('encrypted')) {
                 // Ask user if they want to continue
-                const proceed = confirm(
+                const proceed = await Modal.confirm(
                     `🔒 Encrypted PDF Detected: "${fileName}"\n\n` +
                     `This PDF is password-protected or encrypted.\n\n` +
                     `⚠️ Warning: Processing encrypted PDFs may:\n` +
@@ -420,9 +463,102 @@ const ToolSettings = {
         }
         keys.forEach(key => localStorage.removeItem(key));
         console.log(`[ToolSettings] Cleared all (${keys.length} tools)`);
+    },
+
+    // Restore previously-saved input values into the active tool's DOM
+    autoRestore(toolId) {
+        const saved = this.load(toolId);
+        if (!saved) return;
+        Object.entries(saved).forEach(([id, value]) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            if (el.type === 'checkbox' || el.type === 'radio') {
+                el.checked = !!value;
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+            } else if (el.tagName === 'SELECT' || el.type === 'range' || el.type === 'text' || el.type === 'number' || el.tagName === 'TEXTAREA') {
+                el.value = value;
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        });
+    },
+
+    // Scrape all named inputs in #toolContent and save them
+    _scrapeAndSave(toolId) {
+        const container = document.getElementById('toolContent');
+        if (!container) return;
+        const settings = {};
+        container.querySelectorAll('input[id], select[id], textarea[id]').forEach(el => {
+            if (!el.id || el.type === 'file' || el.type === 'button' || el.type === 'submit') return;
+            settings[el.id] = (el.type === 'checkbox' || el.type === 'radio') ? el.checked : el.value;
+        });
+        this.save(toolId, settings);
+    },
+
+    // Wire input/change events so settings are saved automatically after 500 ms idle
+    wireAutoSave(toolId) {
+        const container = document.getElementById('toolContent');
+        if (!container) return;
+        let timer;
+        const save = () => { clearTimeout(timer); timer = setTimeout(() => this._scrapeAndSave(toolId), 500); };
+        container.querySelectorAll('input[id], select[id], textarea[id]').forEach(el => {
+            if (el.type === 'file' || el.type === 'button' || el.type === 'submit') return;
+            el.addEventListener('input', save);
+            el.addEventListener('change', save);
+        });
     }
 };
 
+// ─── Accessible confirmation modal (replaces browser confirm()) ───────────────
+const Modal = {
+    _el: null,
+    _resolve: null,
+
+    _build() {
+        const wrap = document.createElement('div');
+        wrap.id = 'confirmModalWrap';
+        wrap.setAttribute('role', 'dialog');
+        wrap.setAttribute('aria-modal', 'true');
+        wrap.setAttribute('aria-labelledby', 'confirmModalMsg');
+        wrap.innerHTML = `
+            <div id="confirmBackdrop" style="position:fixed;inset:0;background:rgba(0,0,0,0.55);
+                z-index:9500;display:flex;align-items:center;justify-content:center;">
+                <div style="background:var(--color-surface);border-radius:var(--radius-lg);
+                    padding:24px 28px;max-width:420px;width:90%;
+                    box-shadow:0 8px 40px rgba(0,0,0,0.3);border:1px solid var(--color-border);">
+                    <p id="confirmModalMsg" style="font-size:15px;color:var(--color-text);
+                        line-height:1.6;margin-bottom:22px;white-space:pre-wrap;"></p>
+                    <div style="display:flex;gap:10px;justify-content:flex-end;">
+                        <button id="confirmCancelBtn" class="btn btn-secondary">Cancel</button>
+                        <button id="confirmOkBtn" class="btn btn-primary">OK</button>
+                    </div>
+                </div>
+            </div>`;
+        document.body.appendChild(wrap);
+        this._el = wrap;
+        document.getElementById('confirmOkBtn').addEventListener('click', () => this._close(true));
+        document.getElementById('confirmCancelBtn').addEventListener('click', () => this._close(false));
+        document.getElementById('confirmBackdrop').addEventListener('click', e => {
+            if (e.target.id === 'confirmBackdrop') this._close(false);
+        });
+        document.addEventListener('keydown', e => {
+            if (this._el?.style.display !== 'none' && this._el?.style.display !== '' && e.key === 'Escape') this._close(false);
+        });
+    },
+
+    _close(result) {
+        if (this._el) this._el.style.display = 'none';
+        if (this._resolve) { this._resolve(result); this._resolve = null; }
+    },
+
+    confirm(message) {
+        if (!this._el) this._build();
+        document.getElementById('confirmModalMsg').textContent = message;
+        this._el.style.display = 'block';
+        // Focus the OK button for keyboard users
+        setTimeout(() => document.getElementById('confirmOkBtn')?.focus(), 50);
+        return new Promise(resolve => { this._resolve = resolve; });
+    }
+};
 
 // PDF Preview Component - NEW FEATURE #1
 const PDFPreview = {
@@ -452,7 +588,7 @@ const PDFPreview = {
                         <h3>📄 PDF Preview</h3>
                         <div class="pdf-preview-controls">
                             <button id="prevPage" class="btn-preview">◀ Previous</button>
-                            <span id="pageInfo">Page 1 of 1</span>
+                            <span id="pageInfo" aria-live="polite" aria-atomic="true">Page 1 of 1</span>
                             <button id="nextPage" class="btn-preview">Next ▶</button>
                             <select id="fileSelector" class="form-select" style="max-width: 200px; margin-left: 10px;">
                                 <option>Select file to preview...</option>
@@ -839,115 +975,109 @@ const PDFPreview = {
     
     async renderThumbnails() {
         if (!this.currentPdf) return;
-        
         const container = document.getElementById('thumbnailContainer');
         if (!container) return;
-        
-        container.innerHTML = '<div style="padding: 10px; text-align: center; color: var(--color-text-muted);">Loading thumbnails...</div>';
-        
-        try {
-            // FIX: Render thumbnails in batches to prevent freezing on large PDFs
-            const BATCH_SIZE = 5; // Render 5 thumbnails at a time
-            const thumbnails = [];
-            
-            container.innerHTML = ''; // Clear loading message
-            
-            for (let pageNum = 1; pageNum <= this.totalPages; pageNum++) {
-                const thumbnail = await this.renderThumbnail(pageNum);
-                thumbnails.push(thumbnail);
-                container.appendChild(thumbnail);
-                
-                // Yield to browser every BATCH_SIZE pages
-                if (pageNum % BATCH_SIZE === 0) {
-                    await new Promise(resolve => setTimeout(resolve, 0));
-                }
-            }
-            
-            this.updateThumbnailSelection();
-        } catch (error) {
-            console.error('[PDFPreview] Error rendering thumbnails:', error);
-            container.innerHTML = '<div style="padding: 10px; text-align: center; color: var(--color-danger);">Error loading thumbnails. Please try again.</div>';
-            Utils.showStatus('Failed to load thumbnails', 'error');
+
+        // Disconnect any previous observer to avoid stale callbacks
+        if (this._thumbObserver) { this._thumbObserver.disconnect(); this._thumbObserver = null; }
+
+        container.innerHTML = '';
+
+        // 1. Immediately create lightweight placeholder wrappers for every page.
+        //    This gives the sidebar correct scroll height from the start.
+        for (let pageNum = 1; pageNum <= this.totalPages; pageNum++) {
+            const wrapper = this._makeThumbnailPlaceholder(pageNum);
+            container.appendChild(wrapper);
         }
+
+        this.updateThumbnailSelection();
+
+        // 2. Use IntersectionObserver to render the canvas only when each
+        //    placeholder scrolls into view (plus 120 px lookahead).
+        const renderCanvas = async (wrapper) => {
+            if (wrapper.dataset.rendered) return;
+            wrapper.dataset.rendered = '1';
+            const pageNum = parseInt(wrapper.dataset.page, 10);
+            try {
+                await this._renderThumbnailCanvas(pageNum, wrapper);
+            } catch (e) {
+                console.warn(`[PDFPreview] Thumbnail render failed for page ${pageNum}:`, e);
+            }
+        };
+
+        this._thumbObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => { if (entry.isIntersecting) renderCanvas(entry.target); });
+        }, { root: container, rootMargin: '0px 0px 120px 0px', threshold: 0 });
+
+        container.querySelectorAll('.thumbnail-item').forEach(w => this._thumbObserver.observe(w));
     },
-    
-    async renderThumbnail(pageNum) {
-        const page = await this.currentPdf.getPage(pageNum);
-        const scale = 0.2; // Small thumbnail
-        const viewport = page.getViewport({ scale });
-        
-        const canvas = document.createElement('canvas');
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        const ctx = canvas.getContext('2d');
-        
-        await page.render({
-            canvasContext: ctx,
-            viewport: viewport
-        }).promise;
-        
-        // Create thumbnail wrapper
+
+    // Create a placeholder div with full interactivity but no canvas yet
+    _makeThumbnailPlaceholder(pageNum) {
         const wrapper = document.createElement('div');
         wrapper.className = 'thumbnail-item';
         wrapper.dataset.page = pageNum;
         wrapper.dataset.originalIndex = pageNum;
-        
-        // ENHANCEMENT v7.14: Make keyboard accessible
         wrapper.tabIndex = 0;
         wrapper.setAttribute('role', 'button');
         wrapper.setAttribute('aria-label', `Page ${pageNum} thumbnail. Click to view, use arrow keys to reorder.`);
-        
-        // Make draggable
         wrapper.draggable = true;
-        
-        // Add page number label
+
+        // Placeholder canvas-sized box so layout doesn't jump when real canvas loads
+        const placeholder = document.createElement('div');
+        placeholder.className = 'thumbnail-placeholder';
+        placeholder.style.cssText = 'width:100%;aspect-ratio:0.77;background:var(--color-bg);border-radius:4px;display:flex;align-items:center;justify-content:center;';
+        placeholder.innerHTML = `<span style="font-size:11px;color:var(--color-text-muted);">${pageNum}</span>`;
+
         const label = document.createElement('div');
         label.className = 'thumbnail-label';
         label.textContent = pageNum;
-        
-        // Add drag handle indicator
+
         const dragHandle = document.createElement('div');
         dragHandle.className = 'thumbnail-drag-handle';
         dragHandle.innerHTML = '⋮⋮';
         dragHandle.title = 'Drag to reorder or use arrow keys';
-        
-        // Add canvas
-        wrapper.appendChild(canvas);
+
+        wrapper.appendChild(placeholder);
         wrapper.appendChild(label);
         wrapper.appendChild(dragHandle);
-        
-        // Click to navigate
+
         wrapper.addEventListener('click', (e) => {
             if (e.target.classList.contains('thumbnail-drag-handle')) return;
-            
             this.currentPage = pageNum;
             this.renderPage(pageNum);
             this.updatePageInfo();
             this.updateThumbnailSelection();
         });
-        
-        // ENHANCEMENT v7.14: Keyboard reordering
         wrapper.addEventListener('keydown', (e) => {
-            if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                this.moveThumbnailUp(wrapper);
-            } else if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                this.moveThumbnailDown(wrapper);
-            } else if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                wrapper.click();
-            }
+            if (e.key === 'ArrowUp') { e.preventDefault(); this.moveThumbnailUp(wrapper); }
+            else if (e.key === 'ArrowDown') { e.preventDefault(); this.moveThumbnailDown(wrapper); }
+            else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); wrapper.click(); }
         });
-        
-        // Drag & Drop handlers
+
+        // Drag-to-reorder
         wrapper.addEventListener('dragstart', (e) => this.handleDragStart(e, wrapper));
-        wrapper.addEventListener('dragover', (e) => this.handleDragOver(e, wrapper));
-        wrapper.addEventListener('drop', (e) => this.handleDrop(e, wrapper));
-        wrapper.addEventListener('dragend', (e) => this.handleDragEnd(e));
+        wrapper.addEventListener('dragover',  (e) => this.handleDragOver(e, wrapper));
+        wrapper.addEventListener('drop',      (e) => this.handleDrop(e, wrapper));
+        wrapper.addEventListener('dragend',   (e) => this.handleDragEnd(e));
         wrapper.addEventListener('dragleave', (e) => this.handleDragLeave(e, wrapper));
-        
         return wrapper;
+    },
+
+    // Actually render the PDF page into a canvas inside the wrapper
+    async _renderThumbnailCanvas(pageNum, wrapper) {
+        const page = await this.currentPdf.getPage(pageNum);
+        const scale = 0.2;
+        const viewport = page.getViewport({ scale });
+        const canvas = document.createElement('canvas');
+        canvas.width  = viewport.width;
+        canvas.height = viewport.height;
+        await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+
+        // Swap placeholder → real canvas
+        const placeholder = wrapper.querySelector('.thumbnail-placeholder');
+        if (placeholder) wrapper.replaceChild(canvas, placeholder);
+        else wrapper.insertBefore(canvas, wrapper.firstChild);
     },
     
     // ENHANCEMENT v7.14: Move thumbnail up with keyboard
@@ -1273,22 +1403,9 @@ const PDFPreview = {
         overlay.style.top = screenY + 'px';
         overlay.style.width = screenWidth + 'px';
         overlay.style.height = screenHeight + 'px';
-        
-        console.log('[PDFPreview] Overlay positioned at:', {
-            left: screenX,
-            top: screenY,
-            width: screenWidth,
-            height: screenHeight,
-            actualPageWidth: actualPageWidth
-        });
     },
     
     updateSignatureOverlay() {
-        console.log('[PDFPreview] updateSignatureOverlay called');
-        console.log('[PDFPreview] Current tool:', AppState.currentTool);
-        console.log('[PDFPreview] Has signature:', !!Tools.sign?.signatureImage);
-        console.log('[PDFPreview] Canvas exists:', !!document.getElementById('pdfPreviewCanvas'));
-        
         // FIX v7.12: Always remove and recreate overlay to prevent page size drift
         this.removeSignatureOverlay();
         
@@ -1460,6 +1577,12 @@ const FileManager = {
         if (AppState.currentTool === 'formfill' && Tools.formfill && Tools.formfill.detectFormFields) {
             setTimeout(() => Tools.formfill.detectFormFields(), 100);
         }
+
+        // Trigger document scanner preview when images are added while docscan is active
+        if (AppState.currentTool === 'docscan') {
+            const imgFiles = AppState.files.filter(f => f.type.startsWith('image/'));
+            if (imgFiles.length > 0) setTimeout(() => DocScanUtils.showPreview(imgFiles[0]), 150);
+        }
         
         // Show success message with file count and size
         if (validFiles.length > 0) {
@@ -1533,9 +1656,31 @@ const FileManager = {
         }
     },
     
+    _updateFileBadge() {
+        const n = AppState.files.length;
+        let badge = document.getElementById('globalFileBadge');
+        if (!badge) {
+            const dropArea = document.getElementById('dropArea');
+            if (!dropArea) return;
+            badge = document.createElement('span');
+            badge.id = 'globalFileBadge';
+            badge.style.cssText = 'position:absolute;top:8px;right:10px;background:var(--color-primary);color:#fff;' +
+                'border-radius:12px;padding:2px 9px;font-size:12px;font-weight:700;pointer-events:none;transition:opacity 0.2s;';
+            dropArea.style.position = 'relative';
+            dropArea.appendChild(badge);
+        }
+        if (n > 0) {
+            badge.textContent = `${n} file${n > 1 ? 's' : ''} ready`;
+            badge.style.opacity = '1';
+        } else {
+            badge.style.opacity = '0';
+        }
+    },
+
     renderFileList() {
         const container = document.getElementById('fileList');
-        
+        this._updateFileBadge();
+
         if (AppState.files.length === 0) {
             container.innerHTML = '';
             return;
@@ -1716,30 +1861,314 @@ const TOOL_FILE_TYPES = {
 // ========================================================================================
 const DocScanUtils = {
 
+    // Mutable state shared between preview UI and processImage
+    _previewState: {
+        img:           null,   // loaded HTMLImageElement
+        corners:       null,   // [tl,tr,br,bl] in preview-canvas pixels
+        canvasW:       0,      // preview canvas width  (for coord scaling)
+        canvasH:       0,      // preview canvas height
+        dragging:      null,   // corner index being dragged (0-3), or null
+        hoveredCorner: null,   // corner index under the pointer (0-3), or null
+        sourceFile:    null,   // File object currently previewed
+    },
+
+    // Draw a text placeholder centred on a canvas (used for loading/empty states)
+    _drawCanvasPlaceholder(canvas, text) {
+        const w = canvas.parentElement ? Math.max(200, canvas.parentElement.clientWidth - 16) : 400;
+        canvas.width  = w;
+        canvas.height = Math.round(w * 0.55);
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#f5f5f5';
+        ctx.fillRect(0, 0, w, canvas.height);
+        ctx.fillStyle = '#aaa';
+        ctx.font = `${Math.max(13, w / 22)}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.fillText(text, w / 2, canvas.height / 2);
+    },
+
     // Show a corner-detection preview on the configHTML canvas
     async showPreview(file) {
+        // Re-query DOM every call — the tool panel is re-created on each tool switch
         const previewDiv = document.getElementById('docScanPreview');
-        const canvas = document.getElementById('docScanCanvas');
-        if (!previewDiv || !canvas) return;
+        const canvas     = document.getElementById('docScanCanvas');
+
+        if (!previewDiv || !canvas) {
+            console.error('[DocScan] showPreview: DOM elements not found', {previewDiv: !!previewDiv, canvas: !!canvas});
+            return;
+        }
+
+        previewDiv.style.display = 'block';
+
+        // Draw "Loading…" placeholder so user sees the section appeared before async work
+        this._drawCanvasPlaceholder(canvas, 'Loading image…');
+
         try {
             const img = await this._loadImage(file);
-            const maxW = (canvas.parentElement?.clientWidth || 500) - 16;
-            const ratio = img.naturalWidth / img.naturalHeight;
-            canvas.width  = Math.min(maxW, img.naturalWidth);
+
+            const maxW = Math.max(200, (canvas.parentElement?.clientWidth || 600) - 16);
+            const ratio = img.naturalWidth / img.naturalHeight || 1;
+            canvas.width  = Math.min(maxW, img.naturalWidth  || 200);
             canvas.height = Math.round(canvas.width / ratio);
+
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            const corners = this.detectCorners(canvas);
-            if (corners) this._drawCornerOverlay(ctx, corners);
-            previewDiv.style.display = 'block';
+
+            this._previewState.img        = img;
+            this._previewState.canvasW    = canvas.width;
+            this._previewState.canvasH    = canvas.height;
+            this._previewState.sourceFile = file;
+
+            let corners = null;
+            try {
+                corners = this.detectCorners(canvas);
+            } catch (detErr) {
+                console.warn('[DocScan] Corner detection failed (using defaults):', detErr);
+            }
+            this._previewState.corners = corners || this._defaultCorners(canvas.width, canvas.height);
+            this._drawCornerOverlay(ctx, this._previewState.corners);
+
+            this._attachDragListeners(canvas);
+
+            const resetBtn = document.getElementById('docScanResetBtn');
+            if (resetBtn && !resetBtn.dataset.wired) {
+                resetBtn.dataset.wired = '1';
+                resetBtn.addEventListener('click', () => {
+                    const c = document.getElementById('docScanCanvas');
+                    if (c && this._previewState.img) this._resetToAutoDetect(c);
+                });
+            }
+
+            // Defer warp so the browser paints the corner overlay first
+            requestAnimationFrame(() => {
+                try { this._updateWarpPreview(canvas); }
+                catch (warpErr) { console.warn('[DocScan] Warp preview failed:', warpErr); }
+            });
+
         } catch (e) {
-            console.warn('[DocScan] Preview failed:', e);
+            console.error('[DocScan] showPreview failed:', e);
+            // Draw error message on canvas so the user knows what went wrong
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+                ctx.fillStyle = '#fff0f0';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#c00';
+                ctx.font = '14px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('Preview error: ' + e.message, canvas.width / 2, canvas.height / 2);
+            }
+            Utils.showStatus('Preview failed: ' + e.message, 'warning');
         }
     },
 
-    // Draw the detected quad + coloured corner dots
-    _drawCornerOverlay(ctx, corners) {
+    // Default corners = 10% inset rectangle (fallback when detection fails)
+    _defaultCorners(w, h) {
+        const m = Math.round(Math.min(w, h) * 0.10);
+        return [{x:m,y:m},{x:w-m,y:m},{x:w-m,y:h-m},{x:m,y:h-m}];
+    },
+
+    // Redraw image + overlay from current _previewState
+    _redrawPreview(canvas) {
+        const ctx = canvas.getContext('2d');
+        const {img, corners, canvasW, canvasH, dragging, hoveredCorner} = this._previewState;
+        ctx.drawImage(img, 0, 0, canvasW, canvasH);
+        const activeIdx = dragging !== null ? dragging : (hoveredCorner ?? -1);
+        this._drawCornerOverlay(ctx, corners, activeIdx);
+    },
+
+    // Attach mouse + touch drag listeners (idempotent via dataset flag)
+    _attachDragListeners(canvas) {
+        if (canvas.dataset.docScanDrag) return; // already attached
+        canvas.dataset.docScanDrag = '1';
+        canvas.style.cursor = 'crosshair';
+
+        // Hit radius in canvas pixels — scale with canvas size so it's usable on any image
+        const HIT = Math.max(24, Math.round(Math.min(canvas.width, canvas.height) * 0.06));
+        const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+        const getIdx = (cx, cy) => {
+            const corners = this._previewState.corners;
+            if (!corners) return null;
+            let best = null, bestDist = HIT * HIT;
+            corners.forEach((pt, i) => {
+                const d = (pt.x-cx)**2 + (pt.y-cy)**2;
+                if (d < bestDist) { bestDist = d; best = i; }
+            });
+            return best;
+        };
+
+        const endDrag = () => {
+            if (this._previewState.dragging !== null) {
+                this._previewState.dragging = null;
+                canvas.style.cursor = 'default';
+                if (document.contains(canvas)) this._updateWarpPreview(canvas);
+            }
+        };
+
+        // Document-level mouseup so drag ends even when released outside canvas
+        const onDocMouseUp = () => {
+            if (!document.contains(canvas)) {
+                document.removeEventListener('mouseup', onDocMouseUp);
+                return;
+            }
+            endDrag();
+        };
+        document.addEventListener('mouseup', onDocMouseUp);
+
+        // Mouse
+        canvas.addEventListener('mousedown', e => {
+            const {x, y} = this._getCanvasPos(canvas, e);
+            const idx = getIdx(x, y);
+            if (idx !== null) {
+                this._previewState.dragging = idx;
+                canvas.style.cursor = 'grabbing';
+                e.preventDefault();
+            }
+        });
+        canvas.addEventListener('mousemove', e => {
+            const {x, y} = this._getCanvasPos(canvas, e);
+            if (this._previewState.dragging !== null) {
+                // Clamp to canvas bounds so corners stay inside the image
+                this._previewState.corners[this._previewState.dragging] = {
+                    x: clamp(x, 0, canvas.width  - 1),
+                    y: clamp(y, 0, canvas.height - 1),
+                };
+                this._redrawPreview(canvas);
+            } else {
+                const nearIdx = getIdx(x, y);
+                canvas.style.cursor = nearIdx !== null ? 'grab' : 'default';
+                if (nearIdx !== this._previewState.hoveredCorner) {
+                    this._previewState.hoveredCorner = nearIdx;
+                    this._redrawPreview(canvas);
+                }
+            }
+        });
+        canvas.addEventListener('mouseleave', () => {
+            // Don't end drag on leave — document mouseup handler covers that
+            canvas.style.cursor = 'default';
+            if (this._previewState.hoveredCorner !== null) {
+                this._previewState.hoveredCorner = null;
+                this._redrawPreview(canvas);
+            }
+        });
+
+        // Touch
+        canvas.addEventListener('touchstart', e => {
+            const t = e.touches[0];
+            const {x, y} = this._getCanvasPos(canvas, t);
+            const idx = getIdx(x, y);
+            if (idx !== null) {
+                this._previewState.dragging = idx;
+                e.preventDefault();
+            }
+        }, {passive: false});
+        canvas.addEventListener('touchmove', e => {
+            if (this._previewState.dragging === null) return;
+            const t = e.touches[0];
+            const {x, y} = this._getCanvasPos(canvas, t);
+            this._previewState.corners[this._previewState.dragging] = {
+                x: clamp(x, 0, canvas.width  - 1),
+                y: clamp(y, 0, canvas.height - 1),
+            };
+            this._redrawPreview(canvas);
+            e.preventDefault();
+        }, {passive: false});
+        canvas.addEventListener('touchend', endDrag);
+
+        // Keyboard nudge — arrow keys move the hovered corner (Shift = 10px step)
+        canvas.addEventListener('keydown', e => {
+            const idx = this._previewState.hoveredCorner;
+            if (idx === null || !this._previewState.corners) return;
+            const DIRS = {ArrowLeft:[-1,0], ArrowRight:[1,0], ArrowUp:[0,-1], ArrowDown:[0,1]};
+            const delta = DIRS[e.key];
+            if (!delta) return;
+            e.preventDefault();
+            const step = e.shiftKey ? 10 : 1;
+            const pt = this._previewState.corners[idx];
+            this._previewState.corners[idx] = {
+                x: clamp(pt.x + delta[0] * step, 0, canvas.width  - 1),
+                y: clamp(pt.y + delta[1] * step, 0, canvas.height - 1),
+            };
+            this._redrawPreview(canvas);
+            this._updateWarpPreview(canvas);
+        });
+    },
+
+    // Run a fast low-res warp and display it in #docScanWarpPreview
+    _updateWarpPreview(previewCanvas) {
+        const warpCanvas = document.getElementById('docScanWarpPreview');
+        const warpWrap   = document.getElementById('docScanWarpWrap');
+        if (!warpCanvas || !warpWrap) return;
+        const {img, corners, canvasW, canvasH} = this._previewState;
+        if (!img || !corners) return;
+
+        // Build a small source canvas (max 350px) for speed
+        const maxDim = 350;
+        const srcScale = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight));
+        const sW = Math.round(img.naturalWidth  * srcScale);
+        const sH = Math.round(img.naturalHeight * srcScale);
+        const srcCanvas = document.createElement('canvas');
+        srcCanvas.width = sW; srcCanvas.height = sH;
+        srcCanvas.getContext('2d').drawImage(img, 0, 0, sW, sH);
+
+        // Scale preview-canvas corners down to the small source canvas
+        const cx = sW / canvasW, cy = sH / canvasH;
+        const scaledCorners = corners.map(p => ({x: p.x * cx, y: p.y * cy}));
+
+        const warped = this._perspectiveWarp(srcCanvas, scaledCorners, maxDim);
+        warpCanvas.width  = warped.width;
+        warpCanvas.height = warped.height;
+        warpCanvas.getContext('2d').drawImage(warped, 0, 0);
+        warpWrap.style.display = 'block';
+    },
+
+    // Re-run auto corner detection and reset draggable corners
+    _resetToAutoDetect(canvas) {
+        const {img, canvasW, canvasH} = this._previewState;
+        if (!img) return;
+        // Redraw clean image so detectCorners sees pixels, not the overlay
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvasW, canvasH);
+        const detected = this.detectCorners(canvas);
+        this._previewState.corners = detected || this._defaultCorners(canvasW, canvasH);
+        // Redraw with fresh overlay
+        ctx.drawImage(img, 0, 0, canvasW, canvasH);
+        this._drawCornerOverlay(ctx, this._previewState.corners);
+        this._updateWarpPreview(canvas);
+    },
+
+    // Convert a mouse/touch event to canvas-local coordinates
+    _getCanvasPos(canvas, e) {
+        const r  = canvas.getBoundingClientRect();
+        const sx = canvas.width  / r.width;
+        const sy = canvas.height / r.height;
+        return {
+            x: Math.round((e.clientX - r.left) * sx),
+            y: Math.round((e.clientY - r.top)  * sy),
+        };
+    },
+
+    // Draw the detected quad + coloured corner dots with labels.
+    // activeIdx: index of the hovered/dragged corner to highlight (-1 = none)
+    _drawCornerOverlay(ctx, corners, activeIdx = -1) {
         const [tl, tr, br, bl] = corners;
+        const W = ctx.canvas.width, H = ctx.canvas.height;
+        // Scale dot radius with canvas so it looks good at any resolution
+        const dotR = Math.max(10, Math.round(Math.min(W, H) * 0.035));
+
+        // Dark scrim outside the quad — even-odd fill rule punches a hole at the quad shape
+        ctx.save();
+        ctx.fillStyle = 'rgba(0,0,0,0.45)';
+        ctx.beginPath();
+        ctx.rect(0, 0, W, H);                    // outer rect (clockwise)
+        ctx.moveTo(tl.x, tl.y);                  // quad counter-clockwise → becomes a hole
+        ctx.lineTo(bl.x, bl.y);
+        ctx.lineTo(br.x, br.y);
+        ctx.lineTo(tr.x, tr.y);
+        ctx.closePath();
+        ctx.fill('evenodd');
+        ctx.restore();
+
+        // Quad outline
         ctx.beginPath();
         ctx.moveTo(tl.x, tl.y);
         ctx.lineTo(tr.x, tr.y);
@@ -1747,26 +2176,37 @@ const DocScanUtils = {
         ctx.lineTo(bl.x, bl.y);
         ctx.closePath();
         ctx.strokeStyle = '#00e676';
-        ctx.lineWidth = 3;
+        ctx.lineWidth = Math.max(2, dotR * 0.3);
         ctx.stroke();
-        ctx.fillStyle = 'rgba(0,230,118,0.08)';
-        ctx.fill();
+
+        const labels = ['TL','TR','BR','BL'];
         ['#ff5252','#ff9800','#2196F3','#4caf50'].forEach((color, i) => {
             const pt = corners[i];
+            const r  = (i === activeIdx) ? Math.round(dotR * 1.35) : dotR;
+            // Outer white halo so dot is visible against any background
             ctx.beginPath();
-            ctx.arc(pt.x, pt.y, 8, 0, Math.PI * 2);
+            ctx.arc(pt.x, pt.y, r + 3, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255,255,255,0.7)';
+            ctx.fill();
+            // Colored dot
+            ctx.beginPath();
+            ctx.arc(pt.x, pt.y, r, 0, Math.PI * 2);
             ctx.fillStyle = color;
             ctx.fill();
             ctx.strokeStyle = 'white';
             ctx.lineWidth = 2;
             ctx.stroke();
+            ctx.fillStyle = 'white';
+            ctx.font = `bold ${Math.max(9, r - 2)}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(labels[i], pt.x, pt.y);
         });
     },
 
-    // Main pipeline: detect → warp → enhance.  Returns a canvas.
-    async processImage(file, enhancement, maxOutputDim = 2000) {
+    // Main pipeline: detect (or use user-adjusted) → warp → enhance → (optional) remove bg.  Returns a canvas.
+    async processImage(file, enhancement, { maxOutputDim = 2000, removeBg = false, bgTolerance = 40 } = {}) {
         const img = await this._loadImage(file);
-        // Scale source to a reasonable working size
         const srcScale = Math.min(1, maxOutputDim / Math.max(img.naturalWidth, img.naturalHeight));
         const srcW = Math.round(img.naturalWidth  * srcScale);
         const srcH = Math.round(img.naturalHeight * srcScale);
@@ -1774,14 +2214,26 @@ const DocScanUtils = {
         srcCanvas.width = srcW; srcCanvas.height = srcH;
         srcCanvas.getContext('2d').drawImage(img, 0, 0, srcW, srcH);
 
-        const corners = this.detectCorners(srcCanvas);
+        // Prefer user-adjusted corners from the preview (scaled to source resolution)
+        let corners = null;
+        let cornersFromUser = false;
+        const ps = this._previewState;
+        if (ps.sourceFile === file && ps.corners && ps.canvasW > 0) {
+            const sx = srcW / ps.canvasW, sy = srcH / ps.canvasH;
+            corners = ps.corners.map(pt => ({x: pt.x * sx, y: pt.y * sy}));
+            cornersFromUser = true;
+        } else {
+            corners = this.detectCorners(srcCanvas);
+        }
+
         let result;
-        if (corners && this._isValidQuad(corners, srcW, srcH)) {
+        // Always trust user-placed corners; only validate auto-detected ones
+        if (corners && (cornersFromUser || this._isValidQuad(corners, srcW, srcH))) {
             result = this._perspectiveWarp(srcCanvas, corners, maxOutputDim);
         } else {
-            console.log('[DocScan] No valid document quad found – using full image');
             result = srcCanvas;
         }
+        if (removeBg) this._removeBackground(result, bgTolerance);
         this._applyEnhancement(result, enhancement);
         return result;
     },
@@ -1967,6 +2419,40 @@ const DocScanUtils = {
         return edges;
     },
 
+    // Background removal: sample corner patches → whiten pixels within colour distance
+    _removeBackground(canvas, tolerance) {
+        const ctx = canvas.getContext('2d');
+        const W = canvas.width, H = canvas.height;
+        const id  = ctx.getImageData(0, 0, W, H);
+        const px  = id.data;
+
+        // Sample 5% patches at all four corners to estimate paper/background colour
+        const pw = Math.max(4, Math.round(W * 0.05));
+        const ph = Math.max(4, Math.round(H * 0.05));
+        let rSum = 0, gSum = 0, bSum = 0, cnt = 0;
+        const sample = (x0, y0) => {
+            for (let y = y0; y < y0 + ph && y < H; y++)
+                for (let x = x0; x < x0 + pw && x < W; x++) {
+                    const i = (y * W + x) * 4;
+                    rSum += px[i]; gSum += px[i+1]; bSum += px[i+2]; cnt++;
+                }
+        };
+        sample(0, 0);              // TL
+        sample(W - pw, 0);         // TR
+        sample(0, H - ph);         // BL
+        sample(W - pw, H - ph);    // BR
+
+        const bgR = rSum / cnt, bgG = gSum / cnt, bgB = bSum / cnt;
+        const tSq = tolerance * tolerance;
+
+        for (let i = 0; i < px.length; i += 4) {
+            const dr = px[i] - bgR, dg = px[i+1] - bgG, db = px[i+2] - bgB;
+            if (dr*dr + dg*dg + db*db < tSq)
+                px[i] = px[i+1] = px[i+2] = 255;
+        }
+        ctx.putImageData(id, 0, 0);
+    },
+
     // Post-processing: grayscale or black-and-white
     _applyEnhancement(canvas, type) {
         if (type === 'none') return;
@@ -2116,7 +2602,7 @@ const Tools = {
             }
             
             if (deleteBtn) {
-                deleteBtn.onclick = () => {
+                deleteBtn.onclick = async () => {
                     const select = document.getElementById('workflowTemplateSelect');
                     const idx = parseInt(select?.value);
                     if (isNaN(idx) || !this.savedWorkflows[idx]) {
@@ -2124,7 +2610,7 @@ const Tools = {
                         return;
                     }
                     const name = this.savedWorkflows[idx].name;
-                    if (!confirm(`Delete workflow "${name}"?`)) return;
+                    if (!await Modal.confirm(`Delete workflow "${name}"?`)) return;
                     this.savedWorkflows.splice(idx, 1);
                     this.saveToStorage();
                     this.updateTemplateList();
@@ -2219,7 +2705,7 @@ const Tools = {
                     completedSteps++;
                 } catch (error) {
                     console.error(`[Workflow] Error in step ${i + 1}:`, error);
-                    const shouldContinue = confirm(
+                    const shouldContinue = await Modal.confirm(
                         `Error in step ${i + 1} (${this.currentWorkflow[i].tool}):\n\n${error.message}\n\nContinue with remaining steps?`
                     );
                     if (!shouldContinue) {
@@ -3583,8 +4069,8 @@ const Tools = {
             }
         },
         
-        resetCurrentPage() {
-            if (!confirm('Reset all edits on this page?')) return;
+        async resetCurrentPage() {
+            if (!await Modal.confirm('Reset all edits on this page?')) return;
             
             // Remove edits for current page
             const keysToRemove = [];
@@ -3621,7 +4107,7 @@ const Tools = {
                 return;
             }
             
-            if (!confirm(`Save ${this.editedItems.size} edit(s) to a new PDF?`)) return;
+            if (!await Modal.confirm(`Save ${this.editedItems.size} edit(s) to a new PDF?`)) return;
             
             try {
                 Utils.updateProgress(0, 'Preparing PDF...');
@@ -3910,7 +4396,7 @@ const Tools = {
             </div>
             <div class="form-group">
                 <label class="form-label">Pages to <span id="extractModeLabel">Extract</span></label>
-                <input type="text" class="form-input" id="extractPages" placeholder="e.g., 1-3, 5, 7-10">
+                <input type="text" class="form-input" id="extractPages" placeholder="e.g., 1-3, 5, 7-10" data-page-range>
                 <p style="font-size: 12px; color: var(--color-text-muted); margin-top: 4px;">
                     Use page numbers or ranges (1-based indexing)
                 </p>
@@ -4002,7 +4488,7 @@ const Tools = {
             </div>
             <div class="form-group">
                 <label class="form-label">Pages to Rotate (leave empty for all)</label>
-                <input type="text" class="form-input" id="rotatePages" placeholder="e.g., 1-3, 5, 7">
+                <input type="text" class="form-input" id="rotatePages" placeholder="e.g., 1-3, 5, 7" data-page-range>
             </div>
         `,
         
@@ -4229,12 +4715,12 @@ const Tools = {
             </div>
             
             <div class="form-group">
-                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-bottom: 8px;">
-                    <input type="checkbox" id="deskewPages" style="width: 18px; height: 18px;">
+                <label style="display: flex; align-items: center; gap: 8px; cursor: not-allowed; margin-bottom: 8px; opacity: 0.5;">
+                    <input type="checkbox" id="deskewPages" style="width: 18px; height: 18px;" disabled>
                     <span><strong>Auto-Deskew Pages</strong></span>
                 </label>
                 <p style="font-size: 11px; color: var(--color-text-muted); margin-left: 26px; margin-top: -4px;">
-                    Automatically straighten crooked scanned pages (experimental)
+                    Not available — deskew requires a full Hough-transform implementation
                 </p>
             </div>
             
@@ -5356,7 +5842,7 @@ const Tools = {
                 </div>
                 <div class="form-group" id="pageRangeGroup" style="display: none;">
                     <label class="form-label">Page Range</label>
-                    <input type="text" class="form-input" id="signaturePageRange" placeholder="e.g., 2-4,7,10-12">
+                    <input type="text" class="form-input" id="signaturePageRange" placeholder="e.g., 2-4,7,10-12" data-page-range>
                 </div>
             </div>
         `,
@@ -5761,7 +6247,8 @@ const Tools = {
         _lineWidth: 3,
         _fontSize: 18,
         _fontFamily: 'Arial',
-        _annotations: [],   // { type, data } - for undo
+        _annotations: [],   // ImageData stack — each entry is a committed state
+        _redoStack:   [],   // ImageData stack for redo
         _drawing: false,
         _startX: 0, _startY: 0,
         _snapshot: null,   // ImageData for live shape preview
@@ -5828,8 +6315,9 @@ const Tools = {
             </div>
 
             <!-- Actions -->
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px;">
-                <button type="button" class="btn btn-secondary" onclick="Tools.annotate.undo()">↶ Undo</button>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:4px;">
+                <button type="button" class="btn btn-secondary" onclick="Tools.annotate.undo()" title="Undo (Ctrl+Z)">↶ Undo</button>
+                <button type="button" class="btn btn-secondary" onclick="Tools.annotate.redo()" title="Redo (Ctrl+Y)">↷ Redo</button>
                 <button type="button" class="btn btn-secondary" onclick="Tools.annotate.clearAll()">🗑️ Clear All</button>
             </div>
 
@@ -5953,6 +6441,7 @@ const Tools = {
             this._ctx.globalAlpha = 1;
             this._ctx.globalCompositeOperation = 'source-over';
             this._annotations.push(this._ctx.getImageData(0, 0, this._canvas.width, this._canvas.height));
+            this._redoStack = []; // new stroke invalidates redo history
         },
 
         _drawShape(type, x1, y1, x2, y2) {
@@ -5995,10 +6484,13 @@ const Tools = {
             ctx.globalCompositeOperation = 'source-over';
             ctx.fillText(text, pos.x, pos.y);
             this._annotations.push(ctx.getImageData(0, 0, this._canvas.width, this._canvas.height));
+            this._redoStack = [];
         },
 
         undo() {
-            this._annotations.pop();
+            if (!this._canvas) return;
+            const popped = this._annotations.pop();
+            if (popped) this._redoStack.push(popped);
             if (this._annotations.length > 0) {
                 this._ctx.putImageData(this._annotations[this._annotations.length - 1], 0, 0);
             } else {
@@ -6006,10 +6498,18 @@ const Tools = {
             }
         },
 
-        clearAll() {
-            if (!confirm('Clear all annotations?')) return;
+        redo() {
+            if (!this._canvas || !this._redoStack.length) return;
+            const state = this._redoStack.pop();
+            this._annotations.push(state);
+            this._ctx.putImageData(state, 0, 0);
+        },
+
+        async clearAll() {
+            if (!await Modal.confirm('Clear all annotations?')) return;
             this._ctx.clearRect(0, 0, this._canvas.width, this._canvas.height);
             this._annotations = [];
+            this._redoStack   = [];
         },
 
         init() {
@@ -6029,11 +6529,22 @@ const Tools = {
                 await origRender(pageNum);
                 this._attachCanvas();
             };
+
+            // Global Ctrl+Z / Ctrl+Y keyboard shortcuts for undo/redo
+            if (this._kbHandler) document.removeEventListener('keydown', this._kbHandler);
+            this._kbHandler = (e) => {
+                if (AppState.currentTool !== 'annotate') return;
+                if (!(e.ctrlKey || e.metaKey)) return;
+                if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); this.undo(); }
+                else if (e.key === 'y' || (e.key === 'z' && e.shiftKey)) { e.preventDefault(); this.redo(); }
+            };
+            document.addEventListener('keydown', this._kbHandler);
         },
 
         cleanup() {
             const old = document.getElementById('annoOverlayCanvas');
             if (old) old.remove();
+            if (this._kbHandler) { document.removeEventListener('keydown', this._kbHandler); this._kbHandler = null; }
         },
 
         async process(files) {
@@ -6067,19 +6578,16 @@ const Tools = {
             const page       = pages[Math.min(pageIndex, pages.length - 1)];
             const { width: pw, height: ph } = page.getSize();
 
-            const annoImg = await pdfDoc.embedPng(annotatedDataUrl);
-            // Draw annotated version as full-page overlay (annotations only layer)
-            // We draw the annotation canvas scaled to the PDF page
-            const scaleX = pw / base.width;
-            const scaleY = ph / base.height;
-
-            // Embed just the overlay canvas
+            // Embed the annotation overlay onto the PDF page
             const overlayCanvas = document.createElement('canvas');
             overlayCanvas.width  = base.width;
             overlayCanvas.height = base.height;
             overlayCanvas.getContext('2d').drawImage(this._canvas, 0, 0);
-            const overlayDataUrl = overlayCanvas.toDataURL('image/png');
-            const overlayImg = await pdfDoc.embedPng(overlayDataUrl);
+            const overlayBytes = Uint8Array.from(
+                atob(overlayCanvas.toDataURL('image/png').split(',')[1]),
+                c => c.charCodeAt(0)
+            );
+            const overlayImg = await pdfDoc.embedPng(overlayBytes);
 
             page.drawImage(overlayImg, { x: 0, y: 0, width: pw, height: ph });
 
@@ -6444,8 +6952,8 @@ const Tools = {
             this._render();
         },
 
-        clearAll() {
-            if (!confirm('Remove all added elements?')) return;
+        async clearAll() {
+            if (!await Modal.confirm('Remove all added elements?')) return;
             this._saveHistory();
             this._elements = [];
             this._selected = -1;
@@ -7152,7 +7660,7 @@ const Tools = {
             Utils.updateProgress(10, 'Loading PDF...');
             
             const arrayBuffer = await pdfFile.arrayBuffer();
-            const pdfDoc = await Utils.loadPDFWithEncryptionHandler(arrayBuffer, file.name);
+            const pdfDoc = await Utils.loadPDFWithEncryptionHandler(arrayBuffer, pdfFile.name);
             const form = pdfDoc.getForm();
             
             Utils.updateProgress(30, 'Filling form fields...');
@@ -7281,7 +7789,7 @@ const Tools = {
                 // Individual download mode
                 // CRITICAL FIX BUG #10: Warn about browser download blocking
                 if (totalRows > 2) {
-                    const proceed = confirm(
+                    const proceed = await Modal.confirm(
                         `You are about to download ${totalRows} files individually.\n\n` +
                         `⚠️ Your browser may block some downloads.\n` +
                         `Please allow pop-ups/downloads if prompted.\n\n` +
@@ -7517,18 +8025,18 @@ const Tools = {
         
         async process(files) {
             const password = document.getElementById('unlockPassword')?.value;
-            
+
             if (!password) {
                 Utils.showStatus('Please enter the PDF password', 'error');
                 return;
             }
-            
+
             const pdfFiles = files.filter(FileType.isPDF);
-            
+
             for (let i = 0; i < pdfFiles.length; i++) {
                 try {
                     const arrayBuffer = await pdfFiles[i].arrayBuffer();
-                    const pdfDoc = await Utils.loadPDFWithEncryptionHandler(arrayBuffer, file.name);
+                    const pdfDoc = await Utils.loadPDFWithEncryptionHandler(arrayBuffer, pdfFiles[i].name);
                     const pdfBytes = await pdfDoc.save();
                     saveAs(new Blob([pdfBytes], { type: 'application/pdf' }), `unlocked_${pdfFiles[i].name}`);
                 } catch (e) {
@@ -9190,7 +9698,7 @@ const Tools = {
                 return;
             }
             
-            if (!confirm('Clear all metadata from this PDF? This will download a new file with metadata removed.')) {
+            if (!await Modal.confirm('Clear all metadata from this PDF? This will download a new file with metadata removed.')) {
                 return;
             }
             
@@ -9950,7 +10458,7 @@ const Tools = {
                         <div style="font-size: 12px; color: var(--color-text-muted);">
                             ${items.map(item => `
                                 <div style="padding: 4px 0; display: flex; justify-content: space-between; align-items: center;">
-                                    <span>📄 ${item.file.name}</span>
+                                    <span>📄 ${Utils.escapeHtml(item.file.name)}</span>
                                     <span style="background: ${item.confidence > 5 ? '#28a745' : item.confidence > 2 ? '#ffc107' : '#dc3545'}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 10px;">
                                         ${item.confidence > 0 ? 'Confidence: ' + item.confidence : 'Low confidence'}
                                     </span>
@@ -10013,11 +10521,20 @@ const Tools = {
         name: 'Invoice Splitter',
         description: 'Split PDFs by detecting invoice patterns',
         icon: '🧾',
+        _pickedRegion: null,  // { nx1, ny1, nx2, ny2 } normalised 0-1, top-left origin
+
+        init() {
+            // configHTML is re-injected on every tool load, resetting all DOM state.
+            // Clear any previously picked region so the JS object stays in sync
+            // with the freshly-rendered (blank) UI.
+            this._pickedRegion = null;
+        },
+
         configHTML: `
             <div class="info-box" style="background: #e7f3ff; border-color: var(--color-primary);">
                 🧾 <strong>Invoice Splitter</strong> - Automatically split multi-invoice PDFs into individual files.
             </div>
-            
+
             <div class="form-group">
                 <label class="form-label">Split Trigger</label>
                 <input type="text" class="form-input" id="invoiceKeyword" placeholder="INVOICE" value="INVOICE">
@@ -10025,7 +10542,7 @@ const Tools = {
                     Creates a new file each time this keyword is found (case-insensitive)
                 </p>
             </div>
-            
+
             <div class="form-group">
                 <label class="form-label">Output Format</label>
                 <select class="form-select" id="invoiceOutputMode">
@@ -10033,24 +10550,27 @@ const Tools = {
                     <option value="individual">Individual Downloads</option>
                 </select>
             </div>
-            
+
             <div class="form-group">
                 <label class="form-label">File Naming</label>
-                <select class="form-select" id="invoiceNamingMode">
+                <select class="form-select" id="invoiceNamingMode" onchange="Tools.invoice._onNamingModeChange(this.value)">
                     <option value="numbered">invoice_001.pdf, invoice_002.pdf...</option>
                     <option value="original">original_name_001.pdf, original_name_002.pdf...</option>
-                    <option value="student">student_name_001.pdf (from PDF text)</option>
+                    <option value="region">custom name from page region</option>
                 </select>
             </div>
 
-            <div class="form-group">
-                <label class="form-label">Name Field Label (for student naming)</label>
-                <input type="text" class="form-input" id="invoiceNameFieldLabel" placeholder="Student Name" value="Student Name">
-                <p style="font-size: 12px; color: var(--color-text-muted); margin-top: 4px;">
-                    The tool will look for text like "Student Name: Jane Doe" on each invoice's first page.
+            <div class="form-group" id="invoiceRegionGroup" style="display:none">
+                <label class="form-label">Name Region</label>
+                <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                    <button type="button" class="btn btn-secondary" onclick="Tools.invoice.startRegionPick()" style="font-size:13px;">🎯 Pick Region</button>
+                    <button type="button" class="btn btn-secondary" id="invoiceClearRegionBtn" onclick="Tools.invoice.clearRegion()" style="font-size:13px; display:none;">✕ Clear</button>
+                </div>
+                <p id="invoiceRegionStatus" style="font-size:12px; margin-top:6px; color:var(--color-text-muted);">
+                    Load a PDF in the preview, then drag a box over the name field.
                 </p>
             </div>
-            
+
             <div class="info-box" style="background: #fff3cd; border-color: #ffc107;">
                 💡 <strong>How it works:</strong> Scans each page for your keyword. When found, starts a new invoice file.
                 If a 10-page PDF has "INVOICE" on pages 1, 4, and 7, you'll get 3 separate invoices.
@@ -10068,10 +10588,14 @@ const Tools = {
             const keyword = document.getElementById('invoiceKeyword')?.value || 'INVOICE';
             const outputMode = document.getElementById('invoiceOutputMode')?.value || 'zip';
             const namingMode = document.getElementById('invoiceNamingMode')?.value || 'numbered';
-            const nameFieldLabel = document.getElementById('invoiceNameFieldLabel')?.value || 'Student Name';
-            
+
             if (!keyword.trim()) {
                 Utils.showStatus('Please enter a split keyword', 'error');
+                return;
+            }
+
+            if (namingMode === 'region' && !this._pickedRegion) {
+                Utils.showStatus('Please pick a name region from the PDF preview first.', 'error');
                 return;
             }
             
@@ -10087,13 +10611,12 @@ const Tools = {
                 Utils.updateProgress(baseProgress + 5, `Analyzing ${file.name}...`);
                 
                 try {
-                    const splitFiles = await this.splitInvoices(file, keyword, namingMode, nameFieldLabel);
+                    const splitFiles = await this.splitInvoices(file, keyword, namingMode, this._pickedRegion);
                     const dedupedFiles = splitFiles.map((splitFile) => ({
                         ...splitFile,
                         name: this.ensureUniqueFileName(splitFile.name, usedFileNames)
                     }));
                     allSplitFiles.push(...dedupedFiles);
-                    allSplitFiles.push(...splitFiles);
                     
                     console.log(`[InvoiceSplitter] Split ${file.name} into ${splitFiles.length} file(s)`);
                     
@@ -10131,25 +10654,25 @@ const Tools = {
             }
         },
         
-        async splitInvoices(file, keyword, namingMode, nameFieldLabel = 'Student Name') {
+        async splitInvoices(file, keyword, namingMode, pickedRegion = null) {
             const splitFiles = [];
-            
-            // Load PDF for text extraction
+
+            // Load PDF for text extraction.
+            // Use Uint8Array so PDF.js copies rather than transfers the buffer,
+            // allowing the same arrayBuffer to be reused by pdf-lib below.
             const arrayBuffer = await file.arrayBuffer();
-            const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+            const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) });
             const pdf = await loadingTask.promise;
             
             // Find pages with keyword
             const splitPages = []; // Array of page numbers where keyword appears
-            const pageTextByNumber = {};
-            
+
             for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
                 const page = await pdf.getPage(pageNum);
                 const textContent = await page.getTextContent();
-                
+
                 // Combine all text from the page
                 const pageText = textContent.items.map(item => item.str).join(' ');
-                pageTextByNumber[pageNum] = pageText;
                 
                 // Check if keyword appears (case-insensitive)
                 if (pageText.toUpperCase().includes(keyword.toUpperCase())) {
@@ -10199,14 +10722,12 @@ const Tools = {
                 let fileName;
                 const invoiceNum = String(i + 1).padStart(3, '0');
 
-                if (namingMode === 'student') {
-                    const firstPageText = pageTextByNumber[range.start] || '';
-                    const extractedName = this.extractInvoiceNameFromText(firstPageText, nameFieldLabel);
-                    if (extractedName) {
-                        fileName = `${extractedName}_${invoiceNum}.pdf`;
-                    } else {
-                        fileName = `invoice_${invoiceNum}.pdf`;
-                    }
+                if (namingMode === 'region' && pickedRegion) {
+                    const firstPage = await pdf.getPage(range.start);
+                    const extractedName = await this.extractTextFromRegion(firstPage, pickedRegion);
+                    fileName = extractedName
+                        ? `${extractedName}_${invoiceNum}.pdf`
+                        : `invoice_${invoiceNum}.pdf`;
                 } else if (namingMode === 'original') {
                     const baseName = withExt(file.name, '');
                     fileName = `${baseName}_${invoiceNum}.pdf`;
@@ -10223,32 +10744,181 @@ const Tools = {
             return splitFiles;
         },
 
-        extractInvoiceNameFromText(pageText, fieldLabel = 'Student Name') {
-            if (!pageText || typeof pageText !== 'string') return null;
-            
-            const escapeRegExp = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const label = fieldLabel && fieldLabel.trim() ? fieldLabel.trim() : 'Student Name';
-            const escapedLabel = escapeRegExp(label);
-            
-            const patterns = [
-                new RegExp(`${escapedLabel}\\s*[:\\-]\\s*([A-Za-z][A-Za-z'.,\\-]*(?:\\s+[A-Za-z][A-Za-z'.,\\-]*){0,5})`, 'i'),
-                /student(?:\s+name)?\s*[:\-]\s*([A-Za-z][A-Za-z'.,\-]*(?:\s+[A-Za-z][A-Za-z'.,\-]*){0,5})/i
-            ];
-            
-            for (const pattern of patterns) {
-                const match = pageText.match(pattern);
-                if (match && match[1]) {
-                    const cleaned = match[1].trim().replace(/\s+/g, ' ').replace(/[.,;:]+$/, '');
-                    const safe = cleaned
-                        .replace(/[^a-z0-9_-]/gi, '_')
-                        .replace(/_+/g, '_')
-                        .replace(/^_+|_+$/g, '')
-                        .substring(0, 60);
-                    if (safe) return safe;
-                }
+        // Extract text that falls inside a normalised region from a PDF.js page.
+        // region: { nx1, ny1, nx2, ny2 } — values 0-1 with top-left origin.
+        // PDF.js text items use bottom-left origin, so we flip the y axis.
+        async extractTextFromRegion(page, region) {
+            const viewport = page.getViewport({ scale: 1 });
+            const pw = viewport.width;
+            const ph = viewport.height;
+
+            // Convert normalised (top-left) → PDF points (bottom-left)
+            const pdfX1 = region.nx1 * pw;
+            const pdfX2 = region.nx2 * pw;
+            const pdfY1 = (1 - region.ny2) * ph;   // bottom edge in PDF coords
+            const pdfY2 = (1 - region.ny1) * ph;   // top edge in PDF coords
+
+            const textContent = await page.getTextContent();
+            const inRegion = textContent.items.filter(item => {
+                const tx = item.transform[4];
+                const ty = item.transform[5];
+                return tx >= pdfX1 && tx <= pdfX2 && ty >= pdfY1 && ty <= pdfY2;
+            });
+
+            const raw = inRegion.map(item => item.str).join(' ').trim().replace(/\s+/g, ' ');
+            if (!raw) return null;
+
+            // Sanitise for use as a filename
+            const safe = raw
+                .replace(/[^a-z0-9_\- ]/gi, '_')
+                .replace(/\s+/g, '_')
+                .replace(/_+/g, '_')
+                .replace(/^_+|_+$/g, '')
+                .substring(0, 60);
+            return safe || null;
+        },
+
+        _onNamingModeChange(value) {
+            const group = document.getElementById('invoiceRegionGroup');
+            if (group) group.style.display = value === 'region' ? 'block' : 'none';
+        },
+
+        clearRegion() {
+            this._pickedRegion = null;
+            const status = document.getElementById('invoiceRegionStatus');
+            if (status) {
+                status.textContent = 'Load a PDF in the preview, then drag a box over the name field.';
+                status.style.color = '';
             }
-            
-            return null;
+            const clearBtn = document.getElementById('invoiceClearRegionBtn');
+            if (clearBtn) clearBtn.style.display = 'none';
+        },
+
+        startRegionPick() {
+            const previewCanvas = document.getElementById('pdfPreviewCanvas');
+            if (!previewCanvas || !PDFPreview.currentPdf) {
+                Utils.showStatus('Load a PDF in the preview first, then pick the region.', 'warning');
+                return;
+            }
+
+            const wrapper = previewCanvas.parentElement;
+
+            // Remove any stale overlay
+            const old = document.getElementById('invoiceRegionOverlay');
+            if (old) old.remove();
+
+            const overlay = document.createElement('canvas');
+            overlay.id = 'invoiceRegionOverlay';
+            overlay.width  = previewCanvas.width;
+            overlay.height = previewCanvas.height;
+            overlay.style.cssText =
+                `position:absolute;top:0;left:0;` +
+                `width:${previewCanvas.style.width  || previewCanvas.width  + 'px'};` +
+                `height:${previewCanvas.style.height || previewCanvas.height + 'px'};` +
+                `cursor:crosshair;z-index:20;`;
+            wrapper.appendChild(overlay);
+
+            const ctx = overlay.getContext('2d');
+
+            const drawInstruction = () => {
+                ctx.clearRect(0, 0, overlay.width, overlay.height);
+                ctx.fillStyle = 'rgba(0,0,0,0.35)';
+                ctx.fillRect(0, 0, overlay.width, overlay.height);
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 14px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('Drag to select the name region', overlay.width / 2, overlay.height / 2);
+                ctx.textBaseline = 'alphabetic';
+            };
+            drawInstruction();
+
+            let startX = 0, startY = 0, dragging = false;
+
+            const getPos = (e) => {
+                const r = overlay.getBoundingClientRect();
+                const sx = overlay.width  / r.width;
+                const sy = overlay.height / r.height;
+                const src = e.touches ? e.touches[0] : e;
+                return {
+                    x: (src.clientX - r.left) * sx,
+                    y: (src.clientY - r.top)  * sy,
+                };
+            };
+
+            const onDown = (e) => {
+                e.preventDefault();
+                const p = getPos(e);
+                startX = p.x; startY = p.y;
+                dragging = true;
+            };
+
+            const onMove = (e) => {
+                if (!dragging) return;
+                e.preventDefault();
+                const p = getPos(e);
+                const x = Math.min(startX, p.x), y = Math.min(startY, p.y);
+                const w = Math.abs(p.x - startX),  h = Math.abs(p.y - startY);
+                ctx.clearRect(0, 0, overlay.width, overlay.height);
+                ctx.fillStyle = 'rgba(0,0,0,0.35)';
+                ctx.fillRect(0, 0, overlay.width, overlay.height);
+                ctx.clearRect(x, y, w, h);
+                ctx.strokeStyle = '#007bff';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(x, y, w, h);
+            };
+
+            const onUp = (e) => {
+                if (!dragging) return;
+                e.preventDefault();
+                dragging = false;
+                const p = getPos(e);
+                const x1 = Math.min(startX, p.x), y1 = Math.min(startY, p.y);
+                const x2 = Math.max(startX, p.x), y2 = Math.max(startY, p.y);
+
+                overlay.remove();
+                document.removeEventListener('keydown', onKeyDown);
+
+                if (x2 - x1 < 5 || y2 - y1 < 5) {
+                    Utils.showStatus('Region too small — try again.', 'warning');
+                    return;
+                }
+
+                this._pickedRegion = {
+                    nx1: x1 / overlay.width,
+                    ny1: y1 / overlay.height,
+                    nx2: x2 / overlay.width,
+                    ny2: y2 / overlay.height,
+                };
+
+                const status = document.getElementById('invoiceRegionStatus');
+                if (status) {
+                    status.textContent =
+                        `Region set: (${Math.round(x1)}, ${Math.round(y1)}) → ` +
+                        `(${Math.round(x2)}, ${Math.round(y2)}) px on preview`;
+                    status.style.color = 'var(--color-success, #28a745)';
+                }
+                const clearBtn = document.getElementById('invoiceClearRegionBtn');
+                if (clearBtn) clearBtn.style.display = 'inline-block';
+
+                Utils.showStatus('Region saved! Click Process to split.', 'success');
+            };
+
+            const onKeyDown = (e) => {
+                if (e.key === 'Escape') {
+                    overlay.remove();
+                    document.removeEventListener('keydown', onKeyDown);
+                    Utils.showStatus('Region pick cancelled.', 'info');
+                }
+            };
+
+            overlay.addEventListener('mousedown',  onDown, { passive: false });
+            overlay.addEventListener('mousemove',  onMove, { passive: false });
+            overlay.addEventListener('mouseup',    onUp,   { passive: false });
+            overlay.addEventListener('touchstart', onDown, { passive: false });
+            overlay.addEventListener('touchmove',  onMove, { passive: false });
+            overlay.addEventListener('touchend',   onUp,   { passive: false });
+            document.addEventListener('keydown', onKeyDown);
         },
 
         ensureUniqueFileName(fileName, usedFileNames) {
@@ -10333,7 +11003,7 @@ const Tools = {
             for (let i = 0; i < pdfFiles.length; i++) {
                 try {
                     const arrayBuffer = await pdfFiles[i].arrayBuffer();
-                    const pdfDoc = await Utils.loadPDFWithEncryptionHandler(arrayBuffer, file.name);
+                    const pdfDoc = await Utils.loadPDFWithEncryptionHandler(arrayBuffer, pdfFiles[i].name);
                     const pageCount = pdfDoc.getPageCount();
                     
                     console.log(`✓ ${pdfFiles[i].name}: Valid (${pageCount} pages)`);
@@ -10618,16 +11288,21 @@ const Tools = {
                 const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
                 const pdf = await loadingTask.promise;
                 
-                // Create OCR worker
+                // Reuse cached worker if same language; avoids re-downloading ~20 MB model
                 Utils.updateProgress(20, 'Starting OCR engine...');
-                worker = await Tesseract.createWorker(language, 1, {
-                    logger: m => {
-                        if (m.status === 'recognizing text') {
-                            const progress = Math.round(m.progress * 100);
-                            console.log(`[OCR] Page progress: ${progress}%`);
+                if (!Tools.ocr._worker || Tools.ocr._workerLang !== language) {
+                    if (Tools.ocr._worker) { await Tools.ocr._worker.terminate(); Tools.ocr._worker = null; }
+                    Tools.ocr._worker = await Tesseract.createWorker(language, 1, {
+                        logger: m => {
+                            if (m.status === 'recognizing text') {
+                                const progress = Math.round(m.progress * 100);
+                                console.log(`[OCR] Page progress: ${progress}%`);
+                            }
                         }
-                    }
-                });
+                    });
+                    Tools.ocr._workerLang = language;
+                }
+                worker = Tools.ocr._worker;
                 
                 // Process each page
                 const ocrResults = [];
@@ -10736,15 +11411,9 @@ const Tools = {
                 console.error('[OCR] Error:', error);
                 Utils.showStatus('OCR failed: ' + error.message, 'error');
             } finally {
-                // CRITICAL FIX: Always terminate worker to prevent memory leak
-                if (worker) {
-                    try {
-                        await worker.terminate();
-                        console.log('[OCR] Worker terminated successfully');
-                    } catch (e) {
-                        console.warn('[OCR] Failed to terminate worker:', e);
-                    }
-                }
+                // Worker is kept alive in Tools.ocr._worker for reuse on the next run.
+                // It will be terminated if the language changes or the page unloads.
+                worker = null;
             }
         }
     },
@@ -10781,13 +11450,36 @@ const Tools = {
                 </select>
             </div>
 
-            <div id="docScanPreview" style="display: none; margin-top: 16px;">
-                <label class="form-label">Detected Document Area</label>
-                <canvas id="docScanCanvas" style="max-width:100%; border:1px solid var(--color-border); border-radius:8px; display:block;"></canvas>
+            <div class="form-group">
+                <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                    <input type="checkbox" id="docScanRemoveBg" style="width:16px; height:16px; cursor:pointer;">
+                    <span><strong>Remove background</strong> — whiten the paper/desk colour, keep text &amp; images</span>
+                </label>
+                <div style="margin-top:6px; display:flex; align-items:center; gap:8px;" id="docScanBgToleranceRow">
+                    <label class="form-label" style="margin:0; white-space:nowrap; font-size:12px;">Sensitivity</label>
+                    <input type="range" id="docScanBgTolerance" min="10" max="120" value="40" style="flex:1;">
+                    <span id="docScanBgToleranceVal" style="font-size:12px; min-width:28px; text-align:right;">40</span>
+                </div>
+            </div>
+
+            <div id="docScanPreview" style="margin-top: 16px;">
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+                    <label class="form-label" style="margin:0;">Detected Document Area</label>
+                    <button id="docScanResetBtn" class="btn btn-secondary"
+                            style="padding:4px 10px; font-size:12px;" title="Re-run automatic corner detection">
+                        ↺ Reset corners
+                    </button>
+                </div>
+                <canvas id="docScanCanvas" tabindex="0" style="max-width:100%; border:1px solid var(--color-border); border-radius:8px; display:block; outline:none;"></canvas>
                 <p style="font-size:12px; color:var(--color-text-muted); margin-top:6px;">
                     Green outline = detected document region.
-                    If detection looks wrong the tool will still fall back to the full image.
+                    <strong>Drag any corner dot to adjust it.</strong>
+                    Use ↺ Reset to re-run auto detection.
                 </p>
+                <div id="docScanWarpWrap" style="display:none; margin-top:14px;">
+                    <label class="form-label">Straightened preview</label>
+                    <canvas id="docScanWarpPreview" style="max-width:100%; border:1px solid var(--color-border); border-radius:8px; display:block;"></canvas>
+                </div>
             </div>
         `,
 
@@ -10795,7 +11487,18 @@ const Tools = {
             const imageFiles = AppState.files.filter(f => f.type.startsWith('image/'));
             if (imageFiles.length > 0) {
                 DocScanUtils.showPreview(imageFiles[0]);
+            } else {
+                // Draw placeholder so the preview area is visible from the start
+                const canvas = document.getElementById('docScanCanvas');
+                if (canvas) DocScanUtils._drawCanvasPlaceholder(canvas, 'Add an image above to see the preview');
             }
+            // Wire slider label
+            const tolSlider = document.getElementById('docScanBgTolerance');
+            const tolVal    = document.getElementById('docScanBgToleranceVal');
+            if (tolSlider && tolVal) {
+                tolSlider.addEventListener('input', () => { tolVal.textContent = tolSlider.value; });
+            }
+            // Note: reset button is wired inside showPreview() with a dataset guard
         },
 
         async process(files) {
@@ -10807,6 +11510,8 @@ const Tools = {
 
             const pageSize    = document.getElementById('docScanPageSize')?.value    || 'Letter';
             const enhancement = document.getElementById('docScanEnhancement')?.value || 'none';
+            const removeBg    = document.getElementById('docScanRemoveBg')?.checked ?? false;
+            const bgTolerance = parseInt(document.getElementById('docScanBgTolerance')?.value || '40', 10);
 
             Utils.updateProgress(5, 'Initializing...');
             const pdfDoc = await PDFLib.PDFDocument.create();
@@ -10818,11 +11523,16 @@ const Tools = {
                     `Processing ${file.name} (${i+1}/${imageFiles.length})…`
                 );
                 try {
-                    // Detect corners, crop, deskew
-                    const processedCanvas = await DocScanUtils.processImage(file, enhancement);
+                    // Detect corners, crop, deskew, optionally remove background
+                    const processedCanvas = await DocScanUtils.processImage(file, enhancement, { removeBg, bgTolerance });
 
                     // Encode to JPEG for pdf-lib embedding
-                    const blob = await new Promise(res => processedCanvas.toBlob(res, 'image/jpeg', 0.92));
+                    const blob = await new Promise((res, rej) =>
+                        processedCanvas.toBlob(
+                            b => b ? res(b) : rej(new Error('Canvas export failed — image may be corrupted or cross-origin')),
+                            'image/jpeg', 0.92
+                        )
+                    );
                     const arrayBuffer = await blob.arrayBuffer();
                     const embeddedImg = await pdfDoc.embedJpg(arrayBuffer);
 
@@ -10884,8 +11594,7 @@ if (!Tools.compress && Tools.compressAdvanced) {
 
 // Tool Manager
 const ToolManager = {
-    loadTool(toolId) {
-        console.log(`[ToolManager] Loading tool: ${toolId}`);
+    async loadTool(toolId) {
         
         // CRITICAL FIX BUG #7: Call cleanup on old tool before switching
         const oldToolId = AppState.currentTool;
@@ -10931,10 +11640,30 @@ const ToolManager = {
         
         // Initialize PDF Preview
         PDFPreview.init();
-        
+
+        // Restore saved settings immediately after HTML is in the DOM
+        ToolSettings.autoRestore(toolId);
+
         // Initialize tool-specific functionality
         if (tool.init) {
-            setTimeout(() => tool.init(), 100);
+            setTimeout(() => {
+                tool.init();
+                // Wire auto-save after init has had a chance to set default values
+                setTimeout(() => {
+                    ToolSettings.wireAutoSave(toolId);
+                    // Wire live page-range validation on any input with data-page-range attribute
+                    document.querySelectorAll('input[data-page-range]').forEach(input => {
+                        Utils.wirePageRangeValidation(input, () => PDFPreview.totalPages || 0);
+                    });
+                }, 200);
+            }, 100);
+        } else {
+            setTimeout(() => {
+                ToolSettings.wireAutoSave(toolId);
+                document.querySelectorAll('input[data-page-range]').forEach(input => {
+                    Utils.wirePageRangeValidation(input, () => PDFPreview.totalPages || 0);
+                });
+            }, 150);
         }
         
         // Update active button with aria-pressed for accessibility
@@ -10993,7 +11722,7 @@ const ToolManager = {
         // Enhancement #12: Confirmation before destructive operations
         const destructiveTools = ['redact', 'cleanslate', 'flatten'];
         if (destructiveTools.includes(toolId) && AppState.files.length > 0) {
-            const confirmed = confirm(
+            const confirmed = await Modal.confirm(
                 `⚠️ "${tool.name}" makes irreversible changes to your PDF.\n\n` +
                 `This cannot be undone. Make sure you have a backup of your original file.\n\n` +
                 `Continue?`
@@ -11418,10 +12147,10 @@ const FavoritesManager = {
         });
     },
     
-    clearAll() {
+    async clearAll() {
         if (this.favorites.size === 0) return;
-        
-        if (confirm('Clear all favorites?')) {
+
+        if (await Modal.confirm('Clear all favorites?')) {
             this.favorites.clear();
             this.saveFavorites();
             this.updateFavoritesList();
@@ -11561,7 +12290,7 @@ const FavoritesManager = {
             if (!resetBtn) return;
             
             resetBtn.addEventListener('click', async () => {
-                if (!confirm('This will clear all offline caches and reload the app. Continue?')) {
+                if (!await Modal.confirm('This will clear all offline caches and reload the app. Continue?')) {
                     return;
                 }
                 
@@ -11594,7 +12323,7 @@ const FavoritesManager = {
                     
                 } catch (error) {
                     console.error('Reset failed:', error);
-                    alert('Reset failed. Please manually refresh the page (Ctrl+Shift+R).');
+                    Utils.showStatus('Reset failed. Please manually refresh the page (Ctrl+Shift+R).', 'error');
                     resetBtn.disabled = false;
                     resetBtn.textContent = '🔄 Reset App';
                 }

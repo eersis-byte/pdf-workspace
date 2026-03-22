@@ -1,8 +1,8 @@
-// PDF Workspace Service Worker v9.2.0 - 20 Enhancements
+// PDF Workspace Service Worker v9.2.3 - network-first for local assets
 // ✅ Lazy loading, dark mode, keyboard shortcuts, mobile sidebar
 // 🔒 CSP, SRI framework, beforeunload protection
 // 📊 All previous fixes included
-const VERSION = '9.2.0';
+const VERSION = '9.2.3';
 const CACHE_NAME = `pdf-workspace-v${VERSION}`;
 const RUNTIME_CACHE = 'pdf-workspace-runtime';
 
@@ -150,40 +150,27 @@ self.addEventListener('fetch', (event) => {
             })
         );
     } else {
-        // Cache-first for local resources (app shell)
+        // Network-first for local resources — always get fresh code when online,
+        // fall back to cache only when the network is unavailable (offline support).
         event.respondWith(
-            caches.match(request)
-                .then((cachedResponse) => {
-                    if (cachedResponse) {
-                        console.log('[Service Worker] Serving from cache:', request.url);
-                        return cachedResponse;
-                    }
-                    
-                    // Not in cache, fetch from network
-                    return fetch(request)
-                        .then((networkResponse) => {
-                            // Cache successful responses
-                            if (networkResponse && networkResponse.status === 200) {
-                                const responseToCache = networkResponse.clone();
-                                
-                                caches.open(RUNTIME_CACHE)
-                                    .then((cache) => {
-                                        cache.put(request, responseToCache);
-                                    });
-                            }
-                            
-                            return networkResponse;
-                        })
-                        .catch((error) => {
-                            console.error('[Service Worker] Fetch failed:', error);
-                            
-                            // Return offline page if available — use relative path so it works on subpaths (e.g. GitHub Pages)
-                            if (request.destination === 'document') {
-                                return caches.match('./index.html') || caches.match('/');
-                            }
-                            
-                            throw error;
+            fetch(request)
+                .then((networkResponse) => {
+                    if (networkResponse && networkResponse.status === 200) {
+                        const responseToCache = networkResponse.clone();
+                        caches.open(CACHE_NAME).then((cache) => {
+                            cache.put(request, responseToCache);
                         });
+                    }
+                    return networkResponse;
+                })
+                .catch(() => {
+                    // Network failed — serve from cache for offline support
+                    return caches.match(request).then((cachedResponse) => {
+                        if (cachedResponse) return cachedResponse;
+                        if (request.destination === 'document') {
+                            return caches.match('./index.html') || caches.match('/');
+                        }
+                    });
                 })
         );
     }
