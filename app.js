@@ -10078,6 +10078,7 @@ const Tools = {
             Utils.updateProgress(5, 'Starting invoice splitting...');
             
             let allSplitFiles = [];
+            const usedFileNames = new Set();
             
             for (let fileIdx = 0; fileIdx < pdfFiles.length; fileIdx++) {
                 const file = pdfFiles[fileIdx];
@@ -10087,6 +10088,11 @@ const Tools = {
                 
                 try {
                     const splitFiles = await this.splitInvoices(file, keyword, namingMode, nameFieldLabel);
+                    const dedupedFiles = splitFiles.map((splitFile) => ({
+                        ...splitFile,
+                        name: this.ensureUniqueFileName(splitFile.name, usedFileNames)
+                    }));
+                    allSplitFiles.push(...dedupedFiles);
                     allSplitFiles.push(...splitFiles);
                     
                     console.log(`[InvoiceSplitter] Split ${file.name} into ${splitFiles.length} file(s)`);
@@ -10243,6 +10249,27 @@ const Tools = {
             }
             
             return null;
+        },
+
+        ensureUniqueFileName(fileName, usedFileNames) {
+            if (!usedFileNames.has(fileName)) {
+                usedFileNames.add(fileName);
+                return fileName;
+            }
+            
+            const dotIndex = fileName.lastIndexOf('.');
+            const baseName = dotIndex > -1 ? fileName.slice(0, dotIndex) : fileName;
+            const extension = dotIndex > -1 ? fileName.slice(dotIndex) : '';
+            
+            let counter = 2;
+            let candidate = `${baseName}_${counter}${extension}`;
+            while (usedFileNames.has(candidate)) {
+                counter++;
+                candidate = `${baseName}_${counter}${extension}`;
+            }
+            
+            usedFileNames.add(candidate);
+            return candidate;
         }
     },
     
