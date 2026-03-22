@@ -10666,14 +10666,16 @@ const Tools = {
             
             // Find pages with keyword
             const splitPages = []; // Array of page numbers where keyword appears
+            const pageCache = new Map(); // Cache pages and text content to avoid double-fetching
 
             for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
                 const page = await pdf.getPage(pageNum);
                 const textContent = await page.getTextContent();
+                pageCache.set(pageNum, { page, textContent });
 
                 // Combine all text from the page
                 const pageText = textContent.items.map(item => item.str).join(' ');
-                
+
                 // Check if keyword appears (case-insensitive)
                 if (pageText.toUpperCase().includes(keyword.toUpperCase())) {
                     splitPages.push(pageNum);
@@ -10723,8 +10725,8 @@ const Tools = {
                 const invoiceNum = String(i + 1).padStart(3, '0');
 
                 if (namingMode === 'region' && pickedRegion) {
-                    const firstPage = await pdf.getPage(range.start);
-                    const extractedName = await this.extractTextFromRegion(firstPage, pickedRegion);
+                    const cached = pageCache.get(range.start);
+                    const extractedName = await this.extractTextFromRegion(cached.page, pickedRegion, cached.textContent);
                     fileName = extractedName
                         ? `${extractedName}_${invoiceNum}.pdf`
                         : `invoice_${invoiceNum}.pdf`;
@@ -10747,7 +10749,7 @@ const Tools = {
         // Extract text that falls inside a normalised region from a PDF.js page.
         // region: { nx1, ny1, nx2, ny2 } — values 0-1 with top-left origin.
         // PDF.js text items use bottom-left origin, so we flip the y axis.
-        async extractTextFromRegion(page, region) {
+        async extractTextFromRegion(page, region, cachedTextContent = null) {
             const viewport = page.getViewport({ scale: 1 });
             const pw = viewport.width;
             const ph = viewport.height;
@@ -10758,7 +10760,7 @@ const Tools = {
             const pdfY1 = (1 - region.ny2) * ph;   // bottom edge in PDF coords
             const pdfY2 = (1 - region.ny1) * ph;   // top edge in PDF coords
 
-            const textContent = await page.getTextContent();
+            const textContent = cachedTextContent ?? await page.getTextContent();
             const inRegion = textContent.items.filter(item => {
                 const tx = item.transform[4];
                 const ty = item.transform[5];
