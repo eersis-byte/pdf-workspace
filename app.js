@@ -10522,6 +10522,14 @@ const Tools = {
         description: 'Split PDFs by detecting invoice patterns',
         icon: '🧾',
         _pickedRegion: null,  // { nx1, ny1, nx2, ny2 } normalised 0-1, top-left origin
+
+        init() {
+            // configHTML is re-injected on every tool load, resetting all DOM state.
+            // Clear any previously picked region so the JS object stays in sync
+            // with the freshly-rendered (blank) UI.
+            this._pickedRegion = null;
+        },
+
         configHTML: `
             <div class="info-box" style="background: #e7f3ff; border-color: var(--color-primary);">
                 🧾 <strong>Invoice Splitter</strong> - Automatically split multi-invoice PDFs into individual files.
@@ -10609,7 +10617,6 @@ const Tools = {
                         name: this.ensureUniqueFileName(splitFile.name, usedFileNames)
                     }));
                     allSplitFiles.push(...dedupedFiles);
-                    allSplitFiles.push(...splitFiles);
                     
                     console.log(`[InvoiceSplitter] Split ${file.name} into ${splitFiles.length} file(s)`);
                     
