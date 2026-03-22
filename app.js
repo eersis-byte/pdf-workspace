@@ -10666,15 +10666,13 @@ const Tools = {
             
             // Find pages with keyword
             const splitPages = []; // Array of page numbers where keyword appears
-            const pageTextByNumber = {};
-            
+
             for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
                 const page = await pdf.getPage(pageNum);
                 const textContent = await page.getTextContent();
-                
+
                 // Combine all text from the page
                 const pageText = textContent.items.map(item => item.str).join(' ');
-                pageTextByNumber[pageNum] = pageText;
                 
                 // Check if keyword appears (case-insensitive)
                 if (pageText.toUpperCase().includes(keyword.toUpperCase())) {
