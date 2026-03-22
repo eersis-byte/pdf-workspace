@@ -10039,7 +10039,16 @@ const Tools = {
                 <select class="form-select" id="invoiceNamingMode">
                     <option value="numbered">invoice_001.pdf, invoice_002.pdf...</option>
                     <option value="original">original_name_001.pdf, original_name_002.pdf...</option>
+                    <option value="student">student_name_001.pdf (from PDF text)</option>
                 </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Name Field Label (for student naming)</label>
+                <input type="text" class="form-input" id="invoiceNameFieldLabel" placeholder="Student Name" value="Student Name">
+                <p style="font-size: 12px; color: var(--color-text-muted); margin-top: 4px;">
+                    The tool will look for text like "Student Name: Jane Doe" on each invoice's first page.
+                </p>
             </div>
             
             <div class="info-box" style="background: #fff3cd; border-color: #ffc107;">
@@ -10059,6 +10068,7 @@ const Tools = {
             const keyword = document.getElementById('invoiceKeyword')?.value || 'INVOICE';
             const outputMode = document.getElementById('invoiceOutputMode')?.value || 'zip';
             const namingMode = document.getElementById('invoiceNamingMode')?.value || 'numbered';
+            const nameFieldLabel = document.getElementById('invoiceNameFieldLabel')?.value || 'Student Name';
             
             if (!keyword.trim()) {
                 Utils.showStatus('Please enter a split keyword', 'error');
@@ -10076,7 +10086,7 @@ const Tools = {
                 Utils.updateProgress(baseProgress + 5, `Analyzing ${file.name}...`);
                 
                 try {
-                    const splitFiles = await this.splitInvoices(file, keyword, namingMode);
+                    const splitFiles = await this.splitInvoices(file, keyword, namingMode, nameFieldLabel);
                     allSplitFiles.push(...splitFiles);
                     
                     console.log(`[InvoiceSplitter] Split ${file.name} into ${splitFiles.length} file(s)`);
@@ -10115,7 +10125,7 @@ const Tools = {
             }
         },
         
-        async splitInvoices(file, keyword, namingMode) {
+        async splitInvoices(file, keyword, namingMode, nameFieldLabel = 'Student Name') {
             const splitFiles = [];
             
             // Load PDF for text extraction
@@ -10125,6 +10135,7 @@ const Tools = {
             
             // Find pages with keyword
             const splitPages = []; // Array of page numbers where keyword appears
+            const pageTextByNumber = {};
             
             for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
                 const page = await pdf.getPage(pageNum);
@@ -10132,6 +10143,7 @@ const Tools = {
                 
                 // Combine all text from the page
                 const pageText = textContent.items.map(item => item.str).join(' ');
+                pageTextByNumber[pageNum] = pageText;
                 
                 // Check if keyword appears (case-insensitive)
                 if (pageText.toUpperCase().includes(keyword.toUpperCase())) {
@@ -10179,12 +10191,20 @@ const Tools = {
                 
                 // Generate filename
                 let fileName;
-                if (namingMode === 'original') {
+                const invoiceNum = String(i + 1).padStart(3, '0');
+
+                if (namingMode === 'student') {
+                    const firstPageText = pageTextByNumber[range.start] || '';
+                    const extractedName = this.extractInvoiceNameFromText(firstPageText, nameFieldLabel);
+                    if (extractedName) {
+                        fileName = `${extractedName}_${invoiceNum}.pdf`;
+                    } else {
+                        fileName = `invoice_${invoiceNum}.pdf`;
+                    }
+                } else if (namingMode === 'original') {
                     const baseName = withExt(file.name, '');
-                    const invoiceNum = String(i + 1).padStart(3, '0');
                     fileName = `${baseName}_${invoiceNum}.pdf`;
                 } else {
-                    const invoiceNum = String(i + 1).padStart(3, '0');
                     fileName = `invoice_${invoiceNum}.pdf`;
                 }
                 
@@ -10195,6 +10215,34 @@ const Tools = {
             }
             
             return splitFiles;
+        },
+
+        extractInvoiceNameFromText(pageText, fieldLabel = 'Student Name') {
+            if (!pageText || typeof pageText !== 'string') return null;
+            
+            const escapeRegExp = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const label = fieldLabel && fieldLabel.trim() ? fieldLabel.trim() : 'Student Name';
+            const escapedLabel = escapeRegExp(label);
+            
+            const patterns = [
+                new RegExp(`${escapedLabel}\\s*[:\\-]\\s*([A-Za-z][A-Za-z'.,\\-]*(?:\\s+[A-Za-z][A-Za-z'.,\\-]*){0,5})`, 'i'),
+                /student(?:\s+name)?\s*[:\-]\s*([A-Za-z][A-Za-z'.,\-]*(?:\s+[A-Za-z][A-Za-z'.,\-]*){0,5})/i
+            ];
+            
+            for (const pattern of patterns) {
+                const match = pageText.match(pattern);
+                if (match && match[1]) {
+                    const cleaned = match[1].trim().replace(/\s+/g, ' ').replace(/[.,;:]+$/, '');
+                    const safe = cleaned
+                        .replace(/[^a-z0-9_-]/gi, '_')
+                        .replace(/_+/g, '_')
+                        .replace(/^_+|_+$/g, '')
+                        .substring(0, 60);
+                    if (safe) return safe;
+                }
+            }
+            
+            return null;
         }
     },
     
@@ -10801,6 +10849,11 @@ const Tools = {
         }
     }
 };
+
+// Backward-compatibility alias: sidebar/history still use `compress` tool id
+if (!Tools.compress && Tools.compressAdvanced) {
+    Tools.compress = Tools.compressAdvanced;
+}
 
 // Tool Manager
 const ToolManager = {
