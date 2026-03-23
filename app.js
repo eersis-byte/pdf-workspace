@@ -10585,11 +10585,11 @@ const Tools = {
                 return;
             }
             
-            const keyword = document.getElementById('invoiceKeyword')?.value || 'INVOICE';
+            const keyword = (document.getElementById('invoiceKeyword')?.value || 'INVOICE').trim();
             const outputMode = document.getElementById('invoiceOutputMode')?.value || 'zip';
             const namingMode = document.getElementById('invoiceNamingMode')?.value || 'numbered';
 
-            if (!keyword.trim()) {
+            if (!keyword) {
                 Utils.showStatus('Please enter a split keyword', 'error');
                 return;
             }
@@ -10627,7 +10627,11 @@ const Tools = {
             }
             
             if (allSplitFiles.length === 0) {
-                Utils.showStatus(`No invoices found with keyword "${keyword}"`, 'warning');
+                Utils.showStatus(
+                    `No pages containing "${keyword}" were found. ` +
+                    `Check your keyword, or the PDF may be scanned (image-only) with no selectable text.`,
+                    'warning'
+                );
                 return;
             }
             
@@ -10673,11 +10677,15 @@ const Tools = {
                 const textContent = await page.getTextContent();
                 pageCache.set(pageNum, { page, textContent });
 
-                // Combine all text from the page
-                const pageText = textContent.items.map(item => item.str).join(' ');
+                // Combine all text from the page.
+                // Join with space (normal) AND without separator (catches words split
+                // across adjacent text items, e.g. "Inv" + "oice" → "Invoice").
+                const kw = keyword.toUpperCase();
+                const pageTextSpaced  = textContent.items.map(item => item.str).join(' ').toUpperCase();
+                const pageTextCompact = textContent.items.map(item => item.str).join('').toUpperCase();
 
                 // Check if keyword appears (case-insensitive)
-                if (pageText.toUpperCase().includes(keyword.toUpperCase())) {
+                if (pageTextSpaced.includes(kw) || pageTextCompact.includes(kw)) {
                     splitPages.push(pageNum);
                 }
             }
