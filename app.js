@@ -478,6 +478,11 @@ const ToolSettings = {
             } else if (el.tagName === 'SELECT' || el.type === 'range' || el.type === 'text' || el.type === 'number' || el.tagName === 'TEXTAREA') {
                 el.value = value;
                 el.dispatchEvent(new Event('input', { bubbles: true }));
+                // SELECT elements fire 'change', not 'input', so trigger both to ensure
+                // any onchange handlers (e.g. _onNamingModeChange) run on restore.
+                if (el.tagName === 'SELECT') {
+                    el.dispatchEvent(new Event('change', { bubbles: true }));
+                }
             }
         });
     },
@@ -10825,7 +10830,9 @@ const Tools = {
 
                 const ay     = item.transform[5];
                 const aRight = item.transform[4] + (item.width || 0);
-                const lineH  = item.height || 10;
+                // item.height is 0 for some PDFs; fall back to font size from the
+                // transform matrix (transform[3] ≈ font size for unrotated text).
+                const lineH  = item.height || Math.abs(item.transform[3]) || 10;
 
                 // Collect items on the same line that start at or after the anchor's right edge
                 const candidates = items
