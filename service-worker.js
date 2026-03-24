@@ -1,8 +1,8 @@
-// PDF Workspace Service Worker v9.2.3 - network-first for local assets
+// PDF Workspace Service Worker v9.2.4 - network-first for local assets
 // ✅ Lazy loading, dark mode, keyboard shortcuts, mobile sidebar
 // 🔒 CSP, SRI framework, beforeunload protection
 // 📊 All previous fixes included
-const VERSION = '9.2.3';
+const VERSION = '9.2.4';
 const CACHE_NAME = `pdf-workspace-v${VERSION}`;
 const RUNTIME_CACHE = 'pdf-workspace-runtime';
 

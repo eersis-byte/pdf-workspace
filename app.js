@@ -10585,11 +10585,11 @@ const Tools = {
                 return;
             }
             
-            const keyword = document.getElementById('invoiceKeyword')?.value || 'INVOICE';
+            const keyword = (document.getElementById('invoiceKeyword')?.value || 'INVOICE').trim();
             const outputMode = document.getElementById('invoiceOutputMode')?.value || 'zip';
             const namingMode = document.getElementById('invoiceNamingMode')?.value || 'numbered';
 
-            if (!keyword.trim()) {
+            if (!keyword) {
                 Utils.showStatus('Please enter a split keyword', 'error');
                 return;
             }
@@ -10627,7 +10627,11 @@ const Tools = {
             }
             
             if (allSplitFiles.length === 0) {
-                Utils.showStatus(`No invoices found with keyword "${keyword}"`, 'warning');
+                Utils.showStatus(
+                    `No pages containing "${keyword}" were found. ` +
+                    `Check your keyword, or the PDF may be scanned (image-only) with no selectable text.`,
+                    'warning'
+                );
                 return;
             }
             
@@ -10658,24 +10662,33 @@ const Tools = {
             const splitFiles = [];
 
             // Load PDF for text extraction.
-            // Use Uint8Array so PDF.js copies rather than transfers the buffer,
-            // allowing the same arrayBuffer to be reused by pdf-lib below.
+            // pdf-lib needs the original arrayBuffer later. PDF.js transfers the underlying
+            // buffer to its worker thread (detaching it), so we pass a copy via .slice(0).
             const arrayBuffer = await file.arrayBuffer();
-            const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) });
+            const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer.slice(0)) });
             const pdf = await loadingTask.promise;
             
             // Find pages with keyword
             const splitPages = []; // Array of page numbers where keyword appears
+            const pageCache = new Map(); // Cache pages and text content to avoid double-fetching
 
             for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
                 const page = await pdf.getPage(pageNum);
                 const textContent = await page.getTextContent();
+                pageCache.set(pageNum, { page, textContent });
 
-                // Combine all text from the page
-                const pageText = textContent.items.map(item => item.str).join(' ');
-                
+                // Combine all text from the page.
+                // Join with space (normal) AND without separator (catches words split
+                // across adjacent text items, e.g. "Inv" + "oice" → "Invoice").
+                const kw = keyword.toUpperCase();
+                const pageTextSpaced  = textContent.items.map(item => item.str).join(' ').toUpperCase();
+                const pageTextCompact = textContent.items.map(item => item.str).join('').toUpperCase();
+
+                console.log(`[InvoiceSplitter] Page ${pageNum}: ${textContent.items.length} text items. Preview: "${pageTextSpaced.substring(0, 200)}"`);
+
                 // Check if keyword appears (case-insensitive)
-                if (pageText.toUpperCase().includes(keyword.toUpperCase())) {
+                if (pageTextSpaced.includes(kw) || pageTextCompact.includes(kw)) {
+                    console.log(`[InvoiceSplitter] Keyword "${keyword}" matched on page ${pageNum}`);
                     splitPages.push(pageNum);
                 }
             }
@@ -10723,8 +10736,8 @@ const Tools = {
                 const invoiceNum = String(i + 1).padStart(3, '0');
 
                 if (namingMode === 'region' && pickedRegion) {
-                    const firstPage = await pdf.getPage(range.start);
-                    const extractedName = await this.extractTextFromRegion(firstPage, pickedRegion);
+                    const cached = pageCache.get(range.start);
+                    const extractedName = await this.extractTextFromRegion(cached.page, pickedRegion, cached.textContent);
                     fileName = extractedName
                         ? `${extractedName}_${invoiceNum}.pdf`
                         : `invoice_${invoiceNum}.pdf`;
@@ -10747,7 +10760,7 @@ const Tools = {
         // Extract text that falls inside a normalised region from a PDF.js page.
         // region: { nx1, ny1, nx2, ny2 } — values 0-1 with top-left origin.
         // PDF.js text items use bottom-left origin, so we flip the y axis.
-        async extractTextFromRegion(page, region) {
+        async extractTextFromRegion(page, region, cachedTextContent = null) {
             const viewport = page.getViewport({ scale: 1 });
             const pw = viewport.width;
             const ph = viewport.height;
@@ -10758,7 +10771,7 @@ const Tools = {
             const pdfY1 = (1 - region.ny2) * ph;   // bottom edge in PDF coords
             const pdfY2 = (1 - region.ny1) * ph;   // top edge in PDF coords
 
-            const textContent = await page.getTextContent();
+            const textContent = cachedTextContent ?? await page.getTextContent();
             const inRegion = textContent.items.filter(item => {
                 const tx = item.transform[4];
                 const ty = item.transform[5];
