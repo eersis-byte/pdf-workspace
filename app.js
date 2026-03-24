@@ -10557,7 +10557,16 @@ const Tools = {
                     <option value="numbered">invoice_001.pdf, invoice_002.pdf...</option>
                     <option value="original">original_name_001.pdf, original_name_002.pdf...</option>
                     <option value="region">custom name from page region</option>
+                    <option value="anchor">custom name — text right of anchor</option>
                 </select>
+            </div>
+
+            <div class="form-group" id="invoiceAnchorGroup" style="display:none">
+                <label class="form-label">Anchor Text</label>
+                <input type="text" class="form-input" id="invoiceAnchorText" placeholder="e.g. Invoice No:" style="width:100%;" />
+                <p style="font-size:12px; margin-top:6px; color:var(--color-text-muted);">
+                    The tool will find this text on each page and use the text immediately to its right as the filename.
+                </p>
             </div>
 
             <div class="form-group" id="invoiceRegionGroup" style="display:none">
@@ -10598,6 +10607,12 @@ const Tools = {
                 Utils.showStatus('Please pick a name region from the PDF preview first.', 'error');
                 return;
             }
+
+            const anchorText = (document.getElementById('invoiceAnchorText')?.value || '').trim();
+            if (namingMode === 'anchor' && !anchorText) {
+                Utils.showStatus('Please enter anchor text for custom naming.', 'error');
+                return;
+            }
             
             Utils.updateProgress(5, 'Starting invoice splitting...');
             
@@ -10611,7 +10626,7 @@ const Tools = {
                 Utils.updateProgress(baseProgress + 5, `Analyzing ${file.name}...`);
                 
                 try {
-                    const splitFiles = await this.splitInvoices(file, keyword, namingMode, this._pickedRegion);
+                    const splitFiles = await this.splitInvoices(file, keyword, namingMode, this._pickedRegion, anchorText);
                     const dedupedFiles = splitFiles.map((splitFile) => ({
                         ...splitFile,
                         name: this.ensureUniqueFileName(splitFile.name, usedFileNames)
@@ -10658,7 +10673,7 @@ const Tools = {
             }
         },
         
-        async splitInvoices(file, keyword, namingMode, pickedRegion = null) {
+        async splitInvoices(file, keyword, namingMode, pickedRegion = null, anchorText = null) {
             const splitFiles = [];
 
             // Load PDF for text extraction.
@@ -10741,6 +10756,12 @@ const Tools = {
                     fileName = extractedName
                         ? `${extractedName}_${invoiceNum}.pdf`
                         : `invoice_${invoiceNum}.pdf`;
+                } else if (namingMode === 'anchor' && anchorText) {
+                    const cached = pageCache.get(range.start);
+                    const extractedName = await this.extractTextAfterAnchor(cached.page, anchorText, cached.textContent);
+                    fileName = extractedName
+                        ? `${extractedName}_${invoiceNum}.pdf`
+                        : `invoice_${invoiceNum}.pdf`;
                 } else if (namingMode === 'original') {
                     const baseName = withExt(file.name, '');
                     fileName = `${baseName}_${invoiceNum}.pdf`;
@@ -10791,9 +10812,59 @@ const Tools = {
             return safe || null;
         },
 
+        // Find anchorText on the page and return the text immediately to its right,
+        // sanitised for use as a filename.
+        async extractTextAfterAnchor(page, anchorText, cachedTextContent = null) {
+            const textContent = cachedTextContent ?? await page.getTextContent();
+            const items = textContent.items;
+            const anchor = anchorText.toUpperCase();
+
+            for (let i = 0; i < items.length; i++) {
+                const item = items[i];
+                if (!item.str.toUpperCase().includes(anchor)) continue;
+
+                const ay     = item.transform[5];
+                const aRight = item.transform[4] + (item.width || 0);
+                const lineH  = item.height || 10;
+
+                // Collect items on the same line that start at or after the anchor's right edge
+                const candidates = items
+                    .filter(it =>
+                        it !== item &&
+                        it.transform[4] >= aRight - 2 &&
+                        Math.abs(it.transform[5] - ay) <= lineH * 0.6)
+                    .sort((a, b) => a.transform[4] - b.transform[4]);
+
+                if (!candidates.length) continue;
+
+                // Take consecutive items; stop at the first large horizontal gap
+                const chosen = [candidates[0]];
+                for (let j = 1; j < candidates.length; j++) {
+                    const prev     = chosen[chosen.length - 1];
+                    const prevRight = prev.transform[4] + (prev.width || 0);
+                    if (candidates[j].transform[4] - prevRight > lineH * 2) break;
+                    chosen.push(candidates[j]);
+                }
+
+                const raw = chosen.map(it => it.str).join(' ').trim().replace(/\s+/g, ' ');
+                if (!raw) continue;
+
+                const safe = raw
+                    .replace(/[^a-z0-9_\- ]/gi, '_')
+                    .replace(/\s+/g, '_')
+                    .replace(/_+/g, '_')
+                    .replace(/^_+|_+$/g, '')
+                    .substring(0, 60);
+                return safe || null;
+            }
+            return null;
+        },
+
         _onNamingModeChange(value) {
-            const group = document.getElementById('invoiceRegionGroup');
-            if (group) group.style.display = value === 'region' ? 'block' : 'none';
+            const regionGroup = document.getElementById('invoiceRegionGroup');
+            if (regionGroup) regionGroup.style.display = value === 'region' ? 'block' : 'none';
+            const anchorGroup = document.getElementById('invoiceAnchorGroup');
+            if (anchorGroup) anchorGroup.style.display = value === 'anchor' ? 'block' : 'none';
         },
 
         clearRegion() {
