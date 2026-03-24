@@ -10662,10 +10662,10 @@ const Tools = {
             const splitFiles = [];
 
             // Load PDF for text extraction.
-            // Use Uint8Array so PDF.js copies rather than transfers the buffer,
-            // allowing the same arrayBuffer to be reused by pdf-lib below.
+            // pdf-lib needs the original arrayBuffer later. PDF.js transfers the underlying
+            // buffer to its worker thread (detaching it), so we pass a copy via .slice(0).
             const arrayBuffer = await file.arrayBuffer();
-            const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) });
+            const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer.slice(0)) });
             const pdf = await loadingTask.promise;
             
             // Find pages with keyword
