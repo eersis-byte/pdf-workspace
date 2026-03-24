@@ -10684,8 +10684,11 @@ const Tools = {
                 const pageTextSpaced  = textContent.items.map(item => item.str).join(' ').toUpperCase();
                 const pageTextCompact = textContent.items.map(item => item.str).join('').toUpperCase();
 
+                console.log(`[InvoiceSplitter] Page ${pageNum}: ${textContent.items.length} text items. Preview: "${pageTextSpaced.substring(0, 200)}"`);
+
                 // Check if keyword appears (case-insensitive)
                 if (pageTextSpaced.includes(kw) || pageTextCompact.includes(kw)) {
+                    console.log(`[InvoiceSplitter] Keyword "${keyword}" matched on page ${pageNum}`);
                     splitPages.push(pageNum);
                 }
             }
