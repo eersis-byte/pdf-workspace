@@ -1,4 +1,4 @@
-// PDF WORKSPACE v9.5.1 - 20 ENHANCEMENTS
+// PDF WORKSPACE v9.5.2 - 20 ENHANCEMENTS
 // 🚀 #1  Lazy-load heavy libraries (saves ~1.2MB initial download)
 // 🔗 #2  URL hash routing (deep links & PWA shortcuts work)
 // ⚠️ #3  beforeunload warning (prevents accidental data loss)
@@ -1682,7 +1682,7 @@ const FileManager = {
         this._updateFileBadge();
 
         if (AppState.files.length === 0) {
-            // FIX v9.5.1: Empty state instead of blank space
+            // FIX v9.5.2: Empty state instead of blank space
             container.innerHTML = `
                 <div style="text-align:center;padding:24px 16px;color:var(--color-text-muted);font-size:13px;">
                     <div style="font-size:24px;opacity:0.5;margin-bottom:6px;">📂</div>
@@ -1722,11 +1722,13 @@ const FileManager = {
         const shouldDisable = AppState.files.length === 0 || AppState.processing;
         btn.disabled = shouldDisable;
         
-        // Also update button text to indicate processing state
+        // Also update button text to indicate state
         if (AppState.processing) {
             btn.textContent = '⏳ Processing...';
+        } else if (AppState.files.length === 0) {
+            btn.textContent = '📤 Upload a file to begin';
         } else {
-            btn.textContent = '🚀 Process Files';
+            btn.textContent = '🚀 Run Tool';
         }
     }
 };
@@ -4231,6 +4233,14 @@ const Tools = {
             
             const popular = ['merge', 'split', 'compress', 'sign', 'imagestopdf', 'protect', 'topng', 'ocr'];
             
+            // Tool badges: 'new' for recently added, 'popular' for top tools
+            const toolBadges = {
+                merge: 'popular', split: 'popular', compress: 'popular', sign: 'popular',
+                imagestopdf: 'popular', protect: 'popular', topng: 'popular', ocr: 'popular',
+                emailsign: 'new', crop: 'new', docscan: 'new',
+                workflow: 'new', smartpages: 'new', extracttables: 'new', receiptparser: 'new'
+            };
+            
             const categories = [
                 { title: '📑 Basic Operations', tools: ['merge','split','extract','rotate','compress','crop','reorder','smartpages','removeblank','reverse'] },
                 { title: '✍️ Signature & Forms', tools: ['sign','emailsign','annotate','editpdf','pdftexteditor','formfill','flatten'] },
@@ -4274,7 +4284,10 @@ const Tools = {
                 if (!tool) continue;
                 const safeName = Utils.escapeHtml(tool.name);
                 const safeDesc = Utils.escapeHtml(tool.description || '');
+                const badge = toolBadges[toolId];
+                const badgeHtml = badge ? `<span class="tool-card-badge tool-card-badge-${badge}">${badge === 'new' ? 'NEW' : 'POPULAR'}</span>` : '';
                 html += `<div class="home-tool-card home-tool-card-popular" data-tool="${toolId}" tabindex="0" role="button" aria-label="${safeName}">
+                    ${badgeHtml}
                     <span class="tool-card-icon">${tool.icon}</span>
                     <span class="tool-card-name">${safeName}</span>
                     <span class="tool-card-desc">${safeDesc}</span>
@@ -4291,7 +4304,10 @@ const Tools = {
                     if (!tool) continue;
                     const safeName = Utils.escapeHtml(tool.name);
                     const safeDesc = Utils.escapeHtml(tool.description || '');
+                    const badge = toolBadges[toolId];
+                    const badgeHtml = badge ? `<span class="tool-card-badge tool-card-badge-${badge}">${badge === 'new' ? 'NEW' : 'POPULAR'}</span>` : '';
                     html += `<div class="home-tool-card" data-tool="${toolId}" tabindex="0" role="button" aria-label="${safeName}">
+                        ${badgeHtml}
                         <span class="tool-card-icon">${tool.icon}</span>
                         <span class="tool-card-name">${safeName}</span>
                         <span class="tool-card-desc">${safeDesc}</span>
@@ -12409,7 +12425,7 @@ const ToolManager = {
             if (dropCard) dropCard.style.display = '';
             if (processCard) processCard.style.display = '';
             if (workflowSteps) workflowSteps.style.display = '';
-            // FIX v9.5.1: Reset file info bar - let .visible class control display
+            // FIX v9.5.2: Reset file info bar - let .visible class control display
             if (fileInfoBar) fileInfoBar.style.display = '';
         }
         
@@ -12670,7 +12686,7 @@ function setupEventHandlers() {
         btn.addEventListener('click', () => {
             ToolManager.loadTool(btn.dataset.tool);
         });
-        // FIX v9.5.1: Add tooltip with tool description
+        // FIX v9.5.2: Add tooltip with tool description
         const toolId = btn.dataset.tool;
         const tool = Tools[toolId];
         if (tool && tool.description && !btn.title) {
@@ -12698,7 +12714,7 @@ function setupEventHandlers() {
     }
     
     // Clear button (with guard)
-    // FIX v9.5.1: Confirm before clearing when files are loaded
+    // FIX v9.5.2: Confirm before clearing when files are loaded
     if (clearBtn) {
         clearBtn.addEventListener('click', async () => {
             if (AppState.files.length > 0) {
@@ -12724,7 +12740,7 @@ function setupEventHandlers() {
             });
             
             // Hide/show category titles AND their .category-tools wrappers
-            // FIX v9.5.1: Updated to work with new collapsible category structure
+            // FIX v9.5.2: Updated to work with new collapsible category structure
             document.querySelectorAll('.category-title.collapsible').forEach(title => {
                 const category = title.dataset.category;
                 const toolsDiv = document.querySelector(`.category-tools[data-category="${category}"]`);
@@ -12779,7 +12795,7 @@ function setupEventHandlers() {
                 emptyState.style.display = 'none';
             }
             
-            // FIX v9.5.1: When search is cleared, restore saved collapsed states
+            // FIX v9.5.2: When search is cleared, restore saved collapsed states
             if (query.length === 0) {
                 try {
                     const states = JSON.parse(localStorage.getItem('pdfWorkspaceCategoryStates') || '{}');
@@ -12799,7 +12815,7 @@ function setupEventHandlers() {
 
 // Initialization
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('🚀 PDF Workspace v9.5.1 - 20 Enhancements');
+    console.log('🚀 PDF Workspace v9.5.2 - 20 Enhancements');
     console.log('🌙 Dark mode • ⌨️ Keyboard shortcuts • 📱 Mobile sidebar • 🔗 Deep links');
     console.log('⚡ Lazy loading • 🔀 File reorder • 📦 Batch ZIP • 📡 Offline indicator');
     console.log('🎯 100% Client-Side Processing - Your Files Never Leave Your Browser');
@@ -13411,7 +13427,7 @@ const FavoritesManager = {
     
     // (Workflow reset and FileInfoManager.hide are handled inside FileManager.clearAll)
     
-    // ==================== v9.5.1 ENHANCEMENTS ====================
+    // ==================== v9.5.2 ENHANCEMENTS ====================
     
     // Home button - returns to home screen from any tool
     const homeBtn = document.getElementById('homeButton');
@@ -13422,7 +13438,7 @@ const FavoritesManager = {
         });
     }
     
-    // FIX v9.5.1: Wire up footer Home link
+    // FIX v9.5.2: Wire up footer Home link
     const footerHomeLink = document.getElementById('footerHomeLink');
     if (footerHomeLink) {
         footerHomeLink.addEventListener('click', (e) => {
@@ -13441,12 +13457,12 @@ const FavoritesManager = {
         return result;
     };
     
-    // FIX v9.5.1: Set initial active state since the monkey-patch is set up after the first loadTool call
+    // FIX v9.5.2: Set initial active state since the monkey-patch is set up after the first loadTool call
     if (homeBtn && AppState.currentTool === 'home') {
         homeBtn.classList.add('active');
     }
     
-    // ==================== v9.5.1 ENHANCEMENTS ====================
+    // ==================== v9.5.2 ENHANCEMENTS ====================
     
     // Enhancement: Collapsible sidebar categories
     document.querySelectorAll('.category-title.collapsible').forEach(title => {
@@ -13849,7 +13865,7 @@ const FavoritesManager = {
     };
     
     // Enhancement #16: What's New changelog toast
-    const WHATS_NEW_VERSION = '9.5.1';
+    const WHATS_NEW_VERSION = '9.5.2';
     try {
         const lastSeenVersion = localStorage.getItem('pdfWorkspaceLastVersion');
         if (lastSeenVersion !== WHATS_NEW_VERSION) {

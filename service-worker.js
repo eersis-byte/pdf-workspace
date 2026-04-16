@@ -1,8 +1,8 @@
-// PDF Workspace Service Worker v9.5.1 - 20 Enhancements
+// PDF Workspace Service Worker v9.5.2 - 20 Enhancements
 // ✅ Lazy loading, dark mode, keyboard shortcuts, mobile sidebar
 // 🔒 CSP, SRI framework, beforeunload protection
 // 📊 All previous fixes included
-const VERSION = '9.5.1';
+const VERSION = '9.5.2';
 const CACHE_NAME = `pdf-workspace-v${VERSION}`;
 const RUNTIME_CACHE = 'pdf-workspace-runtime';
 

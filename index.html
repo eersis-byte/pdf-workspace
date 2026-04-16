@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="preconnect" href="https://unpkg.com" crossorigin>
-    <title>PDF Workspace v9.5.1 - 47 Privacy-First PDF Tools</title>
+    <title>PDF Workspace v9.5.2 - 47 Privacy-First PDF Tools</title>
     
     <!-- PWA Manifest -->
     <link rel="manifest" href="manifest.json">
@@ -26,10 +26,14 @@
     
     <!-- PDF Libraries (core - always loaded) -->
     <!-- NOTE: Run generate-sri.sh to compute integrity hashes for these CDN scripts -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js" defer crossorigin="anonymous"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer crossorigin="anonymous"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js" defer crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer crossorigin="anonymous"
+        onerror="this.onerror=null;var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js';s.defer=true;document.head.appendChild(s);"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js" defer crossorigin="anonymous"
+        onerror="this.onerror=null;var s=document.createElement('script');s.src='https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js';s.defer=true;document.head.appendChild(s);"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer crossorigin="anonymous"
+        onerror="this.onerror=null;var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';s.defer=true;document.head.appendChild(s);"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js" defer crossorigin="anonymous"
+        onerror="this.onerror=null;var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js';s.defer=true;document.head.appendChild(s);"></script>
     
     <!-- Heavy libraries removed from eager loading - loaded on-demand by LibraryLoader -->
     
@@ -40,7 +44,7 @@
     <div class="app-loading" id="appLoading">
         <div class="app-loading-icon">📄</div>
         <div class="app-loading-text">PDF Workspace</div>
-        <div class="app-loading-sub">Loading 47+ privacy-first tools...</div>
+        <div class="app-loading-sub">Loading 47 privacy-first tools...</div>
         <div class="app-loading-bar"><div class="app-loading-bar-fill"></div></div>
     </div>
 
@@ -56,16 +60,16 @@
     <div class="whats-new-overlay" id="whatsNewOverlay">
         <div class="whats-new-modal">
             <h2>What's New</h2>
-            <span class="version-badge">v9.5.1</span>
+            <span class="version-badge">v9.5.2</span>
             <ul class="whats-new-list">
-                <li><span>👋</span> <strong>New:</strong> Welcome banner & search bar on home screen</li>
-                <li><span>⭐</span> <strong>New:</strong> Popular Tools section for quick access</li>
-                <li><span>📧</span> Email for Signature — add markers and prepare an email</li>
-                <li><span>🏠</span> Home button in sidebar + footer link</li>
-                <li><span>💬</span> Send Feedback link in footer</li>
+                <li><span>🏷️</span> <strong>New:</strong> Badges on tool cards (NEW / POPULAR)</li>
+                <li><span>🔄</span> CDN fallback — libraries load from a backup if primary fails</li>
+                <li><span>✨</span> Cleaner header icon (no duplicated "PDF" text)</li>
+                <li><span>📤</span> Smarter Process button text ("Upload to begin" / "Run Tool")</li>
+                <li><span>👋</span> Welcome banner & search on home screen</li>
+                <li><span>📧</span> Email for Signature</li>
                 <li><span>🛡️</span> Confirmation prompt before "Clear All"</li>
-                <li><span>🔧</span> Fixed tool search with collapsible categories</li>
-                <li><span>✂️</span> Crop / Trim Margins, typed signatures, dark mode</li>
+                <li><span>🌙</span> Dark mode, keyboard shortcuts, deep links</li>
             </ul>
             <button class="whats-new-close" id="whatsNewClose">Got it!</button>
         </div>
@@ -100,20 +104,22 @@
                 
                 <div class="header-center">
                     <h1>
-                        <svg width="40" height="40" viewBox="0 0 40 40" style="vertical-align: middle; margin-right: 12px;" xmlns="http://www.w3.org/2000/svg">
+                        <svg width="40" height="40" viewBox="0 0 40 40" style="vertical-align: middle; margin-right: 12px;" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                             <!-- Document shape -->
                             <path d="M8 2 L24 2 L32 10 L32 38 L8 38 Z" fill="white" stroke="rgba(255,255,255,0.9)" stroke-width="2"/>
                             <!-- Folded corner -->
                             <path d="M24 2 L24 10 L32 10" fill="rgba(102, 126, 234, 0.3)" stroke="rgba(255,255,255,0.9)" stroke-width="2"/>
-                            <!-- PDF text -->
-                            <text x="20" y="26" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#667eea" text-anchor="middle">PDF</text>
+                            <!-- Text lines on document -->
+                            <line x1="13" y1="18" x2="27" y2="18" stroke="#667eea" stroke-width="1.6" stroke-linecap="round"/>
+                            <line x1="13" y1="23" x2="27" y2="23" stroke="#667eea" stroke-width="1.6" stroke-linecap="round"/>
+                            <line x1="13" y1="28" x2="22" y2="28" stroke="#667eea" stroke-width="1.6" stroke-linecap="round"/>
                             <!-- Sparkle effect -->
                             <circle cx="6" cy="6" r="2" fill="rgba(255,215,0,0.8)"/>
                             <circle cx="34" cy="34" r="2" fill="rgba(255,215,0,0.8)"/>
                         </svg>
                         PDF Workspace
                     </h1>
-                    <p class="header-subtitle">Annotate & Edit PDFs • Signatures • PDF to Office • 47+ Tools</p>
+                    <p class="header-subtitle">Annotate & Edit PDFs • Signatures • PDF to Office • 47 Tools</p>
                 </div>
                 
                 <div class="header-tagline-right">
@@ -310,7 +316,7 @@
                     <div class="status-message" id="statusMessage" role="status" aria-live="polite" aria-atomic="true"></div>
                     
                     <div class="btn-group">
-                        <button class="btn btn-primary" id="processBtn" disabled>Review Settings →</button>
+                        <button class="btn btn-primary" id="processBtn" disabled>📤 Upload a file to begin</button>
                         <button class="btn btn-secondary" id="clearBtn">Clear All</button>
                     </div>
                 </div>
@@ -325,14 +331,14 @@
                         <li>✅ 100% Client-Side Processing</li>
                         <li>✅ No File Uploads to Servers</li>
                         <li>✅ No Data Collection or Tracking</li>
-                        <li>✅ Works Completely Offline</li>
+                        <li>✅ Works Offline (after first load)</li>
                     </ul>
                 </div>
                 
                 <div class="footer-section">
                     <h3>⚡ Features</h3>
                     <ul class="footer-list">
-                        <li>47+ Professional PDF Tools</li>
+                        <li>47 Professional PDF Tools</li>
                         <li>Auto Categorize by Content</li>
                         <li>Visual Redaction & PII Scanner</li>
                         <li>Drag & Drop Positioning</li>
@@ -352,7 +358,7 @@
             
             <div class="footer-bottom">
                 <p>🛡️ Your files never leave your device. All operations happen locally in your browser.</p>
-                <p class="footer-version">PDF Workspace v9.5.1 • 47 Tools •
+                <p class="footer-version">PDF Workspace v9.5.2 • 47 Tools •
                     <a href="#" id="footerHomeLink" style="color:var(--color-primary);text-decoration:none;font-weight:600;">🏠 Home</a> •
                     <a href="https://github.com/eersis-byte/pdf-workspace/issues" target="_blank" rel="noopener" style="color:var(--color-primary);text-decoration:none;font-weight:600;">💬 Send Feedback</a>
                 </p>
@@ -361,8 +367,8 @@
     </div>
     
     <script>
-// PDF Workspace v9.5.1 - Bug fixes + UI improvements
-// Welcome banner • Home search • Popular tools • Clear All confirm • Search fix
+// PDF Workspace v9.5.2 - Polish & Resilience
+// CDN fallback • Badge system • Cleaner header • Better button text
     </script>
     <script src="app.js" defer></script>
 </body>
