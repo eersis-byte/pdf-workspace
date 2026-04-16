@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="preconnect" href="https://unpkg.com" crossorigin>
-    <title>PDF Workspace v9.2.0 - 47+ Privacy-First PDF Tools</title>
+    <title>PDF Workspace v9.5.1 - 47 Privacy-First PDF Tools</title>
     
     <!-- PWA Manifest -->
     <link rel="manifest" href="manifest.json">
@@ -56,18 +56,16 @@
     <div class="whats-new-overlay" id="whatsNewOverlay">
         <div class="whats-new-modal">
             <h2>What's New</h2>
-            <span class="version-badge">v9.2.0</span>
+            <span class="version-badge">v9.5.1</span>
             <ul class="whats-new-list">
-                <li><span>🌙</span> Dark mode — toggle in the header</li>
-                <li><span>📱</span> Better mobile experience with slide-out sidebar</li>
-                <li><span>⌨️</span> Keyboard shortcuts (press <strong>?</strong> for help)</li>
-                <li><span>🔗</span> Deep links — bookmark and share tool URLs</li>
-                <li><span>⚡</span> Faster loading — heavy libraries load on demand</li>
-                <li><span>🔒</span> Security hardening with Content Security Policy</li>
-                <li><span>🕐</span> Recently Used tools section in sidebar</li>
-                <li><span>🔄</span> Drag to reorder files before merging</li>
-                <li><span>📡</span> Offline indicator</li>
-                <li><span>♿</span> Improved screen reader announcements</li>
+                <li><span>👋</span> <strong>New:</strong> Welcome banner & search bar on home screen</li>
+                <li><span>⭐</span> <strong>New:</strong> Popular Tools section for quick access</li>
+                <li><span>📧</span> Email for Signature — add markers and prepare an email</li>
+                <li><span>🏠</span> Home button in sidebar + footer link</li>
+                <li><span>💬</span> Send Feedback link in footer</li>
+                <li><span>🛡️</span> Confirmation prompt before "Clear All"</li>
+                <li><span>🔧</span> Fixed tool search with collapsible categories</li>
+                <li><span>✂️</span> Crop / Trim Margins, typed signatures, dark mode</li>
             </ul>
             <button class="whats-new-close" id="whatsNewClose">Got it!</button>
         </div>
@@ -166,6 +164,10 @@
             <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle tool sidebar">🔧</button>
             
             <aside class="tool-sidebar" id="toolSidebar">
+                <button class="home-button" id="homeButton" aria-label="Return to home">
+                    <span class="home-button-icon">🏠</span>
+                    <span class="home-button-label">Home — All Tools</span>
+                </button>
                 <input type="text" class="tool-search" id="toolSearch" placeholder="🔍 Search tools...">
                 
                 <div id="favoritesSection" class="favorites-section" style="display: none;">
@@ -177,59 +179,80 @@
                 </div>
                 
                 <div class="tool-categories">
-                    <div class="category-title">📑 Basic Operations</div>
-                    <button class="tool-button active" data-tool="merge">📑 Merge PDFs</button>
-                    <button class="tool-button" data-tool="split">✂️ Split PDF</button>
-                    <button class="tool-button" data-tool="extract">📄 Extract Pages</button>
-                    <button class="tool-button" data-tool="rotate">🔄 Rotate Pages</button>
-                    <button class="tool-button" data-tool="compress">⚙️ Optimize PDF</button>
-                    <button class="tool-button" data-tool="reverse">↩️ Reverse Pages</button>
-                    <button class="tool-button" data-tool="reorder">🔀 Reorder Pages</button>
-                    <button class="tool-button" data-tool="removeblank">🗑️ Remove Blank Pages</button>
+                    <div class="category-title collapsible" data-category="automation">⚡ Automation</div>
+                    <div class="category-tools" data-category="automation">
+                        <button class="tool-button" data-tool="workflow">🔄 Workflow Builder</button>
+                    </div>
+
+                    <div class="category-title collapsible" data-category="basic">📑 Basic Operations</div>
+                    <div class="category-tools" data-category="basic">
+                        <button class="tool-button" data-tool="merge">📑 Merge PDFs</button>
+                        <button class="tool-button" data-tool="split">✂️ Split PDF</button>
+                        <button class="tool-button" data-tool="extract">📄 Extract Pages</button>
+                        <button class="tool-button" data-tool="rotate">🔄 Rotate Pages</button>
+                        <button class="tool-button" data-tool="compress">⚙️ Optimize PDF</button>
+                        <button class="tool-button" data-tool="reverse">↩️ Reverse Pages</button>
+                        <button class="tool-button" data-tool="reorder">🔀 Reorder Pages</button>
+                        <button class="tool-button" data-tool="removeblank">🗑️ Remove Blank Pages</button>
+                        <button class="tool-button" data-tool="smartpages">✨ Smart Page Cleanup</button>
+                        <button class="tool-button" data-tool="crop">✂️ Crop / Trim Margins</button>
+                    </div>
                     
-                    <div class="category-title">✍️ Signature & Forms</div>
-                    <button class="tool-button" data-tool="sign">✍️ Sign PDFs</button>
-                    <button class="tool-button" data-tool="annotate">💬 Annotate PDF</button>
-                    <button class="tool-button" data-tool="editpdf">✏️ Edit PDF</button>
-                    <button class="tool-button" data-tool="pdftexteditor">📝 PDF Text Editor</button>
-                    <button class="tool-button" data-tool="formfill">📝 Fill Forms</button>
-                    <button class="tool-button" data-tool="flatten">📋 Flatten PDF</button>
+                    <div class="category-title collapsible" data-category="sigforms">✍️ Signature & Forms</div>
+                    <div class="category-tools" data-category="sigforms">
+                        <button class="tool-button" data-tool="sign">✍️ Sign PDFs</button>
+                        <button class="tool-button" data-tool="emailsign">📧 Email for Signature</button>
+                        <button class="tool-button" data-tool="annotate">💬 Annotate PDF</button>
+                        <button class="tool-button" data-tool="editpdf">✏️ Edit PDF</button>
+                        <button class="tool-button" data-tool="pdftexteditor">📝 PDF Text Editor</button>
+                        <button class="tool-button" data-tool="formfill">📝 Fill Forms</button>
+                        <button class="tool-button" data-tool="flatten">📋 Flatten PDF</button>
+                    </div>
                     
-                    <div class="category-title">🔒 Security</div>
-                    <button class="tool-button" data-tool="protect">🔒 Protect PDF</button>
-                    <button class="tool-button" data-tool="unlock">🔓 Unlock PDF</button>
-                    <button class="tool-button" data-tool="redact">🖍️ Redact Text</button>
-                    <button class="tool-button" data-tool="watermark">💧 Add Watermark</button>
-                    <button class="tool-button" data-tool="piiscan">🔍 PII Scanner</button>
-                    <button class="tool-button" data-tool="cleanslate">🧹 Clean Slate</button>
+                    <div class="category-title collapsible" data-category="security">🔒 Security</div>
+                    <div class="category-tools" data-category="security">
+                        <button class="tool-button" data-tool="protect">🔒 Protect PDF</button>
+                        <button class="tool-button" data-tool="unlock">🔓 Unlock PDF</button>
+                        <button class="tool-button" data-tool="redact">🖍️ Redact Text</button>
+                        <button class="tool-button" data-tool="watermark">💧 Add Watermark</button>
+                        <button class="tool-button" data-tool="piiscan">🔍 PII Scanner</button>
+                        <button class="tool-button" data-tool="cleanslate">🧹 Clean Slate</button>
+                    </div>
                     
-                    <div class="category-title">🎨 Conversion</div>
-                    <button class="tool-button" data-tool="topng">🖼️ PDF to Images</button>
-                    <button class="tool-button" data-tool="imagestopdf">📷 Images to PDF</button>
-                    <button class="tool-button" data-tool="docscan">📸 Document Scanner</button>
-                    <button class="tool-button" data-tool="html2pdf">🌐 HTML to PDF</button>
-                    <button class="tool-button" data-tool="office2pdf">📄 Office to PDF</button>
-                    <button class="tool-button" data-tool="pdf2office">📝 PDF to Office</button>
-                    <button class="tool-button" data-tool="ocr">🔍 OCR (Make Searchable)</button>
+                    <div class="category-title collapsible" data-category="conversion">🎨 Conversion</div>
+                    <div class="category-tools" data-category="conversion">
+                        <button class="tool-button" data-tool="topng">🖼️ PDF to Images</button>
+                        <button class="tool-button" data-tool="imagestopdf">📷 Images to PDF</button>
+                        <button class="tool-button" data-tool="docscan">📸 Document Scanner</button>
+                        <button class="tool-button" data-tool="html2pdf">🌐 HTML to PDF</button>
+                        <button class="tool-button" data-tool="office2pdf">📄 Office to PDF</button>
+                        <button class="tool-button" data-tool="pdf2office">📝 PDF to Office</button>
+                        <button class="tool-button" data-tool="ocr">🔍 OCR (Make Searchable)</button>
+                    </div>
                     
-                    <div class="category-title">📊 Advanced Tools</div>
-                    <button class="tool-button" data-tool="pagenumber">🔢 Number Pages</button>
-                    <button class="tool-button" data-tool="metadata">🏷️ View/Clear Metadata</button>
-                    <button class="tool-button" data-tool="metaedit">✏️ Edit Metadata</button>
-                    <button class="tool-button" data-tool="bates">📋 Bates Numbering</button>
-                    <button class="tool-button" data-tool="oddeven">⚡ Split Odd/Even</button>
-                    <button class="tool-button" data-tool="interleave">🔗 Interleave PDFs</button>
+                    <div class="category-title collapsible" data-category="advanced">📊 Advanced Tools</div>
+                    <div class="category-tools" data-category="advanced">
+                        <button class="tool-button" data-tool="compare">🔍 Compare PDFs</button>
+                        <button class="tool-button" data-tool="pagenumber">🔢 Number Pages</button>
+                        <button class="tool-button" data-tool="metadata">🏷️ View/Clear Metadata</button>
+                        <button class="tool-button" data-tool="metaedit">✏️ Edit Metadata</button>
+                        <button class="tool-button" data-tool="bates">📋 Bates Numbering</button>
+                        <button class="tool-button" data-tool="oddeven">⚡ Split Odd/Even</button>
+                        <button class="tool-button" data-tool="interleave">🔗 Interleave PDFs</button>
+                    </div>
                     
-                    <div class="category-title">⚡ Niche Tools</div>
-                    <button class="tool-button" data-tool="splitmerge">📊 Split & Merge</button>
-                    
-                    <div class="category-title">📦 Batch & Special</div>
-                    <button class="tool-button" data-tool="categorize">📂 Auto Categorize</button>
-                    <button class="tool-button" data-tool="invoice">🧾 Invoice Splitter</button>
-                    <button class="tool-button" data-tool="batchslicer">🔪 Batch Slicer</button>
-                    <button class="tool-button" data-tool="validate">✓ Validate PDF</button>
-                    <button class="tool-button" data-tool="repair">🔧 Repair PDF</button>
-                    <button class="tool-button" data-tool="audit">📊 PDF Audit</button>
+                    <div class="category-title collapsible" data-category="batch">📦 Batch & Special</div>
+                    <div class="category-tools" data-category="batch">
+                        <button class="tool-button" data-tool="extracttables">📊 Extract Tables</button>
+                        <button class="tool-button" data-tool="receiptparser">🧾 Receipt Parser</button>
+                        <button class="tool-button" data-tool="categorize">📂 Auto Categorize</button>
+                        <button class="tool-button" data-tool="invoice">🧾 Invoice Splitter</button>
+                        <button class="tool-button" data-tool="batchslicer">🔪 Batch Slicer</button>
+                        <button class="tool-button" data-tool="splitmerge">📊 Split & Merge</button>
+                        <button class="tool-button" data-tool="validate">✓ Validate PDF</button>
+                        <button class="tool-button" data-tool="repair">🔧 Repair PDF</button>
+                        <button class="tool-button" data-tool="audit">📊 PDF Audit</button>
+                    </div>
                 </div>
             </aside>
             
@@ -329,14 +352,17 @@
             
             <div class="footer-bottom">
                 <p>🛡️ Your files never leave your device. All operations happen locally in your browser.</p>
-                <p class="footer-version">PDF Workspace v9.2.0 • Deployment Ready • 47+ Tools</p>
+                <p class="footer-version">PDF Workspace v9.5.1 • 47 Tools •
+                    <a href="#" id="footerHomeLink" style="color:var(--color-primary);text-decoration:none;font-weight:600;">🏠 Home</a> •
+                    <a href="https://github.com/eersis-byte/pdf-workspace/issues" target="_blank" rel="noopener" style="color:var(--color-primary);text-decoration:none;font-weight:600;">💬 Send Feedback</a>
+                </p>
             </div>
         </footer>
     </div>
     
     <script>
-// PDF Workspace v9.2.0 - 20 Enhancements
-// Lazy loading • Dark mode • Mobile sidebar • Keyboard shortcuts • Hash routing
+// PDF Workspace v9.5.1 - Bug fixes + UI improvements
+// Welcome banner • Home search • Popular tools • Clear All confirm • Search fix
     </script>
     <script src="app.js" defer></script>
 </body>

@@ -1,4 +1,4 @@
-// PDF WORKSPACE v9.2.0 - 20 ENHANCEMENTS
+// PDF WORKSPACE v9.5.1 - 20 ENHANCEMENTS
 // 🚀 #1  Lazy-load heavy libraries (saves ~1.2MB initial download)
 // 🔗 #2  URL hash routing (deep links & PWA shortcuts work)
 // ⚠️ #3  beforeunload warning (prevents accidental data loss)
@@ -1682,7 +1682,12 @@ const FileManager = {
         this._updateFileBadge();
 
         if (AppState.files.length === 0) {
-            container.innerHTML = '';
+            // FIX v9.5.1: Empty state instead of blank space
+            container.innerHTML = `
+                <div style="text-align:center;padding:24px 16px;color:var(--color-text-muted);font-size:13px;">
+                    <div style="font-size:24px;opacity:0.5;margin-bottom:6px;">📂</div>
+                    No files yet — drop one above to get started
+                </div>`;
             return;
         }
         
@@ -1850,7 +1855,9 @@ const TOOL_FILE_TYPES = {
     bates: ['pdf'], oddeven: ['pdf'], interleave: ['pdf'],
     splitmerge: ['pdf'], categorize: ['pdf'], invoice: ['pdf'],
     batchslicer: ['pdf'], validate: ['pdf'], repair: ['pdf'], audit: ['pdf'],
-    compare: ['pdf'], workflow: ['pdf'],
+    compare: ['pdf'], workflow: ['pdf'], smartpages: ['pdf'],
+    crop: ['pdf'], extracttables: ['pdf'], receiptparser: ['pdf'],
+    emailsign: ['pdf'],
     docscan: ['image'],
 };
 
@@ -4206,6 +4213,141 @@ const Tools = {
             } catch (error) {
                 console.error('[PDF Text Editor] Save error:', error);
                 Utils.showStatus(`Failed to save: ${error.message}`, 'error');
+            }
+        }
+    },
+
+
+    // ==================== HOME SCREEN ====================
+    home: {
+        name: 'Home',
+        description: 'All tools at a glance',
+        icon: '🏠',
+        configHTML: '', // Generated dynamically in init()
+        
+        init() {
+            const container = document.getElementById('toolContent');
+            if (!container) return;
+            
+            const popular = ['merge', 'split', 'compress', 'sign', 'imagestopdf', 'protect', 'topng', 'ocr'];
+            
+            const categories = [
+                { title: '📑 Basic Operations', tools: ['merge','split','extract','rotate','compress','crop','reorder','smartpages','removeblank','reverse'] },
+                { title: '✍️ Signature & Forms', tools: ['sign','emailsign','annotate','editpdf','pdftexteditor','formfill','flatten'] },
+                { title: '🔒 Security', tools: ['protect','unlock','redact','watermark','piiscan','cleanslate'] },
+                { title: '🎨 Conversion', tools: ['topng','imagestopdf','docscan','html2pdf','office2pdf','pdf2office','ocr'] },
+                { title: '📊 Advanced', tools: ['compare','pagenumber','metadata','metaedit','bates','oddeven','interleave'] },
+                { title: '📦 Batch & Special', tools: ['extracttables','receiptparser','categorize','invoice','batchslicer','splitmerge','validate','repair','audit'] },
+                { title: '⚡ Automation', tools: ['workflow'] },
+            ];
+            
+            // Welcome banner (dismissible)
+            const welcomeDismissed = (() => { try { return localStorage.getItem('pdfWorkspaceWelcomeDismissed'); } catch(e) { return null; } })();
+            const welcomeBanner = welcomeDismissed ? '' : `
+                <div class="home-welcome" id="homeWelcomeBanner">
+                    <button class="home-welcome-close" id="homeWelcomeClose" aria-label="Dismiss welcome message">×</button>
+                    <span class="home-welcome-icon">👋</span>
+                    <div class="home-welcome-content">
+                        <strong>Welcome to PDF Workspace!</strong>
+                        <span>All processing happens in your browser. Files never leave your device. No accounts. No ads. No tracking.</span>
+                    </div>
+                </div>
+            `;
+            
+            let html = `<div class="home-screen">
+                ${welcomeBanner}
+                <div class="home-hero">
+                    <h2>What would you like to do?</h2>
+                    <p>Choose a tool below, search, or drop a file anywhere to get started.</p>
+                    <div class="home-search-wrap">
+                        <input type="text" class="home-search-input" id="homeSearchInput" 
+                               placeholder="🔍 Find a tool..." aria-label="Search tools">
+                    </div>
+                </div>
+                
+                <div class="home-popular">
+                    <div class="home-category-title">⭐ Popular Tools</div>
+                    <div class="home-tool-grid home-popular-grid">`;
+            
+            for (const toolId of popular) {
+                const tool = Tools[toolId];
+                if (!tool) continue;
+                const safeName = Utils.escapeHtml(tool.name);
+                const safeDesc = Utils.escapeHtml(tool.description || '');
+                html += `<div class="home-tool-card home-tool-card-popular" data-tool="${toolId}" tabindex="0" role="button" aria-label="${safeName}">
+                    <span class="tool-card-icon">${tool.icon}</span>
+                    <span class="tool-card-name">${safeName}</span>
+                    <span class="tool-card-desc">${safeDesc}</span>
+                </div>`;
+            }
+            html += `</div></div>
+                
+                <div class="home-categories">`;
+            
+            for (const cat of categories) {
+                html += `<div class="home-cat-section"><div class="home-category-title">${cat.title}</div><div class="home-tool-grid">`;
+                for (const toolId of cat.tools) {
+                    const tool = Tools[toolId];
+                    if (!tool) continue;
+                    const safeName = Utils.escapeHtml(tool.name);
+                    const safeDesc = Utils.escapeHtml(tool.description || '');
+                    html += `<div class="home-tool-card" data-tool="${toolId}" tabindex="0" role="button" aria-label="${safeName}">
+                        <span class="tool-card-icon">${tool.icon}</span>
+                        <span class="tool-card-name">${safeName}</span>
+                        <span class="tool-card-desc">${safeDesc}</span>
+                    </div>`;
+                }
+                html += `</div></div>`;
+            }
+            html += `</div>
+                <div class="home-empty-state" id="homeEmptyState" style="display:none;">
+                    <div style="font-size:48px;">🔍</div>
+                    <div style="font-weight:600;margin-top:8px;">No tools match your search</div>
+                    <div style="font-size:13px;color:var(--color-text-muted);margin-top:4px;">Try a different keyword</div>
+                </div>
+            </div>`;
+            
+            container.innerHTML = html;
+            
+            // Bind click handlers on cards
+            container.querySelectorAll('.home-tool-card').forEach(card => {
+                const handler = () => ToolManager.loadTool(card.dataset.tool);
+                card.addEventListener('click', handler);
+                card.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handler(); }
+                });
+            });
+            
+            // Welcome banner dismiss
+            const closeBtn = document.getElementById('homeWelcomeClose');
+            const banner = document.getElementById('homeWelcomeBanner');
+            if (closeBtn && banner) {
+                closeBtn.addEventListener('click', () => {
+                    banner.style.display = 'none';
+                    try { localStorage.setItem('pdfWorkspaceWelcomeDismissed', '1'); } catch(e) {}
+                });
+            }
+            
+            // Home screen search
+            const searchInput = document.getElementById('homeSearchInput');
+            const emptyState = document.getElementById('homeEmptyState');
+            if (searchInput) {
+                searchInput.addEventListener('input', (e) => {
+                    const query = e.target.value.toLowerCase().trim();
+                    let anyVisible = false;
+                    container.querySelectorAll('.home-tool-card').forEach(card => {
+                        const text = card.textContent.toLowerCase();
+                        const visible = !query || text.includes(query);
+                        card.style.display = visible ? '' : 'none';
+                        if (visible) anyVisible = true;
+                    });
+                    // Hide category sections with no visible cards
+                    container.querySelectorAll('.home-cat-section, .home-popular').forEach(section => {
+                        const visibleCards = section.querySelectorAll('.home-tool-card:not([style*="display: none"])');
+                        section.style.display = visibleCards.length > 0 ? '' : 'none';
+                    });
+                    if (emptyState) emptyState.style.display = (query && !anyVisible) ? 'block' : 'none';
+                });
             }
         }
     },
@@ -11668,6 +11810,529 @@ const Tools = {
                 'success'
             );
         }
+    },
+
+    // ==================== EMAIL FOR SIGNATURE TOOL ====================
+    emailsign: {
+        name: 'Email for Signature',
+        description: 'Add "Sign here" markers and prepare an email to request a signature',
+        icon: '📧',
+        configHTML: `
+            <div class="info-box" style="background: #e7f3ff; border-color: var(--color-primary);">
+                📧 <strong>Email for Signature</strong> — Add yellow "Sign here" markers to your PDF,
+                then prepare a pre-filled email to send to the signer. Your file stays on your device;
+                you manually attach it when your email client opens.
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Recipient Email <span style="color:var(--color-danger);">*</span></label>
+                <input type="email" class="form-input" id="emailsignRecipient" placeholder="recipient@example.com" required>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Your Name (optional)</label>
+                <input type="text" class="form-input" id="emailsignSender" placeholder="Your name — appears in signoff">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Email Subject</label>
+                <input type="text" class="form-input" id="emailsignSubject" placeholder="Please sign: [document name]">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Personal Message</label>
+                <textarea class="form-input" id="emailsignMessage" rows="5"
+                    style="resize:vertical; min-height:100px; font-family:var(--font-sans);"
+                    placeholder="Hi, please review and sign the attached PDF at your convenience. Thanks!"></textarea>
+                <p style="font-size:12px; color:var(--color-text-muted); margin-top:6px;">
+                    Signing instructions will be added automatically below your message.
+                </p>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Add "Sign here" markers on:</label>
+                <select class="form-select" id="emailsignMarkers">
+                    <option value="none">No markers (just prepare the email)</option>
+                    <option value="last" selected>Last page only</option>
+                    <option value="first">First page only</option>
+                    <option value="all">Every page</option>
+                    <option value="range">Specific pages</option>
+                </select>
+            </div>
+
+            <div class="form-group" id="emailsignRangeGroup" style="display:none;">
+                <label class="form-label">Page range (e.g., 1, 3, 5-7)</label>
+                <input type="text" class="form-input" id="emailsignRange" placeholder="1, 3">
+            </div>
+
+            <div class="form-group" id="emailsignPositionGroup">
+                <label class="form-label">Marker position on page</label>
+                <select class="form-select" id="emailsignPosition">
+                    <option value="br" selected>Bottom-right</option>
+                    <option value="bc">Bottom-center</option>
+                    <option value="bl">Bottom-left</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                    <input type="checkbox" id="emailsignIncludeDate" checked style="width:16px; height:16px; cursor:pointer;">
+                    <span>Include a "Date" line next to each signature marker</span>
+                </label>
+            </div>
+
+            <div id="emailsignResultArea" style="display:none; margin-top:20px; padding:16px; background:var(--color-surface-secondary); border:2px solid var(--color-success); border-radius:var(--radius-lg);">
+                <h3 style="margin:0 0 12px 0; color:var(--color-success); font-size:16px;">✅ Ready to send!</h3>
+                <p style="margin:0 0 12px 0; font-size:14px;">
+                    Your annotated PDF has been downloaded. Now click the button below to open your
+                    email client with the recipient, subject, and message pre-filled. <strong>You'll need
+                    to manually attach the downloaded PDF</strong> before sending.
+                </p>
+                <button class="btn btn-primary" id="emailsignOpenBtn" style="width:100%; font-size:15px; padding:14px;">
+                    📧 Open Email Client
+                </button>
+                <div style="margin-top:12px; font-size:12px; color:var(--color-text-muted);">
+                    <strong>If your email client doesn't open automatically:</strong>
+                    <div style="margin-top:8px; display:flex; flex-direction:column; gap:6px;">
+                        <button class="btn btn-secondary" id="emailsignCopyAddr" style="text-align:left; padding:6px 10px; font-size:12px;">📋 Copy recipient email</button>
+                        <button class="btn btn-secondary" id="emailsignCopySubj" style="text-align:left; padding:6px 10px; font-size:12px;">📋 Copy subject line</button>
+                        <button class="btn btn-secondary" id="emailsignCopyBody" style="text-align:left; padding:6px 10px; font-size:12px;">📋 Copy message body</button>
+                    </div>
+                </div>
+            </div>
+        `,
+
+        _mailtoUrl: null,
+        _emailFields: null,
+
+        init() {
+            const markersSelect = document.getElementById('emailsignMarkers');
+            const rangeGroup    = document.getElementById('emailsignRangeGroup');
+            const posGroup      = document.getElementById('emailsignPositionGroup');
+
+            if (markersSelect) {
+                markersSelect.addEventListener('change', () => {
+                    if (rangeGroup) rangeGroup.style.display = markersSelect.value === 'range' ? 'block' : 'none';
+                    if (posGroup)   posGroup.style.display   = markersSelect.value === 'none'  ? 'none'  : 'block';
+                });
+            }
+
+            // Auto-fill subject when a file is added
+            const subjectInput = document.getElementById('emailsignSubject');
+            if (subjectInput && AppState.files.length > 0 && !subjectInput.value) {
+                const pdfFile = AppState.files.find(f => FileType.isPDF(f));
+                if (pdfFile) {
+                    subjectInput.value = `Please sign: ${pdfFile.name.replace(/\.pdf$/i, '')}`;
+                }
+            }
+        },
+
+        cleanup() {
+            this._mailtoUrl = null;
+            this._emailFields = null;
+        },
+
+        async process(files) {
+            const pdfFiles = files.filter(f => FileType.isPDF(f));
+            if (pdfFiles.length === 0) {
+                Utils.showStatus('Please upload a PDF file', 'error');
+                return;
+            }
+
+            const recipient = document.getElementById('emailsignRecipient')?.value.trim() || '';
+            const sender    = document.getElementById('emailsignSender')?.value.trim() || '';
+            let   subject   = document.getElementById('emailsignSubject')?.value.trim() || '';
+            const message   = document.getElementById('emailsignMessage')?.value.trim() || '';
+            const markers   = document.getElementById('emailsignMarkers')?.value || 'last';
+            const position  = document.getElementById('emailsignPosition')?.value || 'br';
+            const includeDate = document.getElementById('emailsignIncludeDate')?.checked ?? true;
+
+            // Validate recipient email
+            if (!recipient) {
+                Utils.showStatus('Please enter a recipient email address', 'error');
+                document.getElementById('emailsignRecipient')?.focus();
+                return;
+            }
+            const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailPattern.test(recipient)) {
+                Utils.showStatus('Please enter a valid email address', 'error');
+                document.getElementById('emailsignRecipient')?.focus();
+                return;
+            }
+
+            Utils.updateProgress(10, 'Loading PDF...');
+            const file = pdfFiles[0];
+            const arrayBuffer = await file.arrayBuffer();
+            const pdfDoc = await Utils.loadPDFWithEncryptionHandler(arrayBuffer.slice(0), file.name);
+            const totalPages = pdfDoc.getPageCount();
+
+            // Determine which pages to annotate
+            let pageIndices = [];
+            if (markers === 'last') {
+                pageIndices = [totalPages - 1];
+            } else if (markers === 'first') {
+                pageIndices = [0];
+            } else if (markers === 'all') {
+                pageIndices = Array.from({ length: totalPages }, (_, i) => i);
+            } else if (markers === 'range') {
+                const rangeStr = document.getElementById('emailsignRange')?.value || '';
+                pageIndices = Utils.parsePageRanges(rangeStr, totalPages);
+                if (pageIndices.length === 0 && rangeStr.trim()) {
+                    Utils.showStatus('No valid pages in range', 'error');
+                    return;
+                }
+            }
+
+            // Draw "Sign here" markers on selected pages
+            if (pageIndices.length > 0) {
+                Utils.updateProgress(30, 'Adding "Sign here" markers...');
+
+                // Marker dimensions (in points; 72pt = 1in)
+                const boxW = 180;
+                const boxH = includeDate ? 70 : 50;
+                const marginFromEdge = 36; // 0.5in
+
+                // Colors
+                const yellowFill  = PDFLib.rgb(1.0,  0.95, 0.55);
+                const yellowBorder= PDFLib.rgb(0.75, 0.65, 0.0);
+                const blackText   = PDFLib.rgb(0.1,  0.1,  0.1);
+                const lineColor   = PDFLib.rgb(0.2,  0.2,  0.2);
+
+                for (let i = 0; i < pageIndices.length; i++) {
+                    const idx = pageIndices[i];
+                    if (idx < 0 || idx >= totalPages) continue;
+
+                    const page = pdfDoc.getPage(idx);
+                    const { width: pw, height: ph } = page.getSize();
+
+                    // Calculate box position
+                    let boxX, boxY;
+                    if (position === 'br') {
+                        boxX = pw - boxW - marginFromEdge;
+                        boxY = marginFromEdge;
+                    } else if (position === 'bl') {
+                        boxX = marginFromEdge;
+                        boxY = marginFromEdge;
+                    } else { // bc
+                        boxX = (pw - boxW) / 2;
+                        boxY = marginFromEdge;
+                    }
+
+                    // Clamp to page
+                    boxX = Math.max(4, Math.min(boxX, pw - boxW - 4));
+                    boxY = Math.max(4, Math.min(boxY, ph - boxH - 4));
+
+                    // Draw yellow box with border
+                    page.drawRectangle({
+                        x: boxX, y: boxY,
+                        width: boxW, height: boxH,
+                        color: yellowFill,
+                        borderColor: yellowBorder,
+                        borderWidth: 1.5,
+                        opacity: 0.9
+                    });
+
+                    // "SIGN HERE" label at top of box
+                    page.drawText('SIGN HERE', {
+                        x: boxX + 8,
+                        y: boxY + boxH - 14,
+                        size: 9,
+                        color: blackText,
+                    });
+
+                    // Signature line
+                    const sigLineY = boxY + (includeDate ? 32 : 18);
+                    page.drawLine({
+                        start: { x: boxX + 8, y: sigLineY },
+                        end:   { x: boxX + boxW - 8, y: sigLineY },
+                        thickness: 0.75,
+                        color: lineColor,
+                    });
+                    page.drawText('Signature', {
+                        x: boxX + 8,
+                        y: sigLineY - 10,
+                        size: 7,
+                        color: blackText,
+                    });
+
+                    // Date line (if enabled)
+                    if (includeDate) {
+                        const dateLineY = boxY + 10;
+                        page.drawLine({
+                            start: { x: boxX + 8,           y: dateLineY },
+                            end:   { x: boxX + boxW / 2 - 4, y: dateLineY },
+                            thickness: 0.75,
+                            color: lineColor,
+                        });
+                        page.drawText('Date', {
+                            x: boxX + 8,
+                            y: dateLineY - 8,
+                            size: 7,
+                            color: blackText,
+                        });
+                    }
+                }
+            }
+
+            // Save the annotated PDF
+            Utils.updateProgress(80, 'Saving annotated PDF...');
+            if (AppState.autoScrubMetadata) Utils.scrubMetadata(pdfDoc);
+            const pdfBytes = await pdfDoc.save();
+            const outName = withExt(file.name, '_for_signature.pdf');
+            saveAs(new Blob([pdfBytes], { type: 'application/pdf' }), outName);
+
+            // Build the email
+            Utils.updateProgress(95, 'Preparing email...');
+            if (!subject) subject = `Please sign: ${file.name.replace(/\.pdf$/i, '')}`;
+
+            // Build a clean body with signing instructions
+            const siteUrl = window.location.origin + window.location.pathname;
+            const instructions = pageIndices.length > 0
+                ? `Please look for the yellow "SIGN HERE" marker${pageIndices.length > 1 ? 's' : ''} on the attached PDF.`
+                : `Please review the attached PDF and sign where appropriate.`;
+
+            const body = [
+                message || 'Hi,\n\nPlease review and sign the attached PDF at your convenience.',
+                '',
+                '--- How to sign ---',
+                instructions,
+                '',
+                'Easy ways to sign:',
+                `• Use PDF Workspace (free, no account, your files never leave your browser):`,
+                `  ${siteUrl}#tool=sign`,
+                '• Or use any PDF editor (Adobe Acrobat, Preview on Mac, etc.)',
+                '• Or print, sign by hand, scan, and email back',
+                '',
+                'Once signed, please reply to this email with the signed PDF attached.',
+                '',
+                'Thank you!',
+                sender || '',
+            ].filter(Boolean).join('\n');
+
+            // Build mailto URL
+            const mailtoUrl = `mailto:${encodeURIComponent(recipient)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+            // Store for copy buttons
+            this._mailtoUrl = mailtoUrl;
+            this._emailFields = { recipient, subject, body };
+
+            Utils.updateProgress(100, 'Complete!');
+            Utils.showStatus(
+                `PDF prepared! Downloaded as "${outName}". Click "Open Email Client" below to send.`,
+                'success'
+            );
+
+            // Show the result area with the "Open Email" button
+            const resultArea = document.getElementById('emailsignResultArea');
+            if (resultArea) resultArea.style.display = 'block';
+
+            // Wire up the Open Email button
+            const openBtn = document.getElementById('emailsignOpenBtn');
+            if (openBtn) {
+                openBtn.onclick = () => {
+                    try {
+                        window.location.href = mailtoUrl;
+                    } catch (e) {
+                        Utils.showStatus('Could not open email client. Use the copy buttons below.', 'warning');
+                    }
+                };
+            }
+
+            // Wire up copy buttons
+            const copyHandler = (text, label) => async () => {
+                try {
+                    await navigator.clipboard.writeText(text);
+                    Utils.showStatus(`${label} copied to clipboard!`, 'success');
+                } catch (e) {
+                    // Fallback for older browsers
+                    const ta = document.createElement('textarea');
+                    ta.value = text;
+                    document.body.appendChild(ta);
+                    ta.select();
+                    try { document.execCommand('copy'); Utils.showStatus(`${label} copied!`, 'success'); }
+                    catch (e2) { Utils.showStatus('Copy failed. Please select and copy manually.', 'error'); }
+                    finally { document.body.removeChild(ta); }
+                }
+            };
+
+            const copyAddr = document.getElementById('emailsignCopyAddr');
+            const copySubj = document.getElementById('emailsignCopySubj');
+            const copyBody = document.getElementById('emailsignCopyBody');
+            if (copyAddr) copyAddr.onclick = copyHandler(recipient, 'Email address');
+            if (copySubj) copySubj.onclick = copyHandler(subject,   'Subject line');
+            if (copyBody) copyBody.onclick = copyHandler(body,      'Message body');
+        }
+    },
+
+    // ==================== CROP / TRIM MARGINS TOOL ====================
+    crop: {
+        name: 'Crop / Trim Margins',
+        description: 'Remove white borders and trim page margins from PDF pages',
+        icon: '✂️',
+        configHTML: `
+            <div class="info-box" style="background: #e7f3ff; border-color: var(--color-primary);">
+                ✂️ <strong>Crop / Trim Margins</strong> — Detect and remove excess white space around
+                your PDF content. Great for scanned documents with large borders.
+            </div>
+            <div class="form-group">
+                <label class="form-label">Crop Mode</label>
+                <select class="form-select" id="cropMode">
+                    <option value="auto">Auto-detect content bounds</option>
+                    <option value="equal">Trim equal margins from all sides</option>
+                    <option value="custom">Set custom margins</option>
+                </select>
+            </div>
+            <div id="cropEqualOptions" class="form-group" style="display:none;">
+                <label class="form-label">Margin to trim (points)</label>
+                <input type="range" id="cropEqualAmount" min="0" max="200" value="36">
+                <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--color-text-muted);">
+                    <span>0 pt</span><span id="cropEqualVal">36 pt (0.5 in)</span><span>200 pt</span>
+                </div>
+            </div>
+            <div id="cropCustomOptions" style="display:none;">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                    <div class="form-group"><label class="form-label">Top (pt)</label><input type="number" class="form-input" id="cropTop" value="36" min="0"></div>
+                    <div class="form-group"><label class="form-label">Bottom (pt)</label><input type="number" class="form-input" id="cropBottom" value="36" min="0"></div>
+                    <div class="form-group"><label class="form-label">Left (pt)</label><input type="number" class="form-input" id="cropLeft" value="36" min="0"></div>
+                    <div class="form-group"><label class="form-label">Right (pt)</label><input type="number" class="form-input" id="cropRight" value="36" min="0"></div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Apply to</label>
+                <select class="form-select" id="cropPages">
+                    <option value="all">All pages</option>
+                    <option value="range">Specific pages</option>
+                </select>
+            </div>
+            <div class="form-group" id="cropRangeGroup" style="display:none;">
+                <label class="form-label">Page range (e.g., 1-5, 8, 10-12)</label>
+                <input type="text" class="form-input" id="cropRange" placeholder="1-5, 8">
+            </div>
+        `,
+
+        init() {
+            const modeSelect = document.getElementById('cropMode');
+            const equalOpts  = document.getElementById('cropEqualOptions');
+            const customOpts = document.getElementById('cropCustomOptions');
+            const pagesSelect = document.getElementById('cropPages');
+            const rangeGroup  = document.getElementById('cropRangeGroup');
+            const equalSlider = document.getElementById('cropEqualAmount');
+            const equalVal    = document.getElementById('cropEqualVal');
+
+            if (modeSelect) {
+                modeSelect.addEventListener('change', () => {
+                    if (equalOpts) equalOpts.style.display = modeSelect.value === 'equal' ? 'block' : 'none';
+                    if (customOpts) customOpts.style.display = modeSelect.value === 'custom' ? 'block' : 'none';
+                });
+            }
+            if (pagesSelect && rangeGroup) {
+                pagesSelect.addEventListener('change', () => {
+                    rangeGroup.style.display = pagesSelect.value === 'range' ? 'block' : 'none';
+                });
+            }
+            if (equalSlider && equalVal) {
+                equalSlider.addEventListener('input', () => {
+                    const inches = (parseInt(equalSlider.value) / 72).toFixed(1);
+                    equalVal.textContent = `${equalSlider.value} pt (${inches} in)`;
+                });
+            }
+        },
+
+        async process(files) {
+            const pdfFiles = files.filter(f => FileType.isPDF(f));
+            if (pdfFiles.length === 0) { Utils.showStatus('Please upload a PDF file', 'error'); return; }
+
+            const mode = document.getElementById('cropMode')?.value || 'auto';
+            const pagesMode = document.getElementById('cropPages')?.value || 'all';
+
+            Utils.updateProgress(10, 'Loading PDF...');
+            const file = pdfFiles[0];
+            const arrayBuffer = await file.arrayBuffer();
+            const pdfDoc = await PDFLib.PDFDocument.load(arrayBuffer.slice(0));
+            const totalPages = pdfDoc.getPageCount();
+
+            let pageIndices;
+            if (pagesMode === 'range') {
+                const rangeStr = document.getElementById('cropRange')?.value || '';
+                pageIndices = Utils.parsePageRanges(rangeStr, totalPages);
+                if (pageIndices.length === 0) return;
+            } else {
+                pageIndices = Array.from({ length: totalPages }, (_, i) => i);
+            }
+
+            for (let pi = 0; pi < pageIndices.length; pi++) {
+                const idx = pageIndices[pi];
+                const page = pdfDoc.getPage(idx);
+                const { width, height } = page.getSize();
+                Utils.updateProgress(10 + (pi / pageIndices.length) * 80, `Cropping page ${idx + 1}...`);
+
+                let top = 0, bottom = 0, left = 0, right = 0;
+
+                if (mode === 'auto') {
+                    try {
+                        const pdfjs = await pdfjsLib.getDocument({ data: arrayBuffer.slice(0) }).promise;
+                        const pg = await pdfjs.getPage(idx + 1);
+                        const viewport = pg.getViewport({ scale: 1 });
+                        const canvas = document.createElement('canvas');
+                        canvas.width = viewport.width;
+                        canvas.height = viewport.height;
+                        const ctx = canvas.getContext('2d');
+                        await pg.render({ canvasContext: ctx, viewport }).promise;
+
+                        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                        const data = imgData.data;
+                        const threshold = 245;
+                        let minX = canvas.width, minY = canvas.height, maxX = 0, maxY = 0;
+
+                        for (let y = 0; y < canvas.height; y++) {
+                            for (let x = 0; x < canvas.width; x++) {
+                                const i = (y * canvas.width + x) * 4;
+                                if (data[i] < threshold || data[i+1] < threshold || data[i+2] < threshold) {
+                                    if (x < minX) minX = x;
+                                    if (x > maxX) maxX = x;
+                                    if (y < minY) minY = y;
+                                    if (y > maxY) maxY = y;
+                                }
+                            }
+                        }
+
+                        if (maxX > minX && maxY > minY) {
+                            const pad = 10;
+                            left   = Math.max(0, minX - pad);
+                            right  = Math.max(0, canvas.width - maxX - pad);
+                            top    = Math.max(0, minY - pad);
+                            bottom = Math.max(0, canvas.height - maxY - pad);
+                        }
+                        pdfjs.destroy();
+                    } catch (e) {
+                        console.warn('[Crop] Auto-detect failed for page', idx + 1, e);
+                    }
+                } else if (mode === 'equal') {
+                    const amount = parseInt(document.getElementById('cropEqualAmount')?.value || '36');
+                    top = bottom = left = right = amount;
+                } else {
+                    top    = parseInt(document.getElementById('cropTop')?.value || '36');
+                    bottom = parseInt(document.getElementById('cropBottom')?.value || '36');
+                    left   = parseInt(document.getElementById('cropLeft')?.value || '36');
+                    right  = parseInt(document.getElementById('cropRight')?.value || '36');
+                }
+
+                if (left + right >= width * 0.9 || top + bottom >= height * 0.9) {
+                    console.warn(`[Crop] Page ${idx+1}: crop area too large, skipping`);
+                    continue;
+                }
+
+                page.setCropBox(left, bottom, width - right, height - top);
+                page.setMediaBox(left, bottom, width - right, height - top);
+            }
+
+            Utils.updateProgress(95, 'Saving...');
+            if (AppState.autoScrubMetadata) Utils.scrubMetadata(pdfDoc);
+            const pdfBytes = await pdfDoc.save();
+            saveAs(new Blob([pdfBytes], { type: 'application/pdf' }), withExt(file.name, '_cropped.pdf'));
+            Utils.updateProgress(100, 'Complete!');
+            Utils.showStatus(`Cropped ${pageIndices.length} page(s) successfully!`, 'success');
+        }
     }
 };
 
@@ -11714,13 +12379,39 @@ const ToolManager = {
         }
         
         const container = document.getElementById('toolContent');
-        container.innerHTML = `
-            <div class="tool-header">
-                <h2><span>${tool.icon}</span> ${tool.name}</h2>
-                <p>${tool.description}</p>
-            </div>
-            ${tool.configHTML || ''}
-        `;
+        
+        // Home screen: skip tool header, hide file upload UI
+        const isHome = (toolId === 'home');
+        const dropCard = document.getElementById('dropArea')?.closest('.card');
+        const processCard = document.getElementById('processBtn')?.closest('.card');
+        const workflowSteps = document.getElementById('workflowSteps');
+        const fileInfoBar = document.getElementById('fileInfoBar');
+        
+        if (isHome) {
+            container.innerHTML = '';
+            if (dropCard) dropCard.style.display = 'none';
+            if (processCard) processCard.style.display = 'none';
+            if (workflowSteps) workflowSteps.style.display = 'none';
+            if (fileInfoBar) fileInfoBar.style.display = 'none';
+            // Hide library health bar too on home screen for a cleaner look
+            const healthBar = document.getElementById('libraryHealthBar');
+            if (healthBar && healthBar.style.background?.includes('d4edda')) {
+                healthBar.style.display = 'none'; // Only hide success bar; keep warnings
+            }
+        } else {
+            container.innerHTML = `
+                <div class="tool-header">
+                    <h2><span>${tool.icon}</span> ${tool.name}</h2>
+                    <p>${tool.description}</p>
+                </div>
+                ${tool.configHTML || ''}
+            `;
+            if (dropCard) dropCard.style.display = '';
+            if (processCard) processCard.style.display = '';
+            if (workflowSteps) workflowSteps.style.display = '';
+            // FIX v9.5.1: Reset file info bar - let .visible class control display
+            if (fileInfoBar) fileInfoBar.style.display = '';
+        }
         
         // Initialize PDF Preview
         PDFPreview.init();
@@ -11759,8 +12450,12 @@ const ToolManager = {
         
         console.log(`[ToolManager] Tool ${toolId} loaded successfully`);
         
-        // Enhancement #2: URL hash routing
-        history.replaceState(null, '', `#tool=${toolId}`);
+        // Enhancement #2: URL hash routing (skip for home screen)
+        if (toolId !== 'home') {
+            history.replaceState(null, '', `#tool=${toolId}`);
+        } else {
+            history.replaceState(null, '', window.location.pathname);
+        }
         
         // Enhancement #4: Dynamic drop zone hint
         const hintEl = document.getElementById('dropAreaHint');
@@ -11875,6 +12570,12 @@ const ToolManager = {
 
             // Document Scanner: uses Canvas API (built-in) + PDFLib
             docscan: ['PDFLib', 'saveAs'],
+            
+            // Crop tool: uses pdfjsLib for auto-detect + PDFLib for crop
+            crop: ['pdfjsLib', 'PDFLib', 'saveAs'],
+            
+            // Email for Signature: uses PDFLib to draw markers
+            emailsign: ['PDFLib', 'saveAs'],
         };
         
         const requiredLibs = libraryRequirements[toolId] || [];
@@ -11969,6 +12670,12 @@ function setupEventHandlers() {
         btn.addEventListener('click', () => {
             ToolManager.loadTool(btn.dataset.tool);
         });
+        // FIX v9.5.1: Add tooltip with tool description
+        const toolId = btn.dataset.tool;
+        const tool = Tools[toolId];
+        if (tool && tool.description && !btn.title) {
+            btn.title = tool.description;
+        }
     });
     
     // STRATEGIC ENHANCEMENT: Auto-scrub metadata toggle
@@ -11991,8 +12698,15 @@ function setupEventHandlers() {
     }
     
     // Clear button (with guard)
+    // FIX v9.5.1: Confirm before clearing when files are loaded
     if (clearBtn) {
-        clearBtn.addEventListener('click', () => {
+        clearBtn.addEventListener('click', async () => {
+            if (AppState.files.length > 0) {
+                const confirmed = await Modal.confirm(
+                    `Remove ${AppState.files.length} file${AppState.files.length === 1 ? '' : 's'} and reset the workspace?`
+                );
+                if (!confirmed) return;
+            }
             FileManager.clearAll();
         });
     }
@@ -12009,18 +12723,36 @@ function setupEventHandlers() {
                 if (visible) anyVisible = true;
             });
             
-            // Hide/show category titles
-            document.querySelectorAll('.category-title').forEach(title => {
-                const nextButtons = [];
-                let next = title.nextElementSibling;
-                while (next && !next.classList.contains('category-title')) {
-                    if (next.classList.contains('tool-button')) {
-                        nextButtons.push(next);
-                    }
-                    next = next.nextElementSibling;
+            // Hide/show category titles AND their .category-tools wrappers
+            // FIX v9.5.1: Updated to work with new collapsible category structure
+            document.querySelectorAll('.category-title.collapsible').forEach(title => {
+                const category = title.dataset.category;
+                const toolsDiv = document.querySelector(`.category-tools[data-category="${category}"]`);
+                if (!toolsDiv) return;
+                
+                // Find visible tool buttons inside this category's tools div
+                const visibleButtons = toolsDiv.querySelectorAll('.tool-button:not([style*="display: none"])');
+                const hasVisible = visibleButtons.length > 0;
+                
+                title.style.display = hasVisible ? '' : 'none';
+                // Don't hide the wrapper itself when searching - let buttons control visibility
+                // But if no buttons visible, hide it to avoid empty space
+                toolsDiv.style.display = hasVisible ? '' : 'none';
+                
+                // When searching, force-expand collapsed categories so user sees results
+                if (query.length > 0 && hasVisible) {
+                    title.classList.remove('collapsed');
+                    toolsDiv.classList.remove('collapsed');
                 }
-                const hasVisible = nextButtons.some(btn => btn.style.display !== 'none');
-                title.style.display = hasVisible ? 'block' : 'none';
+            });
+            
+            // Also handle any non-collapsible category titles (favorites, recently used)
+            document.querySelectorAll('.category-title:not(.collapsible)').forEach(title => {
+                const parentSection = title.closest('.favorites-section, .recently-used-section');
+                if (parentSection) {
+                    const visibleButtons = parentSection.querySelectorAll('.tool-button:not([style*="display: none"])');
+                    parentSection.style.display = visibleButtons.length > 0 ? '' : 'none';
+                }
             });
             
             // Show "No tools found" empty state
@@ -12046,13 +12778,28 @@ function setupEventHandlers() {
             } else if (emptyState) {
                 emptyState.style.display = 'none';
             }
+            
+            // FIX v9.5.1: When search is cleared, restore saved collapsed states
+            if (query.length === 0) {
+                try {
+                    const states = JSON.parse(localStorage.getItem('pdfWorkspaceCategoryStates') || '{}');
+                    document.querySelectorAll('.category-title.collapsible').forEach(title => {
+                        const category = title.dataset.category;
+                        const toolsDiv = document.querySelector(`.category-tools[data-category="${category}"]`);
+                        if (states[category] && toolsDiv) {
+                            title.classList.add('collapsed');
+                            toolsDiv.classList.add('collapsed');
+                        }
+                    });
+                } catch (e) {}
+            }
         });
     }
 }
 
 // Initialization
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('🚀 PDF Workspace v9.2.0 - 20 Enhancements');
+    console.log('🚀 PDF Workspace v9.5.1 - 20 Enhancements');
     console.log('🌙 Dark mode • ⌨️ Keyboard shortcuts • 📱 Mobile sidebar • 🔗 Deep links');
     console.log('⚡ Lazy loading • 🔀 File reorder • 📦 Batch ZIP • 📡 Offline indicator');
     console.log('🎯 100% Client-Side Processing - Your Files Never Leave Your Browser');
@@ -12256,7 +13003,15 @@ const FavoritesManager = {
 };
 
     setupEventHandlers();
-    ToolManager.loadTool('merge');
+    
+    // Load home screen by default, or the hash-routed tool
+    const initialHash = window.location.hash.match(/tool=(\w+)/);
+    if (initialHash && Tools[initialHash[1]]) {
+        ToolManager.loadTool(initialHash[1]);
+    } else {
+        ToolManager.loadTool('home');
+    }
+    
     PDFPreview.init();
     
     // Initialize Favorites System
@@ -12273,13 +13028,9 @@ const FavoritesManager = {
                     'PDF.js': typeof pdfjsLib !== 'undefined',
                     'PDF-Lib': typeof PDFLib !== 'undefined',
                     'JSZip': typeof JSZip !== 'undefined',
-                    'FileSaver': typeof saveAs !== 'undefined',
-                    'Tesseract': typeof Tesseract !== 'undefined',
-                    'Mammoth': typeof mammoth !== 'undefined',
-                    'XLSX': typeof XLSX !== 'undefined',
-                    'jsPDF': typeof jspdf !== 'undefined',
-                    'DOCX': typeof docx !== 'undefined'
+                    'FileSaver': typeof saveAs !== 'undefined'
                 },
+                onDemand: ['Tesseract', 'Mammoth', 'XLSX', 'jsPDF', 'DOCX'],
                 workerAvailable: false,
                 serviceWorkerEnabled: false,
                 errors: [],
@@ -12306,10 +13057,11 @@ const FavoritesManager = {
             const critical = ['PDF.js', 'PDF-Lib'].every(lib => results.libraries[lib]);
             
             // Log results
-            console.log(`✓ Libraries: ${loaded}/${total} loaded`);
+            console.log(`✓ Core libraries: ${loaded}/${total} loaded`);
             Object.entries(results.libraries).forEach(([name, status]) => {
                 console.log(`  ${status ? '✓' : '✗'} ${name}`);
             });
+            console.log(`  ℹ ${results.onDemand.length} libraries load on demand: ${results.onDemand.join(', ')}`);
             
             // Display enhanced UI
             this.displayEnhancedResults(results);
@@ -12333,7 +13085,7 @@ const FavoritesManager = {
                     healthBar.innerHTML = `
                         <span style="font-size: 16px;">✅</span>
                         <strong>All systems operational</strong>
-                        <span style="color: #155724;">${loaded}/${total} libraries loaded</span>
+                        <span style="color: #155724;">${loaded}/${total} core libraries loaded • ${results.onDemand.length} more load on demand</span>
                         ${results.serviceWorkerEnabled ? '<span style="margin-left: auto; font-size: 12px;">🔄 Offline mode active</span>' : ''}
                     `;
                 } else if (critical) {
@@ -12342,8 +13094,8 @@ const FavoritesManager = {
                     healthBar.style.borderColor = '#ffc107';
                     healthBar.innerHTML = `
                         <span style="font-size: 16px;">⚠️</span>
-                        <strong>Some optional features unavailable</strong>
-                        <span style="color: #856404;">${loaded}/${total} libraries loaded • Core functions work</span>
+                        <strong>Some core libraries missing</strong>
+                        <span style="color: #856404;">${loaded}/${total} core libraries loaded • PDF tools may still work</span>
                     `;
                 }
             }
@@ -12659,13 +13411,173 @@ const FavoritesManager = {
     
     // (Workflow reset and FileInfoManager.hide are handled inside FileManager.clearAll)
     
-    // ==================== v9.2.0 ENHANCEMENTS ====================
+    // ==================== v9.5.1 ENHANCEMENTS ====================
     
-    // Enhancement #2: URL hash routing - load tool from URL hash
-    const hashMatch = window.location.hash.match(/tool=(\w+)/);
-    if (hashMatch && Tools[hashMatch[1]]) {
-        ToolManager.loadTool(hashMatch[1]);
+    // Home button - returns to home screen from any tool
+    const homeBtn = document.getElementById('homeButton');
+    if (homeBtn) {
+        homeBtn.addEventListener('click', () => {
+            ToolManager.loadTool('home');
+            if (window.innerWidth <= 768) toggleMobileSidebar(false);
+        });
     }
+    
+    // FIX v9.5.1: Wire up footer Home link
+    const footerHomeLink = document.getElementById('footerHomeLink');
+    if (footerHomeLink) {
+        footerHomeLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            ToolManager.loadTool('home');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+    }
+    
+    // Update home button active state when tool changes
+    const originalLoadToolForHomeBtn = ToolManager.loadTool.bind(ToolManager);
+    ToolManager.loadTool = async function(toolId) {
+        const result = await originalLoadToolForHomeBtn(toolId);
+        const hb = document.getElementById('homeButton');
+        if (hb) hb.classList.toggle('active', toolId === 'home');
+        return result;
+    };
+    
+    // FIX v9.5.1: Set initial active state since the monkey-patch is set up after the first loadTool call
+    if (homeBtn && AppState.currentTool === 'home') {
+        homeBtn.classList.add('active');
+    }
+    
+    // ==================== v9.5.1 ENHANCEMENTS ====================
+    
+    // Enhancement: Collapsible sidebar categories
+    document.querySelectorAll('.category-title.collapsible').forEach(title => {
+        const category = title.dataset.category;
+        const toolsDiv = document.querySelector(`.category-tools[data-category="${category}"]`);
+        if (!toolsDiv) return;
+        
+        title.addEventListener('click', () => {
+            const isCollapsed = title.classList.toggle('collapsed');
+            toolsDiv.classList.toggle('collapsed', isCollapsed);
+            // Save state
+            try {
+                const states = JSON.parse(localStorage.getItem('pdfWorkspaceCategoryStates') || '{}');
+                states[category] = isCollapsed;
+                localStorage.setItem('pdfWorkspaceCategoryStates', JSON.stringify(states));
+            } catch (e) {}
+        });
+        
+        // Restore saved state
+        try {
+            const states = JSON.parse(localStorage.getItem('pdfWorkspaceCategoryStates') || '{}');
+            if (states[category]) {
+                title.classList.add('collapsed');
+                toolsDiv.classList.add('collapsed');
+            }
+        } catch (e) {}
+    });
+    
+    // Enhancement: Typed Signature support for Sign tool
+    // Monkey-patch Sign tool init to add typed signature UI
+    if (Tools.sign && Tools.sign.init) {
+        const originalSignInit = Tools.sign.init.bind(Tools.sign);
+        Tools.sign.init = function() {
+            originalSignInit();
+            
+            // Add typed signature option after the file upload
+            const sigInput = document.getElementById('signatureInput');
+            if (!sigInput) return;
+            const sigGroup = sigInput.closest('.form-group');
+            if (!sigGroup) return;
+            
+            const typedHTML = document.createElement('div');
+            typedHTML.className = 'sig-type-container';
+            typedHTML.innerHTML = `
+                <div class="form-label" style="margin-bottom:8px;">Or type your signature:</div>
+                <input type="text" class="sig-type-input" id="sigTypeInput" placeholder="Type your name...">
+                <div class="sig-font-select" id="sigFontSelect">
+                    <button class="sig-font-btn active" data-font="'Brush Script MT', 'Segoe Script', cursive" style="font-family: 'Brush Script MT', 'Segoe Script', cursive;">Signature</button>
+                    <button class="sig-font-btn" data-font="'Georgia', serif" style="font-family: Georgia, serif; font-style: italic;">Signature</button>
+                    <button class="sig-font-btn" data-font="'Courier New', monospace" style="font-family: 'Courier New', monospace;">Signature</button>
+                    <button class="sig-font-btn" data-font="'Palatino', 'Book Antiqua', serif" style="font-family: Palatino, 'Book Antiqua', serif; font-style:italic;">Signature</button>
+                </div>
+                <canvas class="sig-preview-canvas" id="sigTypePreview"></canvas>
+                <button class="btn btn-primary" id="sigTypeApply" style="width:100%;margin-top:8px;" disabled>
+                    ✍️ Use This Signature
+                </button>
+            `;
+            sigGroup.parentNode.insertBefore(typedHTML, sigGroup.nextSibling);
+            
+            // Wire up typed signature
+            const input = document.getElementById('sigTypeInput');
+            const preview = document.getElementById('sigTypePreview');
+            const applyBtn = document.getElementById('sigTypeApply');
+            const fontBtns = document.querySelectorAll('#sigFontSelect .sig-font-btn');
+            let currentFont = "'Brush Script MT', 'Segoe Script', cursive";
+            
+            function renderTypedSig() {
+                if (!preview || !input) return;
+                const text = input.value.trim();
+                const ctx = preview.getContext('2d');
+                preview.width = preview.clientWidth * 2;
+                preview.height = preview.clientHeight * 2;
+                ctx.scale(2, 2);
+                
+                ctx.clearRect(0, 0, preview.clientWidth, preview.clientHeight);
+                ctx.fillStyle = 'white';
+                ctx.fillRect(0, 0, preview.clientWidth, preview.clientHeight);
+                
+                if (text) {
+                    ctx.fillStyle = '#1a1a2e';
+                    ctx.font = `italic 32px ${currentFont}`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(text, preview.clientWidth / 2, preview.clientHeight / 2);
+                    if (applyBtn) applyBtn.disabled = false;
+                } else {
+                    ctx.fillStyle = '#ccc';
+                    ctx.font = '14px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('Type your name above', preview.clientWidth / 2, preview.clientHeight / 2);
+                    if (applyBtn) applyBtn.disabled = true;
+                }
+            }
+            
+            if (input) input.addEventListener('input', renderTypedSig);
+            
+            fontBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    fontBtns.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    currentFont = btn.dataset.font;
+                    renderTypedSig();
+                });
+            });
+            
+            if (applyBtn) {
+                applyBtn.addEventListener('click', () => {
+                    if (!preview || !input?.value.trim()) return;
+                    const dataUrl = preview.toDataURL('image/png');
+                    
+                    // Set on the sign tool's signatureImage property
+                    Tools.sign.signatureImage = dataUrl;
+                    
+                    // Update the preview image in the Sign tool UI
+                    const sigImg = document.getElementById('signatureImg');
+                    const sigPreviewDiv = document.getElementById('signaturePreview');
+                    if (sigImg) sigImg.src = dataUrl;
+                    if (sigPreviewDiv) sigPreviewDiv.classList.remove('hidden');
+                    
+                    Utils.showStatus('Typed signature applied! Position it on the PDF preview.', 'success');
+                });
+            }
+            
+            // Initial render
+            setTimeout(renderTypedSig, 100);
+        };
+    }
+    
+    // Enhancement #2: URL hash routing - listen for back/forward navigation
+    // (Initial hash-based tool load is handled above in the startup block)
     window.addEventListener('hashchange', () => {
         const match = window.location.hash.match(/tool=(\w+)/);
         if (match && Tools[match[1]] && AppState.currentTool !== match[1]) {
@@ -12937,7 +13849,7 @@ const FavoritesManager = {
     };
     
     // Enhancement #16: What's New changelog toast
-    const WHATS_NEW_VERSION = '9.2.0';
+    const WHATS_NEW_VERSION = '9.5.1';
     try {
         const lastSeenVersion = localStorage.getItem('pdfWorkspaceLastVersion');
         if (lastSeenVersion !== WHATS_NEW_VERSION) {
