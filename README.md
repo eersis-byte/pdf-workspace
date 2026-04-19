@@ -2,12 +2,12 @@
 
 <div align="center">
 
-![PDF Workspace](https://img.shields.io/badge/Tools-47%2B-blue)
+![PDF Workspace](https://img.shields.io/badge/Tools-47-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Client Side](https://img.shields.io/badge/processing-100%25%20client--side-orange)
 ![No Tracking](https://img.shields.io/badge/tracking-none-brightgreen)
 
-**47+ professional PDF tools running entirely in your browser**
+**47 professional PDF tools running entirely in your browser**
 
 [Live Demo](#) | [Features](#features) | [Privacy](#privacy) | [Tools](#available-tools)
 
@@ -44,7 +44,7 @@ A complete suite of PDF tools that runs **100% in your browser**. No uploads, no
 - Lightweight (~500 KB total)
 
 ### 🛠️ Professional Tools
-- 47+ tools covering all PDF needs
+- 47 tools covering all PDF needs
 - No watermarks
 - No quality loss
 - Batch processing
@@ -101,7 +101,7 @@ A complete suite of PDF tools that runs **100% in your browser**. No uploads, no
 - **Repair PDF** - Fix corrupted PDFs
 - **PDF Audit** - Detailed file analysis
 
-[See all 47+ tools →](#)
+[See all 47 tools →](#)
 
 ---
 
@@ -122,11 +122,17 @@ No account needed. No sign-up. No tracking.
 
 ### Your Data is Safe
 
-- ✅ **No uploads** - Files never leave your browser
-- ✅ **No storage** - Nothing saved on servers
-- ✅ **No tracking** - No analytics, no cookies
-- ✅ **No third parties** - No external services
-- ✅ **No logs** - Nothing recorded
+- ✅ **No uploads** - Your files never leave your browser
+- ✅ **No storage** - Nothing saved on our servers (we don't have any)
+- ✅ **No tracking** - No analytics, no cookies, no fingerprinting
+- ✅ **No accounts** - No sign-up, no email required
+- ✅ **No logs** - We can't log what we never see
+
+### A Note on Honesty
+
+To be transparent: PDF Workspace itself is purely static and processes your files entirely client-side. However, the JavaScript libraries (PDF.js, PDF-Lib, JSZip, etc.) are loaded from public CDNs (cdnjs, jsDelivr, unpkg) on first visit. After the first load, the service worker caches them locally and the app works fully offline. Your PDFs themselves are never sent to any server.
+
+If you want a fully self-contained deployment with no CDN dependencies, you can mirror the libraries to your own hosting and update the script paths in `index.html`.
 
 ### How It Works
 
@@ -175,12 +181,23 @@ This site is hosted on GitHub Pages with Cloudflare CDN.
 - **99.9% uptime**
 
 ### Self-Hosting
-Clone and host anywhere - it's just static files:
+Clone and host on any static hosting (GitHub Pages, Netlify, Vercel, Cloudflare Pages, etc.):
 
 ```bash
 git clone https://github.com/YOUR-USERNAME/pdf-workspace.git
 cd pdf-workspace
-# Open index.html in browser or serve with any web server
+```
+
+To run locally for development, **serve the files with any local web server** (don't open `index.html` directly — service workers, PDF.js workers, and CDN libraries require an HTTP context):
+
+```bash
+# Option 1: Python (built-in on most systems)
+python3 -m http.server 8000
+
+# Option 2: Node.js (if you have it)
+npx serve
+
+# Then open http://localhost:8000 in your browser
 ```
 
 No build process needed!
@@ -189,7 +206,7 @@ No build process needed!
 
 ## 📊 Stats
 
-- **Tools:** 47+
+- **Tools:** 47
 - **File Size:** ~500 KB (entire app)
 - **Dependencies:** 0 npm packages (uses CDN libraries)
 - **Tracking:** 0% (none)

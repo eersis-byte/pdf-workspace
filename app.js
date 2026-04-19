@@ -1,4 +1,4 @@
-// PDF WORKSPACE v9.5.2 - 20 ENHANCEMENTS
+// PDF WORKSPACE v9.5.3 - 20 ENHANCEMENTS
 // 🚀 #1  Lazy-load heavy libraries (saves ~1.2MB initial download)
 // 🔗 #2  URL hash routing (deep links & PWA shortcuts work)
 // ⚠️ #3  beforeunload warning (prevents accidental data loss)
@@ -773,8 +773,10 @@ const PDFPreview = {
                 this.pdfCache.set(cacheKey, pdfDoc);
                 console.log('[PDFPreview] PDF cached:', cacheKey);
                 
-                // FIX v7.13: Destroy old docs to prevent memory leaks (keep last 10 PDFs)
-                if (this.pdfCache.size > 10) {
+                // FIX v9.5.3: Reduced cache size for better mobile memory handling
+                // Mobile devices get aggressive eviction (3 PDFs); desktop keeps 5
+                const cacheLimit = (window.innerWidth <= 768) ? 3 : 5;
+                while (this.pdfCache.size > cacheLimit) {
                     const firstKey = this.pdfCache.keys().next().value;
                     const oldDoc = this.pdfCache.get(firstKey);
                     try {
@@ -1682,7 +1684,7 @@ const FileManager = {
         this._updateFileBadge();
 
         if (AppState.files.length === 0) {
-            // FIX v9.5.2: Empty state instead of blank space
+            // FIX v9.5.3: Empty state instead of blank space
             container.innerHTML = `
                 <div style="text-align:center;padding:24px 16px;color:var(--color-text-muted);font-size:13px;">
                     <div style="font-size:24px;opacity:0.5;margin-bottom:6px;">📂</div>
@@ -4695,6 +4697,13 @@ const Tools = {
                 🗜️ <strong>Real Compression!</strong> Downsample images, reduce quality, and optimize structure.
             </div>
             
+            <div class="warning-box" style="background: #fff3cd; border-left: 4px solid #ffc107; color: #856404; padding: 12px 16px; border-radius: 6px; margin-bottom: 16px; font-size: 13px;">
+                ⚠️ <strong>Important:</strong> This tool re-renders pages as images to achieve compression.
+                <strong>Text in the output will not be selectable or searchable.</strong>
+                Best for scanned documents, image-heavy PDFs, and print-only files.
+                For text-heavy documents, consider using a dedicated PDF optimizer instead.
+            </div>
+            
             <div class="form-group">
                 <label class="form-label">Image Quality</label>
                 <div style="display: flex; align-items: center; gap: 12px;">
@@ -5742,13 +5751,36 @@ const Tools = {
         icon: '🗑️',
         configHTML: `
             <div class="warning-box">
-                ⚠️ This tool attempts to detect blank pages. Results may vary depending on PDF structure.
-                A page is considered blank if it contains very little content.
+                ⚠️ This tool detects and removes blank pages by analyzing pixel content.
+                Results may vary depending on PDF structure and scan quality.
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Detection Sensitivity</label>
+                <select class="form-select" id="blankSensitivity">
+                    <option value="conservative">Conservative — only remove fully blank pages</option>
+                    <option value="normal" selected>Normal — remove pages with minimal content (recommended)</option>
+                    <option value="aggressive">Aggressive — remove pages with faint marks, letterhead borders, etc.</option>
+                </select>
+                <p style="font-size:11px; color:var(--color-text-muted); margin-top:6px;">
+                    <strong>Conservative</strong> keeps pages with any visible marks.
+                    <strong>Aggressive</strong> may remove pages with faint letterhead or scan noise.
+                    Preview pages before processing if uncertain.
+                </p>
             </div>
         `,
         
         async process(files) {
             const pdfFiles = files.filter(FileType.isPDF);
+            
+            // Sensitivity thresholds: what percentage of non-white pixels counts as "content"
+            const sensitivityMap = {
+                conservative: 0.0002,  // 0.02% — only truly blank
+                normal: 0.001,         // 0.1%  — small marks tolerated
+                aggressive: 0.005      // 0.5%  — letterhead/scan noise removed
+            };
+            const sensitivity = document.getElementById('blankSensitivity')?.value || 'normal';
+            const threshold = sensitivityMap[sensitivity];
             
             for (const file of pdfFiles) {
                 Utils.updateProgress(5, `Loading ${file.name}...`);
@@ -5800,8 +5832,9 @@ const Tools = {
                     const totalPixels = pixels.length / 4;
                     const contentRatio = coloredPixels / totalPixels;
                     
-                    // Keep page if it has more than 0.1% non-white content
-                    if (contentRatio > 0.001) {
+                    // Keep page if it has more than the threshold of non-white content
+                    // FIX v9.5.3: Uses configurable sensitivity setting
+                    if (contentRatio > threshold) {
                         pagesToKeep.push(pageNum - 1); // Convert to 0-indexed
                     }
                 }
@@ -5822,7 +5855,7 @@ const Tools = {
                 
                 Utils.updateProgress(100, 'Complete!');
                 Utils.showStatus(
-                    `Removed ${removedCount} blank page(s) from ${file.name}. Kept ${pagesToKeep.length} pages.`,
+                    `Removed ${removedCount} blank page(s) from ${file.name}. Kept ${pagesToKeep.length} pages. (${sensitivity} mode)`,
                     removedCount > 0 ? 'success' : 'info'
                 );
             }
@@ -12425,7 +12458,7 @@ const ToolManager = {
             if (dropCard) dropCard.style.display = '';
             if (processCard) processCard.style.display = '';
             if (workflowSteps) workflowSteps.style.display = '';
-            // FIX v9.5.2: Reset file info bar - let .visible class control display
+            // FIX v9.5.3: Reset file info bar - let .visible class control display
             if (fileInfoBar) fileInfoBar.style.display = '';
         }
         
@@ -12686,7 +12719,7 @@ function setupEventHandlers() {
         btn.addEventListener('click', () => {
             ToolManager.loadTool(btn.dataset.tool);
         });
-        // FIX v9.5.2: Add tooltip with tool description
+        // FIX v9.5.3: Add tooltip with tool description
         const toolId = btn.dataset.tool;
         const tool = Tools[toolId];
         if (tool && tool.description && !btn.title) {
@@ -12714,7 +12747,7 @@ function setupEventHandlers() {
     }
     
     // Clear button (with guard)
-    // FIX v9.5.2: Confirm before clearing when files are loaded
+    // FIX v9.5.3: Confirm before clearing when files are loaded
     if (clearBtn) {
         clearBtn.addEventListener('click', async () => {
             if (AppState.files.length > 0) {
@@ -12740,7 +12773,7 @@ function setupEventHandlers() {
             });
             
             // Hide/show category titles AND their .category-tools wrappers
-            // FIX v9.5.2: Updated to work with new collapsible category structure
+            // FIX v9.5.3: Updated to work with new collapsible category structure
             document.querySelectorAll('.category-title.collapsible').forEach(title => {
                 const category = title.dataset.category;
                 const toolsDiv = document.querySelector(`.category-tools[data-category="${category}"]`);
@@ -12795,7 +12828,7 @@ function setupEventHandlers() {
                 emptyState.style.display = 'none';
             }
             
-            // FIX v9.5.2: When search is cleared, restore saved collapsed states
+            // FIX v9.5.3: When search is cleared, restore saved collapsed states
             if (query.length === 0) {
                 try {
                     const states = JSON.parse(localStorage.getItem('pdfWorkspaceCategoryStates') || '{}');
@@ -12815,7 +12848,7 @@ function setupEventHandlers() {
 
 // Initialization
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('🚀 PDF Workspace v9.5.2 - 20 Enhancements');
+    console.log('🚀 PDF Workspace v9.5.3 - 20 Enhancements');
     console.log('🌙 Dark mode • ⌨️ Keyboard shortcuts • 📱 Mobile sidebar • 🔗 Deep links');
     console.log('⚡ Lazy loading • 🔀 File reorder • 📦 Batch ZIP • 📡 Offline indicator');
     console.log('🎯 100% Client-Side Processing - Your Files Never Leave Your Browser');
@@ -13427,7 +13460,7 @@ const FavoritesManager = {
     
     // (Workflow reset and FileInfoManager.hide are handled inside FileManager.clearAll)
     
-    // ==================== v9.5.2 ENHANCEMENTS ====================
+    // ==================== v9.5.3 ENHANCEMENTS ====================
     
     // Home button - returns to home screen from any tool
     const homeBtn = document.getElementById('homeButton');
@@ -13438,7 +13471,7 @@ const FavoritesManager = {
         });
     }
     
-    // FIX v9.5.2: Wire up footer Home link
+    // FIX v9.5.3: Wire up footer Home link
     const footerHomeLink = document.getElementById('footerHomeLink');
     if (footerHomeLink) {
         footerHomeLink.addEventListener('click', (e) => {
@@ -13457,12 +13490,12 @@ const FavoritesManager = {
         return result;
     };
     
-    // FIX v9.5.2: Set initial active state since the monkey-patch is set up after the first loadTool call
+    // FIX v9.5.3: Set initial active state since the monkey-patch is set up after the first loadTool call
     if (homeBtn && AppState.currentTool === 'home') {
         homeBtn.classList.add('active');
     }
     
-    // ==================== v9.5.2 ENHANCEMENTS ====================
+    // ==================== v9.5.3 ENHANCEMENTS ====================
     
     // Enhancement: Collapsible sidebar categories
     document.querySelectorAll('.category-title.collapsible').forEach(title => {
@@ -13865,7 +13898,7 @@ const FavoritesManager = {
     };
     
     // Enhancement #16: What's New changelog toast
-    const WHATS_NEW_VERSION = '9.5.2';
+    const WHATS_NEW_VERSION = '9.5.3';
     try {
         const lastSeenVersion = localStorage.getItem('pdfWorkspaceLastVersion');
         if (lastSeenVersion !== WHATS_NEW_VERSION) {
