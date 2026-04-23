@@ -1,4 +1,4 @@
-// PDF WORKSPACE v9.5.3 - 20 ENHANCEMENTS
+// PDF WORKSPACE v9.6.0 - 20 ENHANCEMENTS
 // 🚀 #1  Lazy-load heavy libraries (saves ~1.2MB initial download)
 // 🔗 #2  URL hash routing (deep links & PWA shortcuts work)
 // ⚠️ #3  beforeunload warning (prevents accidental data loss)
@@ -773,7 +773,7 @@ const PDFPreview = {
                 this.pdfCache.set(cacheKey, pdfDoc);
                 console.log('[PDFPreview] PDF cached:', cacheKey);
                 
-                // FIX v9.5.3: Reduced cache size for better mobile memory handling
+                // FIX v9.6.0: Reduced cache size for better mobile memory handling
                 // Mobile devices get aggressive eviction (3 PDFs); desktop keeps 5
                 const cacheLimit = (window.innerWidth <= 768) ? 3 : 5;
                 while (this.pdfCache.size > cacheLimit) {
@@ -1684,7 +1684,7 @@ const FileManager = {
         this._updateFileBadge();
 
         if (AppState.files.length === 0) {
-            // FIX v9.5.3: Empty state instead of blank space
+            // FIX v9.6.0: Empty state instead of blank space
             container.innerHTML = `
                 <div style="text-align:center;padding:24px 16px;color:var(--color-text-muted);font-size:13px;">
                     <div style="font-size:24px;opacity:0.5;margin-bottom:6px;">📂</div>
@@ -4244,13 +4244,13 @@ const Tools = {
             };
             
             const categories = [
-                { title: '📑 Basic Operations', tools: ['merge','split','extract','rotate','compress','crop','reorder','smartpages','removeblank','reverse'] },
-                { title: '✍️ Signature & Forms', tools: ['sign','emailsign','annotate','editpdf','pdftexteditor','formfill','flatten'] },
-                { title: '🔒 Security', tools: ['protect','unlock','redact','watermark','piiscan','cleanslate'] },
-                { title: '🎨 Conversion', tools: ['topng','imagestopdf','docscan','html2pdf','office2pdf','pdf2office','ocr'] },
-                { title: '📊 Advanced', tools: ['compare','pagenumber','metadata','metaedit','bates','oddeven','interleave'] },
-                { title: '📦 Batch & Special', tools: ['extracttables','receiptparser','categorize','invoice','batchslicer','splitmerge','validate','repair','audit'] },
-                { title: '⚡ Automation', tools: ['workflow'] },
+                { id: 'basic', title: '📑 Basic Operations', tools: ['merge','split','extract','rotate','compress','crop','reorder','smartpages','removeblank','reverse'] },
+                { id: 'sigforms', title: '✍️ Signature & Forms', tools: ['sign','emailsign','annotate','editpdf','pdftexteditor','formfill','flatten'] },
+                { id: 'security', title: '🔒 Security', tools: ['protect','unlock','redact','watermark','piiscan','cleanslate'] },
+                { id: 'conversion', title: '🎨 Conversion', tools: ['topng','imagestopdf','docscan','html2pdf','office2pdf','pdf2office','ocr'] },
+                { id: 'advanced', title: '📊 Advanced', tools: ['compare','pagenumber','metadata','metaedit','bates','oddeven','interleave'] },
+                { id: 'batch', title: '📦 Batch & Special', tools: ['extracttables','receiptparser','categorize','invoice','batchslicer','splitmerge','validate','repair','audit'] },
+                { id: 'automation', title: '⚡ Automation', tools: ['workflow'] },
             ];
             
             // Welcome banner (dismissible)
@@ -4288,7 +4288,7 @@ const Tools = {
                 const safeDesc = Utils.escapeHtml(tool.description || '');
                 const badge = toolBadges[toolId];
                 const badgeHtml = badge ? `<span class="tool-card-badge tool-card-badge-${badge}">${badge === 'new' ? 'NEW' : 'POPULAR'}</span>` : '';
-                html += `<div class="home-tool-card home-tool-card-popular" data-tool="${toolId}" tabindex="0" role="button" aria-label="${safeName}">
+                html += `<div class="home-tool-card home-tool-card-popular" data-cat="popular" data-tool="${toolId}" tabindex="0" role="button" aria-label="${safeName}">
                     ${badgeHtml}
                     <span class="tool-card-icon">${tool.icon}</span>
                     <span class="tool-card-name">${safeName}</span>
@@ -4308,7 +4308,7 @@ const Tools = {
                     const safeDesc = Utils.escapeHtml(tool.description || '');
                     const badge = toolBadges[toolId];
                     const badgeHtml = badge ? `<span class="tool-card-badge tool-card-badge-${badge}">${badge === 'new' ? 'NEW' : 'POPULAR'}</span>` : '';
-                    html += `<div class="home-tool-card" data-tool="${toolId}" tabindex="0" role="button" aria-label="${safeName}">
+                    html += `<div class="home-tool-card" data-cat="${cat.id}" data-tool="${toolId}" tabindex="0" role="button" aria-label="${safeName}">
                         ${badgeHtml}
                         <span class="tool-card-icon">${tool.icon}</span>
                         <span class="tool-card-name">${safeName}</span>
@@ -5833,7 +5833,7 @@ const Tools = {
                     const contentRatio = coloredPixels / totalPixels;
                     
                     // Keep page if it has more than the threshold of non-white content
-                    // FIX v9.5.3: Uses configurable sensitivity setting
+                    // FIX v9.6.0: Uses configurable sensitivity setting
                     if (contentRatio > threshold) {
                         pagesToKeep.push(pageNum - 1); // Convert to 0-indexed
                     }
@@ -12458,7 +12458,7 @@ const ToolManager = {
             if (dropCard) dropCard.style.display = '';
             if (processCard) processCard.style.display = '';
             if (workflowSteps) workflowSteps.style.display = '';
-            // FIX v9.5.3: Reset file info bar - let .visible class control display
+            // FIX v9.6.0: Reset file info bar - let .visible class control display
             if (fileInfoBar) fileInfoBar.style.display = '';
         }
         
@@ -12719,7 +12719,7 @@ function setupEventHandlers() {
         btn.addEventListener('click', () => {
             ToolManager.loadTool(btn.dataset.tool);
         });
-        // FIX v9.5.3: Add tooltip with tool description
+        // FIX v9.6.0: Add tooltip with tool description
         const toolId = btn.dataset.tool;
         const tool = Tools[toolId];
         if (tool && tool.description && !btn.title) {
@@ -12747,7 +12747,7 @@ function setupEventHandlers() {
     }
     
     // Clear button (with guard)
-    // FIX v9.5.3: Confirm before clearing when files are loaded
+    // FIX v9.6.0: Confirm before clearing when files are loaded
     if (clearBtn) {
         clearBtn.addEventListener('click', async () => {
             if (AppState.files.length > 0) {
@@ -12773,7 +12773,7 @@ function setupEventHandlers() {
             });
             
             // Hide/show category titles AND their .category-tools wrappers
-            // FIX v9.5.3: Updated to work with new collapsible category structure
+            // FIX v9.6.0: Updated to work with new collapsible category structure
             document.querySelectorAll('.category-title.collapsible').forEach(title => {
                 const category = title.dataset.category;
                 const toolsDiv = document.querySelector(`.category-tools[data-category="${category}"]`);
@@ -12828,7 +12828,7 @@ function setupEventHandlers() {
                 emptyState.style.display = 'none';
             }
             
-            // FIX v9.5.3: When search is cleared, restore saved collapsed states
+            // FIX v9.6.0: When search is cleared, restore saved collapsed states
             if (query.length === 0) {
                 try {
                     const states = JSON.parse(localStorage.getItem('pdfWorkspaceCategoryStates') || '{}');
@@ -12848,7 +12848,7 @@ function setupEventHandlers() {
 
 // Initialization
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('🚀 PDF Workspace v9.5.3 - 20 Enhancements');
+    console.log('🚀 PDF Workspace v9.6.0 - 20 Enhancements');
     console.log('🌙 Dark mode • ⌨️ Keyboard shortcuts • 📱 Mobile sidebar • 🔗 Deep links');
     console.log('⚡ Lazy loading • 🔀 File reorder • 📦 Batch ZIP • 📡 Offline indicator');
     console.log('🎯 100% Client-Side Processing - Your Files Never Leave Your Browser');
@@ -13460,7 +13460,7 @@ const FavoritesManager = {
     
     // (Workflow reset and FileInfoManager.hide are handled inside FileManager.clearAll)
     
-    // ==================== v9.5.3 ENHANCEMENTS ====================
+    // ==================== v9.6.0 ENHANCEMENTS ====================
     
     // Home button - returns to home screen from any tool
     const homeBtn = document.getElementById('homeButton');
@@ -13471,7 +13471,7 @@ const FavoritesManager = {
         });
     }
     
-    // FIX v9.5.3: Wire up footer Home link
+    // FIX v9.6.0: Wire up footer Home link
     const footerHomeLink = document.getElementById('footerHomeLink');
     if (footerHomeLink) {
         footerHomeLink.addEventListener('click', (e) => {
@@ -13481,21 +13481,160 @@ const FavoritesManager = {
         });
     }
     
-    // Update home button active state when tool changes
-    const originalLoadToolForHomeBtn = ToolManager.loadTool.bind(ToolManager);
+    // Rec #5: Settings dropdown toggle
+    const settingsToggle = document.getElementById('settingsToggle');
+    const settingsDropdown = document.getElementById('settingsDropdown');
+    if (settingsToggle && settingsDropdown) {
+        settingsToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            settingsDropdown.classList.toggle('visible');
+        });
+        // Close when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!settingsDropdown.contains(e.target) && e.target !== settingsToggle) {
+                settingsDropdown.classList.remove('visible');
+            }
+        });
+    }
+    
+    // Rec #11: About & Privacy modal
+    const aboutOverlay = document.getElementById('aboutOverlay');
+    const aboutBtn = document.getElementById('aboutBtn');
+    const aboutClose = document.getElementById('aboutClose');
+    const aboutDismiss = document.getElementById('aboutDismiss');
+    const footerAboutLink = document.getElementById('footerAboutLink');
+    
+    function openAbout() {
+        if (aboutOverlay) aboutOverlay.classList.add('visible');
+        if (settingsDropdown) settingsDropdown.classList.remove('visible');
+    }
+    function closeAbout() {
+        if (aboutOverlay) aboutOverlay.classList.remove('visible');
+    }
+    
+    if (aboutBtn) aboutBtn.addEventListener('click', openAbout);
+    if (aboutClose) aboutClose.addEventListener('click', closeAbout);
+    if (aboutDismiss) aboutDismiss.addEventListener('click', closeAbout);
+    if (footerAboutLink) footerAboutLink.addEventListener('click', (e) => { e.preventDefault(); openAbout(); });
+    if (aboutOverlay) aboutOverlay.addEventListener('click', (e) => { if (e.target === aboutOverlay) closeAbout(); });
+    
+    // Rec #7: Result card - capture last download for re-download
+    window._lastDownload = null;
+    const originalSaveAs = window.saveAs;
+    if (originalSaveAs) {
+        window.saveAs = function(blob, filename) {
+            // Store for result card
+            window._lastDownload = { blob, filename };
+            originalSaveAs(blob, filename);
+            
+            // Show result card
+            const resultCard = document.getElementById('resultCard');
+            const resultDetail = document.getElementById('resultDetail');
+            if (resultCard) {
+                const sizeText = Utils.formatFileSize(blob.size);
+                if (resultDetail) resultDetail.textContent = `📄 ${filename} (${sizeText})`;
+                resultCard.style.display = 'flex';
+            }
+        };
+    }
+    
+    const resultDownloadBtn = document.getElementById('resultDownloadBtn');
+    if (resultDownloadBtn) {
+        resultDownloadBtn.addEventListener('click', () => {
+            if (window._lastDownload && originalSaveAs) {
+                originalSaveAs(window._lastDownload.blob, window._lastDownload.filename);
+            }
+        });
+    }
+    
+    const resultNewBtn = document.getElementById('resultNewBtn');
+    if (resultNewBtn) {
+        resultNewBtn.addEventListener('click', () => {
+            const resultCard = document.getElementById('resultCard');
+            if (resultCard) resultCard.style.display = 'none';
+            FileManager.clearAll();
+        });
+    }
+    
+    // Hide result card when files change
+    const origAddFiles = FileManager.addFiles.bind(FileManager);
+    FileManager.addFiles = function(files) {
+        const rc = document.getElementById('resultCard');
+        if (rc) rc.style.display = 'none';
+        return origAddFiles(files);
+    };
+    
+    // Rec #6: Tool-specific drop zone icons and messages
+    const TOOL_DROP_CONFIG = {
+        merge:      { icon: '📑', text: 'Drop 2+ PDFs to merge them' },
+        split:      { icon: '✂️', text: 'Drop a PDF to split it' },
+        extract:    { icon: '📄', text: 'Drop a PDF to extract pages' },
+        rotate:     { icon: '🔄', text: 'Drop a PDF to rotate pages' },
+        compress:   { icon: '🗜️', text: 'Drop a PDF to compress it' },
+        sign:       { icon: '✍️', text: 'Drop a PDF to sign it' },
+        annotate:   { icon: '💬', text: 'Drop a PDF to annotate it' },
+        protect:    { icon: '🔒', text: 'Drop a PDF to password-protect it' },
+        unlock:     { icon: '🔓', text: 'Drop a PDF to unlock it' },
+        redact:     { icon: '🖍️', text: 'Drop a PDF to redact text' },
+        watermark:  { icon: '💧', text: 'Drop a PDF to add a watermark' },
+        topng:      { icon: '🖼️', text: 'Drop a PDF to convert to images' },
+        imagestopdf:{ icon: '📷', text: 'Drop images to create a PDF' },
+        docscan:    { icon: '📸', text: 'Drop a photo of a document' },
+        ocr:        { icon: '🔍', text: 'Drop a scanned PDF for OCR' },
+        crop:       { icon: '✂️', text: 'Drop a PDF to crop margins' },
+        emailsign:  { icon: '📧', text: 'Drop a PDF to send for signature' },
+        compare:    { icon: '🔍', text: 'Drop 2 PDFs to compare them' },
+    };
+    
+    // Rec #10: Show/hide tool config based on file upload state
+    // Monkey-patch loadTool to apply drop zone config and config visibility
+    const origLoadToolForUI = ToolManager.loadTool.bind(ToolManager);
     ToolManager.loadTool = async function(toolId) {
-        const result = await originalLoadToolForHomeBtn(toolId);
+        const result = await origLoadToolForUI(toolId);
+        
+        // Skip home screen
+        if (toolId === 'home') return result;
+        
+        // Rec #6: Update drop zone icon/text per tool
+        const dropConfig = TOOL_DROP_CONFIG[toolId];
+        const dropIcon = document.querySelector('.drop-area-icon');
+        const dropText = document.querySelector('.drop-area-text');
+        if (dropConfig) {
+            if (dropIcon) dropIcon.textContent = dropConfig.icon;
+            if (dropText) dropText.textContent = dropConfig.text;
+        } else {
+            if (dropIcon) dropIcon.textContent = '📎';
+            if (dropText) dropText.textContent = 'Drop files here or click to browse';
+        }
+        
+        // Rec #10: Dim tool config if no files uploaded
+        const toolContent = document.getElementById('toolContent');
+        if (toolContent && AppState.files.length === 0) {
+            const configElements = toolContent.querySelectorAll('.form-group, .info-box, .warning-box');
+            if (configElements.length > 0) {
+                // Keep tool header visible, dim the rest
+                const toolHeader = toolContent.querySelector('.tool-header');
+                if (toolHeader) toolHeader.style.opacity = '1';
+            }
+        }
+        
+        // Hide result card when switching tools
+        const rc = document.getElementById('resultCard');
+        if (rc) rc.style.display = 'none';
+        
+        // Update home button active state
         const hb = document.getElementById('homeButton');
         if (hb) hb.classList.toggle('active', toolId === 'home');
+        
         return result;
     };
     
-    // FIX v9.5.3: Set initial active state since the monkey-patch is set up after the first loadTool call
+    // FIX v9.6.0: Set initial active state since the monkey-patch is set up after the first loadTool call
     if (homeBtn && AppState.currentTool === 'home') {
         homeBtn.classList.add('active');
     }
     
-    // ==================== v9.5.3 ENHANCEMENTS ====================
+    // ==================== v9.6.0 ENHANCEMENTS ====================
     
     // Enhancement: Collapsible sidebar categories
     document.querySelectorAll('.category-title.collapsible').forEach(title => {
@@ -13898,7 +14037,7 @@ const FavoritesManager = {
     };
     
     // Enhancement #16: What's New changelog toast
-    const WHATS_NEW_VERSION = '9.5.3';
+    const WHATS_NEW_VERSION = '9.6.0';
     try {
         const lastSeenVersion = localStorage.getItem('pdfWorkspaceLastVersion');
         if (lastSeenVersion !== WHATS_NEW_VERSION) {
@@ -13944,9 +14083,7 @@ const FavoritesManager = {
     };
 
     // Enhancement #13: Batch download as ZIP button
-    // Monkey-patch saveAs to detect multi-file outputs and offer ZIP
     window._batchOutputs = [];
-    const originalSaveAs = window.saveAs;
     let _batchMode = false;
     
     window.enableBatchCollect = function() { _batchMode = true; window._batchOutputs = []; };

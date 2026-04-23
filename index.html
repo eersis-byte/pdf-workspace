@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="preconnect" href="https://unpkg.com" crossorigin>
-    <title>PDF Workspace v9.5.3 - 47 Privacy-First PDF Tools</title>
+    <title>PDF Workspace v9.6.0 - 47 Privacy-First PDF Tools</title>
     
     <!-- PWA Manifest -->
     <link rel="manifest" href="manifest.json">
@@ -18,7 +18,7 @@
     
     <!-- PWA Meta Tags -->
     <meta name="description" content="Complete suite of privacy-first PDF tools. All processing happens in your browser - files never leave your device.">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://unpkg.com; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; font-src 'self' data:; connect-src 'self' blob:; worker-src 'self' blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' blob: data:; connect-src 'self' blob:; worker-src 'self' blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net;">
     <meta name="theme-color" content="#667eea">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -36,6 +36,10 @@
         onerror="this.onerror=null;var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js';s.defer=true;document.head.appendChild(s);"></script>
     
     <!-- Heavy libraries removed from eager loading - loaded on-demand by LibraryLoader -->
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500;700&display=swap" rel="stylesheet">
     
     <link rel="stylesheet" href="styles.css">
 </head>
@@ -60,15 +64,15 @@
     <div class="whats-new-overlay" id="whatsNewOverlay">
         <div class="whats-new-modal">
             <h2>What's New</h2>
-            <span class="version-badge">v9.5.3</span>
+            <span class="version-badge">v9.6.0</span>
             <ul class="whats-new-list">
-                <li><span>🔧</span> <strong>Fix:</strong> PWA manifest paths now work on GitHub Pages subpaths</li>
-                <li><span>🗜️</span> <strong>Fix:</strong> Compress tool now warns about text flattening</li>
-                <li><span>🗑️</span> Blank page removal now has sensitivity control (Conservative / Normal / Aggressive)</li>
-                <li><span>🏷️</span> Tool badges (NEW / POPULAR) on home screen cards</li>
-                <li><span>🔄</span> CDN fallback — libraries load from a backup if primary fails</li>
-                <li><span>📧</span> Email for Signature, Crop tool, typed signatures</li>
-                <li><span>🏠</span> Home screen with search bar, welcome banner, popular tools</li>
+                <li><span>🎨</span> <strong>New:</strong> Complete UI redesign — bigger cards, accent colors, cleaner layout</li>
+                <li><span>⚙️</span> Settings dropdown in header — cleaner workspace</li>
+                <li><span>✅</span> Result card after processing — re-download anytime</li>
+                <li><span>🔤</span> New display font and larger tool icons</li>
+                <li><span>🛡️</span> Trust strip and About & Privacy page</li>
+                <li><span>📱</span> Sticky process button on mobile</li>
+                <li><span>📧</span> Email for Signature, Crop, typed signatures, 47 tools</li>
                 <li><span>🌙</span> Dark mode, keyboard shortcuts, collapsible categories</li>
             </ul>
             <button class="whats-new-close" id="whatsNewClose">Got it!</button>
@@ -103,64 +107,60 @@
                 </div>
                 
                 <div class="header-center">
-                    <h1>
+                    <h1 class="app-title">
                         <svg width="40" height="40" viewBox="0 0 40 40" style="vertical-align: middle; margin-right: 12px;" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                            <!-- Document shape -->
                             <path d="M8 2 L24 2 L32 10 L32 38 L8 38 Z" fill="white" stroke="rgba(255,255,255,0.9)" stroke-width="2"/>
-                            <!-- Folded corner -->
                             <path d="M24 2 L24 10 L32 10" fill="rgba(102, 126, 234, 0.3)" stroke="rgba(255,255,255,0.9)" stroke-width="2"/>
-                            <!-- Text lines on document -->
                             <line x1="13" y1="18" x2="27" y2="18" stroke="#667eea" stroke-width="1.6" stroke-linecap="round"/>
                             <line x1="13" y1="23" x2="27" y2="23" stroke="#667eea" stroke-width="1.6" stroke-linecap="round"/>
                             <line x1="13" y1="28" x2="22" y2="28" stroke="#667eea" stroke-width="1.6" stroke-linecap="round"/>
-                            <!-- Sparkle effect -->
                             <circle cx="6" cy="6" r="2" fill="rgba(255,215,0,0.8)"/>
                             <circle cx="34" cy="34" r="2" fill="rgba(255,215,0,0.8)"/>
                         </svg>
                         PDF Workspace
                     </h1>
-                    <p class="header-subtitle">Annotate & Edit PDFs • Signatures • PDF to Office • 47 Tools</p>
+                    <p class="header-subtitle">47 Free PDF Tools — All Processing in Your Browser</p>
                 </div>
                 
                 <div class="header-tagline-right">
-                    <button class="theme-toggle" id="themeToggle" title="Toggle dark mode (Ctrl+D)" aria-label="Toggle dark mode">🌙</button>
-                    <span class="shield-icon">🛡️</span>
-                    <span>Files never leave your browser</span>
+                    <!-- Settings dropdown (rec #5) -->
+                    <div class="settings-dropdown-wrap">
+                        <button class="header-icon-btn" id="settingsToggle" title="Settings" aria-label="Open settings">⚙️</button>
+                        <div class="settings-dropdown" id="settingsDropdown">
+                            <div class="settings-dropdown-title">Settings</div>
+                            <label class="settings-item">
+                                <input type="checkbox" id="autoScrubMetadata">
+                                <span>🛡️ Auto-Anonymize outputs</span>
+                            </label>
+                            <div class="settings-divider"></div>
+                            <button class="settings-item-btn" id="resetAppBtn">🔄 Reset App Cache</button>
+                            <button class="settings-item-btn" id="aboutBtn">ℹ️ About & Privacy</button>
+                        </div>
+                    </div>
+                    <button class="header-icon-btn" id="themeToggle" title="Toggle dark mode (Ctrl+D)" aria-label="Toggle dark mode">🌙</button>
                 </div>
             </div>
         </div>
         
-        <!-- ENHANCEMENT: Library Health & Reset App -->
-        <div style="max-width: 1400px; margin: 12px auto 0; padding: 0 24px;">
-            <div id="libraryHealthBar" style="background: #f8f9fa; border: 1px solid #e0e0e0; padding: 8px 16px; border-radius: 6px; display: none; align-items: center; gap: 12px; font-size: 13px;">
-                <!-- Populated by JavaScript -->
-            </div>
-            <div id="libraryHealthWarning" style="background: #fff3cd; border: 1px solid #ffc107; padding: 12px 16px; border-radius: 6px; display: none; align-items: center; gap: 12px; margin-bottom: 8px;">
+        <!-- Trust strip (rec #10) -->
+        <div class="trust-strip">
+            <span class="trust-item">🔒 Client-Side Only</span>
+            <span class="trust-divider">•</span>
+            <span class="trust-item">🚫 No Server Uploads</span>
+            <span class="trust-divider">•</span>
+            <span class="trust-item">🛡️ Works Offline After First Load</span>
+        </div>
+        
+        <!-- Library Health (only shows on errors) -->
+        <div style="max-width: 1400px; margin: 0 auto; padding: 0 24px;">
+            <div id="libraryHealthBar" style="background: #f8f9fa; border: 1px solid #e0e0e0; padding: 8px 16px; border-radius: 6px; display: none; align-items: center; gap: 12px; font-size: 13px; margin-top: 8px;"></div>
+            <div id="libraryHealthWarning" style="background: #fff3cd; border: 1px solid #ffc107; padding: 12px 16px; border-radius: 6px; display: none; align-items: center; gap: 12px; margin-top: 8px;">
                 <span style="font-size: 20px;">⚠️</span>
                 <div style="flex: 1;">
                     <strong>Some libraries failed to load</strong>
                     <div id="libraryHealthDetails" style="font-size: 12px; margin-top: 4px; color: #856404;"></div>
                 </div>
-                <button onclick="location.reload()" class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;">Reload App</button>
-            </div>
-        </div>
-        
-        <!-- STRATEGIC ENHANCEMENT: Global Privacy Settings -->
-        <div style="max-width: 1400px; margin: 16px auto; padding: 0 24px;">
-            <div style="background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%); border: 2px solid #667eea40; padding: 12px 16px; border-radius: 8px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-                <div style="display: flex; align-items: center; gap: 12px; flex: 1 1 auto; min-width: 200px;">
-                    <input type="checkbox" id="autoScrubMetadata" style="width: 18px; height: 18px; cursor: pointer; flex-shrink: 0;">
-                    <label for="autoScrubMetadata" style="cursor: pointer; font-weight: 500; display: flex; align-items: center; gap: 8px; margin: 0; user-select: none;">
-                        <span style="font-size: 18px;">🛡️</span>
-                        <span>Auto-Anonymize Files (Strip author/software metadata from all outputs)</span>
-                    </label>
-                </div>
-                <span style="font-size: 12px; color: #666; font-style: italic; white-space: nowrap;">Privacy Power-Up</span>
-                
-                <!-- Reset App Button -->
-                <button id="resetAppBtn" class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px; white-space: nowrap;" title="Clear offline cache and reload app">
-                    🔄 Reset App
-                </button>
+                <button onclick="location.reload()" class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;">Reload</button>
             </div>
         </div>
         
@@ -319,59 +319,71 @@
                         <button class="btn btn-primary" id="processBtn" disabled>📤 Upload a file to begin</button>
                         <button class="btn btn-secondary" id="clearBtn">Clear All</button>
                     </div>
+                    
+                    <!-- Rec #7: Persistent result card -->
+                    <div class="result-card" id="resultCard" style="display:none;">
+                        <div class="result-card-icon">✅</div>
+                        <div class="result-card-content">
+                            <div class="result-card-title">Your file is ready!</div>
+                            <div class="result-card-detail" id="resultDetail"></div>
+                        </div>
+                        <div class="result-card-actions">
+                            <button class="btn btn-primary" id="resultDownloadBtn">📥 Download Again</button>
+                            <button class="btn btn-secondary" id="resultNewBtn">🔄 Process Another</button>
+                        </div>
+                    </div>
                 </div>
             </main>
         </div>
         
-        <footer class="app-footer">
-            <div class="footer-content">
-                <div class="footer-section">
-                    <h3>🔒 Privacy & Security</h3>
-                    <ul class="footer-list">
-                        <li>✅ 100% Client-Side Processing</li>
-                        <li>✅ No File Uploads to Servers</li>
-                        <li>✅ No Data Collection or Tracking</li>
-                        <li>✅ Works Offline (after first load)</li>
-                    </ul>
-                </div>
-                
-                <div class="footer-section">
-                    <h3>⚡ Features</h3>
-                    <ul class="footer-list">
-                        <li>47 Professional PDF Tools</li>
-                        <li>Auto Categorize by Content</li>
-                        <li>Visual Redaction & PII Scanner</li>
-                        <li>Drag & Drop Positioning</li>
-                    </ul>
-                </div>
-                
-                <div class="footer-section">
-                    <h3>📊 Technical</h3>
-                    <ul class="footer-list">
-                        <li>Powered by pdf-lib & pdf.js</li>
-                        <li>All Processing in Browser</li>
-                        <li>Modern Web Standards</li>
-                        <li>No Installation Required</li>
-                    </ul>
-                </div>
-            </div>
-            
-            <div class="footer-bottom">
-                <p>🛡️ Your files never leave your device. All operations happen locally in your browser.</p>
-                <p style="font-size:11px; color:var(--color-text-muted); margin-top:4px;">
-                    If something looks outdated after an update, click <strong>🔄 Reset App</strong> at the top of the page.
-                </p>
-                <p class="footer-version">PDF Workspace v9.5.3 • 47 Tools •
-                    <a href="#" id="footerHomeLink" style="color:var(--color-primary);text-decoration:none;font-weight:600;">🏠 Home</a> •
-                    <a href="https://github.com/eersis-byte/pdf-workspace/issues" target="_blank" rel="noopener" style="color:var(--color-primary);text-decoration:none;font-weight:600;">💬 Send Feedback</a>
-                </p>
+        <!-- Rec #3: Condensed footer -->
+        <footer class="app-footer-v2">
+            <div class="footer-trust">🛡️ Your files never leave your device. All processing happens locally in your browser.</div>
+            <div class="footer-links">
+                <span>PDF Workspace v9.6.0</span>
+                <span class="footer-sep">•</span>
+                <span>47 Tools</span>
+                <span class="footer-sep">•</span>
+                <a href="#" id="footerHomeLink">🏠 Home</a>
+                <span class="footer-sep">•</span>
+                <a href="#" id="footerAboutLink">ℹ️ About & Privacy</a>
+                <span class="footer-sep">•</span>
+                <a href="https://github.com/eersis-byte/pdf-workspace/issues" target="_blank" rel="noopener">💬 Feedback</a>
             </div>
         </footer>
+        
+        <!-- Rec #11: About & Privacy modal -->
+        <div class="about-overlay" id="aboutOverlay">
+            <div class="about-modal">
+                <button class="about-close" id="aboutClose">×</button>
+                <h2>About PDF Workspace</h2>
+                <p style="margin:12px 0 16px;color:var(--color-text-muted);font-size:14px;">
+                    A free, privacy-first suite of 47 PDF tools that run entirely in your browser.
+                </p>
+                <div class="about-section">
+                    <h3>🔒 Privacy Promise</h3>
+                    <p>Every file you process stays on your device. We have no servers that receive your data — all PDF manipulation happens client-side using JavaScript. We cannot see, store, or access your files.</p>
+                </div>
+                <div class="about-section">
+                    <h3>📡 How Libraries Load</h3>
+                    <p>The JavaScript libraries that power PDF processing (PDF.js, pdf-lib, JSZip, etc.) are loaded from public CDNs on your first visit. After that, the service worker caches them locally and the app works fully offline. Your PDF files are never sent anywhere.</p>
+                </div>
+                <div class="about-section">
+                    <h3>🍪 No Cookies, No Tracking</h3>
+                    <p>PDF Workspace uses localStorage only for your preferences (dark mode, favorites, tool settings). There are no analytics, no cookies, no fingerprinting, and no advertising.</p>
+                </div>
+                <div class="about-section">
+                    <h3>📋 Open Source</h3>
+                    <p>This project is open source. <a href="https://github.com/eersis-byte/pdf-workspace" target="_blank" rel="noopener" style="color:var(--color-primary);">View the code on GitHub →</a></p>
+                </div>
+                <button class="btn btn-primary" id="aboutDismiss" style="width:100%;margin-top:16px;">Got it</button>
+            </div>
+        </div>
     </div>
     
     <script>
-// PDF Workspace v9.5.3 - Polish & Resilience
-// CDN fallback • Badge system • Cleaner header • Better button text
+// PDF Workspace v9.6.0 - UI/UX Overhaul
+// Competitor-informed redesign: cards, colors, drop zone, footer, trust strip
     </script>
     <script src="app.js" defer></script>
 </body>

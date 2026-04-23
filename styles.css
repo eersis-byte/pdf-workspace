@@ -2234,3 +2234,454 @@ section {
 [data-theme="dark"] .tool-card-badge {
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
+
+/* ==================== v9.6.0 — UI/UX OVERHAUL ==================== */
+
+/* ---- Rec #9: Display font for title ---- */
+.app-title {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+    font-size: 32px !important;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+}
+
+/* ---- Rec #5: Settings dropdown ---- */
+.header-icon-btn {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    padding: 6px 10px;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+    transition: background 0.2s, transform 0.2s;
+}
+
+.header-icon-btn:hover {
+    background: rgba(255, 255, 255, 0.35);
+    transform: scale(1.1);
+}
+
+.header-tagline-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.settings-dropdown-wrap {
+    position: relative;
+}
+
+.settings-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 8px;
+    background: var(--color-surface, #fff);
+    border: 2px solid var(--color-border, #e1e4e8);
+    border-radius: 10px;
+    padding: 12px 0;
+    min-width: 250px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    z-index: 5000;
+}
+
+.settings-dropdown.visible {
+    display: block;
+    animation: modalPop 0.2s ease;
+}
+
+.settings-dropdown-title {
+    font-weight: 700;
+    font-size: 13px;
+    padding: 0 16px 8px;
+    color: var(--color-text-muted);
+    border-bottom: 1px solid var(--color-border);
+    margin-bottom: 8px;
+}
+
+.settings-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 16px;
+    font-size: 14px;
+    cursor: pointer;
+    color: var(--color-text);
+    transition: background 0.15s;
+}
+
+.settings-item:hover {
+    background: var(--color-bg-secondary);
+}
+
+.settings-item input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+.settings-divider {
+    height: 1px;
+    background: var(--color-border);
+    margin: 6px 0;
+}
+
+.settings-item-btn {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 8px 16px;
+    font-size: 14px;
+    cursor: pointer;
+    color: var(--color-text);
+    background: none;
+    border: none;
+    transition: background 0.15s;
+    font-family: inherit;
+}
+
+.settings-item-btn:hover {
+    background: var(--color-bg-secondary);
+}
+
+/* ---- Rec #10: Trust strip ---- */
+.trust-strip {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: var(--color-surface);
+    border-bottom: 1px solid var(--color-border);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    flex-wrap: wrap;
+}
+
+.trust-item {
+    white-space: nowrap;
+}
+
+.trust-divider {
+    opacity: 0.3;
+}
+
+[data-theme="dark"] .trust-strip {
+    background: var(--color-surface-secondary);
+}
+
+@media (max-width: 768px) {
+    .trust-strip { font-size: 11px; gap: 6px; padding: 6px 12px; }
+}
+
+/* ---- Rec #1: Bigger tool cards ---- */
+.home-tool-grid {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 14px;
+}
+
+.home-tool-card {
+    padding: 18px 14px;
+    border-radius: 12px;
+    border-width: 2px;
+    gap: 8px;
+}
+
+.home-tool-card .tool-card-icon {
+    font-size: 32px;
+}
+
+.home-tool-card .tool-card-name {
+    font-size: 13px;
+    font-weight: 700;
+    font-family: 'DM Sans', var(--font-sans);
+}
+
+.home-tool-card .tool-card-desc {
+    font-size: 11px;
+    line-height: 1.4;
+}
+
+.home-popular-grid {
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+}
+
+@media (max-width: 768px) {
+    .home-tool-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+    .home-tool-card { padding: 14px 10px; }
+    .home-tool-card .tool-card-icon { font-size: 28px; }
+}
+
+/* ---- Rec #2: Category accent colors ---- */
+.home-tool-card[data-cat="basic"]      { border-left: 4px solid #3b82f6; }
+.home-tool-card[data-cat="sigforms"]   { border-left: 4px solid #6366f1; }
+.home-tool-card[data-cat="security"]   { border-left: 4px solid #10b981; }
+.home-tool-card[data-cat="conversion"] { border-left: 4px solid #f59e0b; }
+.home-tool-card[data-cat="advanced"]   { border-left: 4px solid #8b5cf6; }
+.home-tool-card[data-cat="batch"]      { border-left: 4px solid #f43f5e; }
+.home-tool-card[data-cat="automation"] { border-left: 4px solid #06b6d4; }
+.home-tool-card[data-cat="popular"]    { border-left: 4px solid #f59e0b; }
+
+/* ---- Rec #12: Category colors in sidebar ---- */
+.category-tools[data-category="basic"] .tool-button.active      { background: #3b82f6; }
+.category-tools[data-category="sigforms"] .tool-button.active   { background: #6366f1; }
+.category-tools[data-category="security"] .tool-button.active   { background: #10b981; }
+.category-tools[data-category="conversion"] .tool-button.active { background: #f59e0b; color: #1a1a1a; }
+.category-tools[data-category="advanced"] .tool-button.active   { background: #8b5cf6; }
+.category-tools[data-category="batch"] .tool-button.active      { background: #f43f5e; }
+.category-tools[data-category="automation"] .tool-button.active { background: #06b6d4; }
+
+/* ---- Rec #4: Bigger, more inviting drop zone ---- */
+.drop-area {
+    padding: 48px 32px !important;
+    border-width: 3px !important;
+    transition: all 0.3s !important;
+}
+
+.drop-area-icon {
+    font-size: 64px !important;
+    margin-bottom: 16px !important;
+    transition: transform 0.3s;
+}
+
+.drop-area:hover .drop-area-icon,
+.drop-area.dragover .drop-area-icon {
+    transform: translateY(-6px);
+    animation: dropBounce 0.6s ease infinite;
+}
+
+@keyframes dropBounce {
+    0%, 100% { transform: translateY(-6px); }
+    50% { transform: translateY(-14px); }
+}
+
+.drop-area-text {
+    font-size: 18px !important;
+    font-weight: 600 !important;
+    font-family: 'DM Sans', var(--font-sans);
+}
+
+.drop-area:hover, .drop-area.dragover {
+    border-color: var(--color-primary) !important;
+    box-shadow: 0 0 0 4px rgba(3, 102, 214, 0.1);
+    transform: scale(1.005) !important;
+}
+
+/* ---- Rec #3: Condensed footer ---- */
+.app-footer-v2 {
+    background: var(--color-surface);
+    border-top: 1px solid var(--color-border);
+    padding: 16px 24px;
+    text-align: center;
+    margin-top: 32px;
+    border-radius: var(--radius-lg);
+}
+
+.footer-trust {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-text);
+    margin-bottom: 8px;
+}
+
+.footer-links {
+    font-size: 12px;
+    color: var(--color-text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.footer-links a {
+    color: var(--color-primary);
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.footer-links a:hover {
+    text-decoration: underline;
+}
+
+.footer-sep {
+    opacity: 0.3;
+}
+
+[data-theme="dark"] .app-footer-v2 {
+    background: var(--color-surface);
+    border-color: var(--color-border);
+}
+
+/* ---- Rec #7: Result card ---- */
+.result-card {
+    margin-top: 16px;
+    padding: 20px;
+    background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+    border: 2px solid #28a745;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    animation: slideIn 0.3s ease;
+}
+
+[data-theme="dark"] .result-card {
+    background: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
+    border-color: #10b981;
+}
+
+.result-card-icon {
+    font-size: 36px;
+    flex-shrink: 0;
+}
+
+.result-card-content {
+    flex: 1;
+    min-width: 200px;
+}
+
+.result-card-title {
+    font-weight: 700;
+    font-size: 16px;
+    color: #155724;
+    font-family: 'DM Sans', var(--font-sans);
+}
+
+[data-theme="dark"] .result-card-title { color: #6ee7b7; }
+
+.result-card-detail {
+    font-size: 13px;
+    color: #1e7e34;
+    margin-top: 4px;
+}
+
+[data-theme="dark"] .result-card-detail { color: #a7f3d0; }
+
+.result-card-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+/* ---- Rec #8: Sticky process button on mobile ---- */
+@media (max-width: 768px) {
+    .btn-group {
+        position: sticky;
+        bottom: 0;
+        z-index: 100;
+        background: var(--color-surface);
+        padding: 12px 0 4px;
+        border-top: 1px solid var(--color-border);
+        margin: 0 -16px;
+        padding-left: 16px;
+        padding-right: 16px;
+    }
+}
+
+/* ---- Rec #10: Hide tool config until file uploaded ---- */
+.tool-config-hidden {
+    opacity: 0.4;
+    pointer-events: none;
+    position: relative;
+}
+
+.tool-config-hidden::after {
+    content: '📤 Upload a file above to configure this tool';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--color-surface);
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    white-space: nowrap;
+    z-index: 10;
+}
+
+/* ---- Rec #11: About & Privacy modal ---- */
+.about-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 8000;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(4px);
+}
+
+.about-overlay.visible {
+    display: flex;
+}
+
+.about-modal {
+    background: var(--color-surface, #fff);
+    border-radius: 16px;
+    padding: 32px;
+    max-width: 520px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    animation: modalPop 0.3s ease;
+    position: relative;
+    color: var(--color-text);
+}
+
+.about-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: var(--color-text-muted);
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+}
+
+.about-close:hover {
+    background: var(--color-bg-secondary);
+}
+
+.about-modal h2 {
+    font-family: 'DM Sans', var(--font-sans);
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0;
+}
+
+.about-section {
+    margin-top: 16px;
+}
+
+.about-section h3 {
+    font-size: 14px;
+    font-weight: 700;
+    margin: 0 0 6px 0;
+}
+
+.about-section p {
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--color-text-muted);
+    margin: 0;
+}
+
+/* Hide the old footer if it still exists */
+.app-footer { display: none !important; }
