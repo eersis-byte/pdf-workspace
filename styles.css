@@ -777,6 +777,10 @@ input[type="range"]::-moz-range-thumb {
 .thumbnail-sidebar.visible {
     width: 180px;
     opacity: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    max-height: 100%;
 }
 
 .thumbnail-header {
@@ -819,7 +823,9 @@ input[type="range"]::-moz-range-thumb {
 .thumbnail-container {
     padding: var(--spacing-sm);
     overflow-y: auto;
-    max-height: 600px;
+    flex: 1;
+    max-height: calc(100vh - 200px);
+    min-height: 200px;
 }
 
 .thumbnail-item {

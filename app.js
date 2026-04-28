@@ -141,7 +141,15 @@ const Utils = {
         
         container.classList.add('active');
         bar.style.width = percent + '%';
-        textEl.textContent = text;
+        
+        // Prepend local-processing indicator to reinforce privacy
+        if (percent > 0 && percent < 100) {
+            textEl.textContent = '🔒 ' + text + ' (on your device)';
+        } else if (percent >= 100) {
+            textEl.textContent = '✅ ' + text;
+        } else {
+            textEl.textContent = text;
+        }
         
         // ACCESSIBILITY: Update progress bar aria-valuenow
         bar.setAttribute('aria-valuenow', Math.round(percent));
@@ -1009,7 +1017,7 @@ const PDFPreview = {
 
         this._thumbObserver = new IntersectionObserver((entries) => {
             entries.forEach(entry => { if (entry.isIntersecting) renderCanvas(entry.target); });
-        }, { root: container, rootMargin: '0px 0px 120px 0px', threshold: 0 });
+        }, { root: container, rootMargin: '0px 0px 500px 0px', threshold: 0 });
 
         container.querySelectorAll('.thumbnail-item').forEach(w => this._thumbObserver.observe(w));
     },
@@ -4647,14 +4655,34 @@ const Tools = {
                 </select>
             </div>
             <div class="form-group">
-                <label class="form-label">Pages to Rotate (leave empty for all)</label>
+                <label class="form-label">Apply to</label>
+                <select class="form-select" id="rotateApplyTo">
+                    <option value="all">All pages</option>
+                    <option value="odd">Odd pages only (1, 3, 5, ...)</option>
+                    <option value="even">Even pages only (2, 4, 6, ...)</option>
+                    <option value="range">Specific pages</option>
+                </select>
+            </div>
+            <div class="form-group" id="rotateRangeGroup" style="display:none;">
+                <label class="form-label">Page range (e.g., 1-3, 5, 7)</label>
                 <input type="text" class="form-input" id="rotatePages" placeholder="e.g., 1-3, 5, 7" data-page-range>
             </div>
         `,
         
+        init() {
+            const applyTo = document.getElementById('rotateApplyTo');
+            const rangeGroup = document.getElementById('rotateRangeGroup');
+            if (applyTo && rangeGroup) {
+                applyTo.addEventListener('change', () => {
+                    rangeGroup.style.display = applyTo.value === 'range' ? 'block' : 'none';
+                });
+            }
+        },
+        
         async process(files) {
             const pdfFiles = files.filter(FileType.isPDF);
             const angle = parseInt(document.getElementById('rotateAngle')?.value || 90);
+            const applyTo = document.getElementById('rotateApplyTo')?.value || 'all';
             const rangeStr = document.getElementById('rotatePages')?.value;
             
             for (let i = 0; i < pdfFiles.length; i++) {
@@ -4666,7 +4694,11 @@ const Tools = {
                 const totalPages = pages.length;
                 
                 let pagesToRotate;
-                if (rangeStr && rangeStr.trim()) {
+                if (applyTo === 'odd') {
+                    pagesToRotate = Array.from({length: totalPages}, (_, i) => i).filter(i => i % 2 === 0); // 0-indexed: page 1=index 0, page 3=index 2
+                } else if (applyTo === 'even') {
+                    pagesToRotate = Array.from({length: totalPages}, (_, i) => i).filter(i => i % 2 === 1); // 0-indexed: page 2=index 1, page 4=index 3
+                } else if (applyTo === 'range' && rangeStr && rangeStr.trim()) {
                     pagesToRotate = Utils.parsePageRanges(rangeStr, totalPages);
                 } else {
                     pagesToRotate = Array.from({length: totalPages}, (_, i) => i);
@@ -4674,7 +4706,9 @@ const Tools = {
                 
                 pagesToRotate.forEach(pageIndex => {
                     if (pageIndex < pages.length) {
-                        pages[pageIndex].setRotation(PDFLib.degrees(angle));
+                        // Additive rotation: add to existing rotation instead of replacing it
+                        const currentRotation = pages[pageIndex].getRotation().angle || 0;
+                        pages[pageIndex].setRotation(PDFLib.degrees((currentRotation + angle) % 360));
                     }
                 });
                 
@@ -4682,8 +4716,9 @@ const Tools = {
                 saveAs(new Blob([pdfBytes], { type: 'application/pdf' }), `rotated_${pdfFiles[i].name}`);
             }
             
+            const label = applyTo === 'odd' ? ' (odd pages)' : applyTo === 'even' ? ' (even pages)' : '';
             Utils.updateProgress(100, 'Complete!');
-            Utils.showStatus('Pages rotated successfully!', 'success');
+            Utils.showStatus(`Pages rotated ${angle}°${label} successfully!`, 'success');
         }
     },
     
@@ -4923,7 +4958,9 @@ const Tools = {
                 Utils.updateProgress((fileIdx / pdfFiles.length) * 100, `Processing ${file.name}...`);
                 
                 const arrayBuffer = await file.arrayBuffer();
-                const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+                // FIX: Use .slice(0) so pdfjsLib gets a copy and doesn't detach the original
+                // The original arrayBuffer is needed later by PDFLib.PDFDocument.load()
+                const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer.slice(0) });
                 const pdf = await loadingTask.promise;
                 
                 const newPdf = await PDFLib.PDFDocument.create();
@@ -13071,7 +13108,8 @@ const FavoritesManager = {
     
     // ENHANCEMENT: Enhanced Startup Self-Test with Comprehensive Library Checks
     const StartupSelfTest = {
-        async run() {
+        async run(attempt = 1) {
+            const maxAttempts = 5;
             const results = {
                 libraries: {
                     'PDF.js': typeof pdfjsLib !== 'undefined',
@@ -13081,9 +13119,7 @@ const FavoritesManager = {
                 },
                 onDemand: ['Tesseract', 'Mammoth', 'XLSX', 'jsPDF', 'DOCX'],
                 workerAvailable: false,
-                serviceWorkerEnabled: false,
-                errors: [],
-                warnings: []
+                serviceWorkerEnabled: false
             };
             
             // Check PDF.js worker
@@ -13091,82 +13127,86 @@ const FavoritesManager = {
                 if (typeof pdfjsLib !== 'undefined' && pdfjsLib.GlobalWorkerOptions && pdfjsLib.GlobalWorkerOptions.workerSrc) {
                     results.workerAvailable = true;
                 }
-            } catch (e) {
-                results.errors.push('PDF.js worker configuration failed');
-            }
+            } catch (e) {}
             
-            // Check Service Worker
             if ('serviceWorker' in navigator) {
                 results.serviceWorkerEnabled = true;
             }
             
-            // Analyze results
             const loaded = Object.values(results.libraries).filter(Boolean).length;
             const total = Object.keys(results.libraries).length;
-            const critical = ['PDF.js', 'PDF-Lib'].every(lib => results.libraries[lib]);
+            const allLoaded = loaded === total;
             
-            // Log results
-            console.log(`✓ Core libraries: ${loaded}/${total} loaded`);
+            // If not all loaded and we have retries left, wait and try again
+            // This prevents false "failed" warnings when CDN scripts are still downloading
+            if (!allLoaded && attempt < maxAttempts) {
+                const delay = attempt * 1000; // 1s, 2s, 3s, 4s
+                console.log(`[HealthCheck] ${loaded}/${total} loaded (attempt ${attempt}/${maxAttempts}), retrying in ${delay}ms...`);
+                setTimeout(() => this.run(attempt + 1), delay);
+                return;
+            }
+            
+            // Final result — either all loaded or we've exhausted retries
+            console.log(`✓ Core libraries: ${loaded}/${total} loaded (attempt ${attempt})`);
             Object.entries(results.libraries).forEach(([name, status]) => {
                 console.log(`  ${status ? '✓' : '✗'} ${name}`);
             });
             console.log(`  ℹ ${results.onDemand.length} libraries load on demand: ${results.onDemand.join(', ')}`);
             
-            // Display enhanced UI
-            this.displayEnhancedResults(results);
-            
-            return results;
+            this.displayResults(results);
         },
         
-        displayEnhancedResults(results) {
+        displayResults(results) {
             const loaded = Object.values(results.libraries).filter(Boolean).length;
             const total = Object.keys(results.libraries).length;
             const critical = ['PDF.js', 'PDF-Lib'].every(lib => results.libraries[lib]);
             const failed = Object.entries(results.libraries).filter(([name, status]) => !status);
             
-            // Show library health bar
+            // Only show health bar when something is WRONG
+            // Users don't need to see "all systems operational" — that's noise
             const healthBar = document.getElementById('libraryHealthBar');
-            if (healthBar) {
-                if (loaded === total) {
-                    healthBar.style.display = 'flex';
-                    healthBar.style.background = '#d4edda';
-                    healthBar.style.borderColor = '#c3e6cb';
-                    healthBar.innerHTML = `
-                        <span style="font-size: 16px;">✅</span>
-                        <strong>All systems operational</strong>
-                        <span style="color: #155724;">${loaded}/${total} core libraries loaded • ${results.onDemand.length} more load on demand</span>
-                        ${results.serviceWorkerEnabled ? '<span style="margin-left: auto; font-size: 12px;">🔄 Offline mode active</span>' : ''}
-                    `;
-                } else if (critical) {
+            
+            if (loaded === total) {
+                // Everything loaded — stay silent, no bar needed
+                if (healthBar) healthBar.style.display = 'none';
+                console.log('✓ All core libraries loaded successfully');
+                return;
+            }
+            
+            if (critical) {
+                // Non-critical libraries missing (JSZip or FileSaver)
+                // Show a subtle note, not a scary warning
+                if (healthBar) {
                     healthBar.style.display = 'flex';
                     healthBar.style.background = '#fff3cd';
                     healthBar.style.borderColor = '#ffc107';
+                    const missingNames = failed.map(([name]) => name).join(', ');
                     healthBar.innerHTML = `
                         <span style="font-size: 16px;">⚠️</span>
-                        <strong>Some core libraries missing</strong>
-                        <span style="color: #856404;">${loaded}/${total} core libraries loaded • PDF tools may still work</span>
+                        <span style="color: #856404; font-size: 13px;">
+                            ${missingNames} didn't load. Some tools may be limited.
+                            <button onclick="location.reload()" style="background:none;border:none;color:#0366d6;cursor:pointer;font-size:13px;text-decoration:underline;padding:0;margin-left:4px;">Reload</button>
+                        </span>
                     `;
                 }
-            }
-            
-            // Show warning if critical libraries failed
-            if (!critical) {
+            } else {
+                // Critical libraries failed — show the real warning
                 const warningBar = document.getElementById('libraryHealthWarning');
                 const detailsDiv = document.getElementById('libraryHealthDetails');
-                
                 if (warningBar && detailsDiv) {
                     const failedList = failed.map(([name]) => name).join(', ');
-                    detailsDiv.textContent = `Missing: ${failedList}`;
+                    detailsDiv.textContent = `Missing: ${failedList}. Try refreshing the page.`;
                     warningBar.style.display = 'flex';
                 }
             }
         }
     };
     
-    // Run self-test after DOM ready
+    // Run self-test — start at 1.5s to give CDN scripts time to download
+    // The test will retry up to 5 times with increasing delays if scripts aren't ready
     setTimeout(() => {
-        StartupSelfTest.run();
-    }, 500);
+        StartupSelfTest.run(1);
+    }, 1500);
     
     // ==================== ENHANCEMENT: Reset App Button Handler ====================
     const ResetAppManager = {
@@ -13532,7 +13572,7 @@ const FavoritesManager = {
             const resultDetail = document.getElementById('resultDetail');
             if (resultCard) {
                 const sizeText = Utils.formatFileSize(blob.size);
-                if (resultDetail) resultDetail.textContent = `📄 ${filename} (${sizeText})`;
+                if (resultDetail) resultDetail.innerHTML = `📄 ${Utils.escapeHtml(filename)} (${sizeText})<br><span style="font-size:12px;opacity:0.8;">🛡️ Processed entirely on your device — nothing was uploaded</span><br><span style="font-size:12px;opacity:0.7;">⚡ Saved ~${sizeText} of bandwidth vs. cloud-based tools</span>`;
                 resultCard.style.display = 'flex';
             }
         };
