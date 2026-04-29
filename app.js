@@ -8137,14 +8137,15 @@ const Tools = {
     
     protect: {
         name: 'Password Protect PDF',
-        description: 'Encrypt your PDF with a real AES-256 password (powered by pdf-oxide)',
+        description: 'Encrypt your PDF with a real password using AES-256 (powered by QPDF)',
         icon: '🔒',
-        _pdfOxide: null,
+        _qpdfInstance: null,
+        _qpdfLoading: null,
         
         configHTML: `
             <div class="info-box" style="background: linear-gradient(135deg, #10b98130 0%, #06b6d430 100%); border-color: #10b981;">
                 🔒 <strong>Real AES-256 Encryption</strong> — This tool applies genuine password protection
-                using the pdf-oxide engine (Rust compiled to WebAssembly). The encrypted PDF will require
+                using the QPDF engine (compiled to WebAssembly). The encrypted PDF will require
                 a password to open in any PDF reader.
             </div>
             
@@ -8162,20 +8163,15 @@ const Tools = {
             </div>
             
             <div class="form-group">
-                <label class="form-label">Owner Password (optional — for permission control)</label>
-                <input type="password" class="form-input" id="ownerPassword" placeholder="Leave blank to use the same as above" autocomplete="new-password">
-                <p style="font-size: 12px; color: var(--color-text-muted); margin-top: 4px;">
-                    Needed to change permissions later. If blank, the user password is used.
-                </p>
-            </div>
-            
-            <div class="form-group">
-                <h3 style="font-size: 14px; margin-bottom: 8px;">Permissions</h3>
+                <h3 style="font-size: 14px; margin-bottom: 8px;">Permissions (optional)</h3>
                 <label class="form-label" style="display:flex;align-items:center;gap:8px;">
                     <input type="checkbox" id="allowPrinting" checked style="width:16px;height:16px;"> Allow Printing
                 </label>
                 <label class="form-label" style="display:flex;align-items:center;gap:8px;">
                     <input type="checkbox" id="allowCopying" checked style="width:16px;height:16px;"> Allow Copying Text
+                </label>
+                <label class="form-label" style="display:flex;align-items:center;gap:8px;">
+                    <input type="checkbox" id="allowModifying" checked style="width:16px;height:16px;"> Allow Modifying
                 </label>
             </div>
             
@@ -8184,93 +8180,74 @@ const Tools = {
             </div>
             
             <div style="font-size: 11px; color: var(--color-text-muted); margin-top: 12px; padding: 8px; background: var(--color-bg-secondary); border-radius: 6px;">
-                ⚡ Powered by <a href="https://github.com/yfedoseev/pdf_oxide" target="_blank" rel="noopener" style="color:var(--color-primary);">pdf-oxide</a> (MIT licensed, Rust → WebAssembly).
-                The encryption engine (~1 MB) downloads the first time you use this tool, then is cached by your browser.
+                ⚡ Powered by <a href="https://github.com/qpdf/qpdf" target="_blank" rel="noopener" style="color:var(--color-primary);">QPDF</a> (open source, compiled to WebAssembly).
+                The encryption engine (~1.3 MB) downloads the first time you use this tool, then is cached.
             </div>
         `,
         
-        async _loadPdfOxide() {
-            if (this._pdfOxide) return this._pdfOxide;
+        async _loadQpdf() {
+            // Return cached instance
+            if (this._qpdfInstance) return this._qpdfInstance;
+            // Return in-progress load
+            if (this._qpdfLoading) return this._qpdfLoading;
             
-            Utils.showStatus('Loading encryption engine (first time only)...', 'info');
-            
-            // Strategy 1: Dynamic import via esm.sh (best WASM support)
-            try {
-                console.log('[Protect] Strategy 1: esm.sh dynamic import');
-                const module = await import(/* webpackIgnore: true */ 'https://esm.sh/pdf-oxide-wasm');
-                if (typeof module.default === 'function') await module.default();
-                if (module.WasmPdfDocument) {
-                    this._pdfOxide = module;
-                    console.log('[Protect] Loaded via esm.sh');
-                    return module;
+            this._qpdfLoading = new Promise((resolve, reject) => {
+                // Check if Module is already loaded (from a previous attempt)
+                if (typeof window._qpdfModule === 'function') {
+                    window._qpdfModule({
+                        locateFile: (file) => './libs/' + file
+                    }).then(instance => {
+                        this._qpdfInstance = instance;
+                        resolve(instance);
+                    }).catch(reject);
+                    return;
                 }
-                console.warn('[Protect] esm.sh loaded but WasmPdfDocument not found');
-            } catch (e) {
-                console.warn('[Protect] Strategy 1 failed:', e.message);
-            }
-            
-            // Strategy 2: Script tag injection from jsdelivr
-            try {
-                console.log('[Protect] Strategy 2: jsdelivr script tag');
-                const module = await this._loadViaScriptTag(
-                    'https://cdn.jsdelivr.net/npm/pdf-oxide-wasm/web/pdf_oxide_wasm.js'
-                );
-                if (module) {
-                    this._pdfOxide = module;
-                    console.log('[Protect] Loaded via jsdelivr script tag');
-                    return module;
-                }
-            } catch (e) {
-                console.warn('[Protect] Strategy 2 failed:', e.message);
-            }
-            
-            // Strategy 3: Script tag from unpkg
-            try {
-                console.log('[Protect] Strategy 3: unpkg script tag');
-                const module = await this._loadViaScriptTag(
-                    'https://unpkg.com/pdf-oxide-wasm/web/pdf_oxide_wasm.js'
-                );
-                if (module) {
-                    this._pdfOxide = module;
-                    console.log('[Protect] Loaded via unpkg script tag');
-                    return module;
-                }
-            } catch (e) {
-                console.warn('[Protect] Strategy 3 failed:', e.message);
-            }
-            
-            // All strategies failed
-            console.error('[Protect] All loading strategies failed');
-            Utils.showStatus(
-                '⚠️ The encryption engine could not be loaded. ' +
-                'This may be caused by an ad blocker, corporate firewall, or network issue. ' +
-                'Try refreshing the page or disabling your ad blocker.',
-                'error'
-            );
-            return null;
-        },
-        
-        _loadViaScriptTag(url) {
-            return new Promise((resolve, reject) => {
+                
+                // Load via script tag
                 const script = document.createElement('script');
-                script.src = url;
-                script.type = 'module';
+                script.src = './libs/qpdf.js';
                 script.onload = () => {
-                    // After script loads, check for global exports
-                    // The web build may register on wasm_bindgen or a global
-                    setTimeout(() => {
-                        if (window.wasm_bindgen && window.wasm_bindgen.WasmPdfDocument) {
-                            resolve({ WasmPdfDocument: window.wasm_bindgen.WasmPdfDocument });
-                        } else if (window.pdf_oxide_wasm && window.pdf_oxide_wasm.WasmPdfDocument) {
-                            resolve({ WasmPdfDocument: window.pdf_oxide_wasm.WasmPdfDocument });
-                        } else {
-                            reject(new Error('Script loaded but WasmPdfDocument not found on window'));
-                        }
-                    }, 500);
+                    // Emscripten sets up Module as a global factory function
+                    const factory = window.Module;
+                    if (typeof factory !== 'function') {
+                        reject(new Error('QPDF script loaded but Module factory not found'));
+                        return;
+                    }
+                    
+                    // Store the factory for potential re-use
+                    window._qpdfModule = factory;
+                    
+                    // Create the QPDF instance with correct WASM path
+                    factory({
+                        locateFile: (file) => './libs/' + file,
+                        // Suppress Emscripten console output
+                        print: (text) => console.log('[QPDF]', text),
+                        printErr: (text) => console.warn('[QPDF]', text)
+                    }).then(instance => {
+                        this._qpdfInstance = instance;
+                        console.log('[Protect] QPDF WASM loaded successfully');
+                        resolve(instance);
+                    }).catch(err => {
+                        console.error('[Protect] QPDF initialization failed:', err);
+                        reject(err);
+                    });
                 };
-                script.onerror = () => reject(new Error(`Failed to load script: ${url}`));
+                script.onerror = () => {
+                    this._qpdfLoading = null;
+                    reject(new Error(
+                        'Could not load the encryption engine (libs/qpdf.js). ' +
+                        'Make sure the libs/ folder is deployed with your site.'
+                    ));
+                };
                 document.head.appendChild(script);
             });
+            
+            try {
+                return await this._qpdfLoading;
+            } catch (e) {
+                this._qpdfLoading = null;
+                throw e;
+            }
         },
         
         async process(files) {
@@ -8282,18 +8259,13 @@ const Tools = {
             
             const password = document.getElementById('protectPassword')?.value;
             const confirmPassword = document.getElementById('protectPasswordConfirm')?.value;
-            const ownerPassword = document.getElementById('ownerPassword')?.value || password;
-            const allowPrint = document.getElementById('allowPrinting')?.checked ?? true;
-            const allowCopy = document.getElementById('allowCopying')?.checked ?? true;
+            const allowPrint = document.getElementById('allowPrinting')?.checked;
+            const allowCopy = document.getElementById('allowCopying')?.checked;
+            const allowModify = document.getElementById('allowModifying')?.checked;
             
             if (!password) {
                 Utils.showStatus('Please enter a password', 'error');
                 document.getElementById('protectPassword')?.focus();
-                return;
-            }
-            
-            if (password.length < 1) {
-                Utils.showStatus('Password cannot be empty', 'error');
                 return;
             }
             
@@ -8305,10 +8277,11 @@ const Tools = {
             
             Utils.updateProgress(5, 'Loading encryption engine...');
             
-            // Lazy-load the WASM encryption engine
-            const pdfOxide = await this._loadPdfOxide();
-            if (!pdfOxide) {
-                // Error already shown by _loadPdfOxide
+            let qpdf;
+            try {
+                qpdf = await this._loadQpdf();
+            } catch (e) {
+                Utils.showStatus(e.message || 'Failed to load encryption engine', 'error');
                 return;
             }
             
@@ -8319,34 +8292,62 @@ const Tools = {
                     `Encrypting ${file.name}...`
                 );
                 
+                const inputPath = '/input.pdf';
+                const outputPath = '/output-protected.pdf';
+                
                 try {
                     const arrayBuffer = await file.arrayBuffer();
-                    const pdfBytes = new Uint8Array(arrayBuffer);
+                    const inputBytes = new Uint8Array(arrayBuffer);
                     
-                    // Load PDF into pdf-oxide
-                    const doc = new pdfOxide.WasmPdfDocument(pdfBytes);
+                    // Write input PDF to QPDF's virtual filesystem
+                    qpdf.FS.writeFile(inputPath, inputBytes);
                     
-                    let encryptedBytes;
-                    try {
-                        // Encrypt with AES-256
-                        encryptedBytes = doc.saveEncryptedToBytes(
-                            password,
-                            ownerPassword,
-                            allowPrint,
-                            allowCopy
-                        );
-                    } finally {
-                        // Always clean up WASM memory even if encryption fails
-                        doc.free();
+                    // Build QPDF command arguments
+                    // Use same password for both user and owner to avoid viewer inconsistencies
+                    const args = [
+                        '--encrypt',
+                        password,
+                        password,  // owner password = user password for simplicity
+                        '256'      // AES-256 encryption
+                    ];
+                    
+                    // Add permission restrictions
+                    if (!allowPrint) args.push('--print=none');
+                    if (!allowCopy) args.push('--extract=n');
+                    if (!allowModify) args.push('--modify=none');
+                    
+                    // End encryption options and specify files
+                    args.push('--');
+                    args.push(inputPath);
+                    args.push(outputPath);
+                    
+                    console.log('[Protect] Running QPDF with args:', args.join(' '));
+                    
+                    // Run QPDF encryption
+                    const exitCode = qpdf.callMain(args);
+                    
+                    if (exitCode !== 0) {
+                        throw new Error(`QPDF returned exit code ${exitCode}`);
                     }
+                    
+                    // Read encrypted output
+                    const outputBytes = qpdf.FS.readFile(outputPath);
+                    
+                    // Clean up virtual filesystem
+                    try { qpdf.FS.unlink(inputPath); } catch (e) {}
+                    try { qpdf.FS.unlink(outputPath); } catch (e) {}
                     
                     // Download the encrypted file
                     saveAs(
-                        new Blob([encryptedBytes], { type: 'application/pdf' }),
+                        new Blob([outputBytes], { type: 'application/pdf' }),
                         `protected_${file.name}`
                     );
                     
                 } catch (e) {
+                    // Clean up on error
+                    try { qpdf.FS.unlink(inputPath); } catch (ex) {}
+                    try { qpdf.FS.unlink(outputPath); } catch (ex) {}
+                    
                     console.error(`[Protect] Failed to encrypt ${file.name}:`, e);
                     Utils.showStatus(
                         `Failed to encrypt "${file.name}": ${e.message || 'Unknown error'}. ` +
@@ -8357,11 +8358,16 @@ const Tools = {
                 }
             }
             
+            const restrictions = [];
+            if (!allowPrint) restrictions.push('printing blocked');
+            if (!allowCopy) restrictions.push('copying blocked');
+            if (!allowModify) restrictions.push('editing blocked');
+            const restrictText = restrictions.length > 0 ? ` (${restrictions.join(', ')})` : '';
+            
             Utils.updateProgress(100, 'Complete!');
             Utils.showStatus(
-                `${pdfFiles.length === 1 ? 'PDF' : pdfFiles.length + ' PDFs'} encrypted with AES-256! ` +
-                `${!allowPrint ? 'Printing blocked. ' : ''}${!allowCopy ? 'Copying blocked. ' : ''}` +
-                `The password will be required to open ${pdfFiles.length === 1 ? 'this file' : 'these files'}.`,
+                `${pdfFiles.length === 1 ? 'PDF' : pdfFiles.length + ' PDFs'} encrypted with AES-256!${restrictText} ` +
+                `A password will be required to open ${pdfFiles.length === 1 ? 'this file' : 'these files'}.`,
                 'success'
             );
         }
@@ -12740,7 +12746,7 @@ const ToolManager = {
             removeblank: ['PDFLib', 'saveAs'],
             formfill: ['PDFLib', 'saveAs'],
             flatten: ['PDFLib', 'saveAs'],
-            // Protect: uses pdf-oxide-wasm (loaded internally by the tool), only needs saveAs
+            // Protect: uses QPDF WASM (loaded internally by the tool), only needs saveAs
             protect: ['saveAs'],
             unlock: ['PDFLib', 'saveAs'],
             redact: ['PDFLib', 'saveAs'],
