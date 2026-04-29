@@ -8136,107 +8136,200 @@ const Tools = {
     },
     
     protect: {
-        name: 'Protect PDF',
-        description: 'Add password protection and permissions to PDFs',
+        name: 'Password Protect PDF',
+        description: 'Encrypt your PDF with a real AES-256 password (powered by pdf-oxide)',
         icon: '🔒',
+        _pdfOxide: null,
+        
         configHTML: `
-            <div class="info-box" style="background: #e7f3ff; border-color: var(--color-primary);">
-                🔒 <strong>Password Protection:</strong> Sets permission metadata on the PDF. <em>Note: Full AES-256 encryption is not available in this browser build — use the owner/user password fields to signal intent; for legally binding encryption use a desktop tool.</em>
+            <div class="info-box" style="background: linear-gradient(135deg, #10b98130 0%, #06b6d430 100%); border-color: #10b981;">
+                🔒 <strong>Real AES-256 Encryption</strong> — This tool applies genuine password protection
+                using the pdf-oxide engine (Rust compiled to WebAssembly). The encrypted PDF will require
+                a password to open in any PDF reader.
             </div>
             
             <div class="form-group">
-                <label class="form-label">User Password (Required to open PDF)</label>
-                <input type="password" class="form-input" id="protectPassword" placeholder="Enter password">
+                <label class="form-label">Password <span style="color:var(--color-danger);">*</span></label>
+                <input type="password" class="form-input" id="protectPassword" placeholder="Enter password" autocomplete="new-password">
                 <p style="font-size: 12px; color: var(--color-text-muted); margin-top: 4px;">
-                    User must enter this password to open the PDF
+                    Anyone who opens this PDF will need to enter this password
                 </p>
             </div>
             
             <div class="form-group">
-                <label class="form-label">Confirm Password</label>
-                <input type="password" class="form-input" id="protectPasswordConfirm" placeholder="Confirm password">
+                <label class="form-label">Confirm Password <span style="color:var(--color-danger);">*</span></label>
+                <input type="password" class="form-input" id="protectPasswordConfirm" placeholder="Confirm password" autocomplete="new-password">
             </div>
             
             <div class="form-group">
-                <label class="form-label">Owner Password (Optional - for permissions)</label>
-                <input type="password" class="form-input" id="ownerPassword" placeholder="Owner password (optional)">
+                <label class="form-label">Owner Password (optional — for permission control)</label>
+                <input type="password" class="form-input" id="ownerPassword" placeholder="Leave blank to use the same as above" autocomplete="new-password">
                 <p style="font-size: 12px; color: var(--color-text-muted); margin-top: 4px;">
-                    If set, owner password is needed to change permissions
+                    Needed to change permissions later. If blank, the user password is used.
                 </p>
             </div>
             
             <div class="form-group">
                 <h3 style="font-size: 14px; margin-bottom: 8px;">Permissions</h3>
-                <label class="form-label">
-                    <input type="checkbox" id="allowPrinting" checked> Allow Printing
+                <label class="form-label" style="display:flex;align-items:center;gap:8px;">
+                    <input type="checkbox" id="allowPrinting" checked style="width:16px;height:16px;"> Allow Printing
                 </label>
-                <label class="form-label">
-                    <input type="checkbox" id="allowModifying" checked> Allow Modifying
-                </label>
-                <label class="form-label">
-                    <input type="checkbox" id="allowCopying" checked> Allow Copying Text
-                </label>
-                <label class="form-label">
-                    <input type="checkbox" id="allowAnnotating" checked> Allow Annotations
+                <label class="form-label" style="display:flex;align-items:center;gap:8px;">
+                    <input type="checkbox" id="allowCopying" checked style="width:16px;height:16px;"> Allow Copying Text
                 </label>
             </div>
             
-            <div class="warning-box" style="background: #fff3cd; border-color: #ffc107; color: #856404;">
-                ⚠️ <strong>Important:</strong> Remember your password! Encrypted PDFs cannot be recovered without it.
+            <div class="warning-box" style="background: #fff3cd; border-left: 4px solid #ffc107; color: #856404; padding: 12px 16px; border-radius: 6px;">
+                ⚠️ <strong>Remember your password!</strong> Encrypted PDFs cannot be recovered without it.
+            </div>
+            
+            <div style="font-size: 11px; color: var(--color-text-muted); margin-top: 12px; padding: 8px; background: var(--color-bg-secondary); border-radius: 6px;">
+                ⚡ Powered by <a href="https://github.com/yfedoseev/pdf_oxide" target="_blank" rel="noopener" style="color:var(--color-primary);">pdf-oxide</a> (MIT licensed, Rust → WebAssembly).
+                The encryption engine (~1 MB) downloads the first time you use this tool, then is cached by your browser.
             </div>
         `,
         
+        async _loadPdfOxide() {
+            if (this._pdfOxide) return this._pdfOxide;
+            
+            Utils.showStatus('Loading encryption engine (first time only — ~1 MB)...', 'info');
+            
+            // Try multiple CDN sources for reliability
+            const sources = [
+                'https://esm.sh/pdf-oxide-wasm/web/pdf_oxide_wasm.js',
+                'https://cdn.jsdelivr.net/npm/pdf-oxide-wasm/web/pdf_oxide_wasm.js',
+                'https://unpkg.com/pdf-oxide-wasm/web/pdf_oxide_wasm.js'
+            ];
+            
+            let lastError = null;
+            
+            for (const src of sources) {
+                try {
+                    console.log(`[Protect] Trying to load pdf-oxide-wasm from: ${src}`);
+                    const module = await import(/* webpackIgnore: true */ src);
+                    
+                    // Initialize the WASM module
+                    if (typeof module.default === 'function') {
+                        await module.default();
+                    }
+                    
+                    // Verify the encryption API exists
+                    if (!module.WasmPdfDocument) {
+                        throw new Error('WasmPdfDocument not found in module');
+                    }
+                    
+                    this._pdfOxide = module;
+                    console.log('[Protect] pdf-oxide-wasm loaded successfully from:', src);
+                    Utils.showStatus('Encryption engine ready!', 'success');
+                    return module;
+                    
+                } catch (e) {
+                    console.warn(`[Protect] Failed to load from ${src}:`, e.message);
+                    lastError = e;
+                }
+            }
+            
+            console.error('[Protect] All CDN sources failed:', lastError);
+            throw new Error(
+                'Could not load the encryption engine from any CDN. ' +
+                'This may be caused by a network issue, ad blocker, or corporate firewall. ' +
+                'Try refreshing the page or disabling your ad blocker for this site.'
+            );
+        },
+        
         async process(files) {
+            const pdfFiles = files.filter(FileType.isPDF);
+            if (pdfFiles.length === 0) {
+                Utils.showStatus('Please upload a PDF file', 'error');
+                return;
+            }
+            
             const password = document.getElementById('protectPassword')?.value;
-            const confirm = document.getElementById('protectPasswordConfirm')?.value;
-            const ownerPassword = document.getElementById('ownerPassword')?.value;
+            const confirmPassword = document.getElementById('protectPasswordConfirm')?.value;
+            const ownerPassword = document.getElementById('ownerPassword')?.value || password;
+            const allowPrint = document.getElementById('allowPrinting')?.checked ?? true;
+            const allowCopy = document.getElementById('allowCopying')?.checked ?? true;
             
             if (!password) {
-                Utils.showStatus('Please enter a user password', 'error');
+                Utils.showStatus('Please enter a password', 'error');
+                document.getElementById('protectPassword')?.focus();
                 return;
             }
             
-            if (password !== confirm) {
+            if (password.length < 1) {
+                Utils.showStatus('Password cannot be empty', 'error');
+                return;
+            }
+            
+            if (password !== confirmPassword) {
                 Utils.showStatus('Passwords do not match', 'error');
+                document.getElementById('protectPasswordConfirm')?.focus();
                 return;
             }
             
-            // Get permission settings
-            const permissions = {
-                printing: document.getElementById('allowPrinting')?.checked ? 'highResolution' : 'lowResolution',
-                modifying: document.getElementById('allowModifying')?.checked,
-                copying: document.getElementById('allowCopying')?.checked,
-                annotating: document.getElementById('allowAnnotating')?.checked,
-                fillingForms: true,
-                contentAccessibility: true,
-                documentAssembly: document.getElementById('allowModifying')?.checked
-            };
+            Utils.updateProgress(5, 'Loading encryption engine...');
             
-            const pdfFiles = files.filter(FileType.isPDF);
+            // Lazy-load the WASM encryption engine
+            let pdfOxide;
+            try {
+                pdfOxide = await this._loadPdfOxide();
+            } catch (e) {
+                Utils.showStatus(e.message, 'error');
+                return;
+            }
             
             for (let i = 0; i < pdfFiles.length; i++) {
-                Utils.updateProgress((i / pdfFiles.length) * 100, `Encrypting ${pdfFiles[i].name}...`);
+                const file = pdfFiles[i];
+                Utils.updateProgress(
+                    10 + (i / pdfFiles.length) * 80,
+                    `Encrypting ${file.name}...`
+                );
                 
-                const arrayBuffer = await pdfFiles[i].arrayBuffer();
-                const pdfDoc = await Utils.loadPDFWithEncryptionHandler(arrayBuffer, pdfFiles[i].name);
-                
-                // Prepare encryption options
-                const saveOptions = {
-                    useObjectStreams: false // Better compatibility
-                };
-                
-                // Note: pdf-lib's encryption support is limited
-                // For production, consider using a backend service or different library
-                // For now, we'll save with metadata indicating encryption intent
-                pdfDoc.setTitle('Encrypted Document');
-                pdfDoc.setKeywords(['encrypted', 'protected']);
-                
-                const pdfBytes = await pdfDoc.save(saveOptions);
-                saveAs(new Blob([pdfBytes], { type: 'application/pdf' }), `protected_${pdfFiles[i].name}`);
+                try {
+                    const arrayBuffer = await file.arrayBuffer();
+                    const pdfBytes = new Uint8Array(arrayBuffer);
+                    
+                    // Load PDF into pdf-oxide
+                    const doc = new pdfOxide.WasmPdfDocument(pdfBytes);
+                    
+                    let encryptedBytes;
+                    try {
+                        // Encrypt with AES-256
+                        encryptedBytes = doc.saveEncryptedToBytes(
+                            password,
+                            ownerPassword,
+                            allowPrint,
+                            allowCopy
+                        );
+                    } finally {
+                        // Always clean up WASM memory even if encryption fails
+                        doc.free();
+                    }
+                    
+                    // Download the encrypted file
+                    saveAs(
+                        new Blob([encryptedBytes], { type: 'application/pdf' }),
+                        `protected_${file.name}`
+                    );
+                    
+                } catch (e) {
+                    console.error(`[Protect] Failed to encrypt ${file.name}:`, e);
+                    Utils.showStatus(
+                        `Failed to encrypt "${file.name}": ${e.message || 'Unknown error'}. ` +
+                        `The PDF may be corrupted or use an unsupported format.`,
+                        'error'
+                    );
+                    return;
+                }
             }
             
             Utils.updateProgress(100, 'Complete!');
-            Utils.showStatus('PDFs protected! Note: Full AES-256 encryption requires pdf-lib enterprise features or server-side processing.', 'success');
+            Utils.showStatus(
+                `${pdfFiles.length === 1 ? 'PDF' : pdfFiles.length + ' PDFs'} encrypted with AES-256! ` +
+                `${!allowPrint ? 'Printing blocked. ' : ''}${!allowCopy ? 'Copying blocked. ' : ''}` +
+                `The password will be required to open ${pdfFiles.length === 1 ? 'this file' : 'these files'}.`,
+                'success'
+            );
         }
     },
     
@@ -12613,7 +12706,8 @@ const ToolManager = {
             removeblank: ['PDFLib', 'saveAs'],
             formfill: ['PDFLib', 'saveAs'],
             flatten: ['PDFLib', 'saveAs'],
-            protect: ['PDFLib', 'saveAs'],
+            // Protect: uses pdf-oxide-wasm (loaded internally by the tool), only needs saveAs
+            protect: ['saveAs'],
             unlock: ['PDFLib', 'saveAs'],
             redact: ['PDFLib', 'saveAs'],
             watermark: ['PDFLib', 'saveAs'],
@@ -13613,7 +13707,7 @@ const FavoritesManager = {
         compress:   { icon: '🗜️', text: 'Drop a PDF to compress it' },
         sign:       { icon: '✍️', text: 'Drop a PDF to sign it' },
         annotate:   { icon: '💬', text: 'Drop a PDF to annotate it' },
-        protect:    { icon: '🔒', text: 'Drop a PDF to password-protect it' },
+        protect:    { icon: '🔒', text: 'Drop a PDF to encrypt with a password' },
         unlock:     { icon: '🔓', text: 'Drop a PDF to unlock it' },
         redact:     { icon: '🖍️', text: 'Drop a PDF to redact text' },
         watermark:  { icon: '💧', text: 'Drop a PDF to add a watermark' },
