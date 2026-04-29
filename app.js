@@ -8192,49 +8192,85 @@ const Tools = {
         async _loadPdfOxide() {
             if (this._pdfOxide) return this._pdfOxide;
             
-            Utils.showStatus('Loading encryption engine (first time only — ~1 MB)...', 'info');
+            Utils.showStatus('Loading encryption engine (first time only)...', 'info');
             
-            // Try multiple CDN sources for reliability
-            const sources = [
-                'https://esm.sh/pdf-oxide-wasm/web/pdf_oxide_wasm.js',
-                'https://cdn.jsdelivr.net/npm/pdf-oxide-wasm/web/pdf_oxide_wasm.js',
-                'https://unpkg.com/pdf-oxide-wasm/web/pdf_oxide_wasm.js'
-            ];
-            
-            let lastError = null;
-            
-            for (const src of sources) {
-                try {
-                    console.log(`[Protect] Trying to load pdf-oxide-wasm from: ${src}`);
-                    const module = await import(/* webpackIgnore: true */ src);
-                    
-                    // Initialize the WASM module
-                    if (typeof module.default === 'function') {
-                        await module.default();
-                    }
-                    
-                    // Verify the encryption API exists
-                    if (!module.WasmPdfDocument) {
-                        throw new Error('WasmPdfDocument not found in module');
-                    }
-                    
+            // Strategy 1: Dynamic import via esm.sh (best WASM support)
+            try {
+                console.log('[Protect] Strategy 1: esm.sh dynamic import');
+                const module = await import(/* webpackIgnore: true */ 'https://esm.sh/pdf-oxide-wasm');
+                if (typeof module.default === 'function') await module.default();
+                if (module.WasmPdfDocument) {
                     this._pdfOxide = module;
-                    console.log('[Protect] pdf-oxide-wasm loaded successfully from:', src);
-                    Utils.showStatus('Encryption engine ready!', 'success');
+                    console.log('[Protect] Loaded via esm.sh');
                     return module;
-                    
-                } catch (e) {
-                    console.warn(`[Protect] Failed to load from ${src}:`, e.message);
-                    lastError = e;
                 }
+                console.warn('[Protect] esm.sh loaded but WasmPdfDocument not found');
+            } catch (e) {
+                console.warn('[Protect] Strategy 1 failed:', e.message);
             }
             
-            console.error('[Protect] All CDN sources failed:', lastError);
-            throw new Error(
-                'Could not load the encryption engine from any CDN. ' +
-                'This may be caused by a network issue, ad blocker, or corporate firewall. ' +
-                'Try refreshing the page or disabling your ad blocker for this site.'
+            // Strategy 2: Script tag injection from jsdelivr
+            try {
+                console.log('[Protect] Strategy 2: jsdelivr script tag');
+                const module = await this._loadViaScriptTag(
+                    'https://cdn.jsdelivr.net/npm/pdf-oxide-wasm/web/pdf_oxide_wasm.js'
+                );
+                if (module) {
+                    this._pdfOxide = module;
+                    console.log('[Protect] Loaded via jsdelivr script tag');
+                    return module;
+                }
+            } catch (e) {
+                console.warn('[Protect] Strategy 2 failed:', e.message);
+            }
+            
+            // Strategy 3: Script tag from unpkg
+            try {
+                console.log('[Protect] Strategy 3: unpkg script tag');
+                const module = await this._loadViaScriptTag(
+                    'https://unpkg.com/pdf-oxide-wasm/web/pdf_oxide_wasm.js'
+                );
+                if (module) {
+                    this._pdfOxide = module;
+                    console.log('[Protect] Loaded via unpkg script tag');
+                    return module;
+                }
+            } catch (e) {
+                console.warn('[Protect] Strategy 3 failed:', e.message);
+            }
+            
+            // All strategies failed
+            console.error('[Protect] All loading strategies failed');
+            Utils.showStatus(
+                '⚠️ The encryption engine could not be loaded. ' +
+                'This may be caused by an ad blocker, corporate firewall, or network issue. ' +
+                'Try refreshing the page or disabling your ad blocker.',
+                'error'
             );
+            return null;
+        },
+        
+        _loadViaScriptTag(url) {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = url;
+                script.type = 'module';
+                script.onload = () => {
+                    // After script loads, check for global exports
+                    // The web build may register on wasm_bindgen or a global
+                    setTimeout(() => {
+                        if (window.wasm_bindgen && window.wasm_bindgen.WasmPdfDocument) {
+                            resolve({ WasmPdfDocument: window.wasm_bindgen.WasmPdfDocument });
+                        } else if (window.pdf_oxide_wasm && window.pdf_oxide_wasm.WasmPdfDocument) {
+                            resolve({ WasmPdfDocument: window.pdf_oxide_wasm.WasmPdfDocument });
+                        } else {
+                            reject(new Error('Script loaded but WasmPdfDocument not found on window'));
+                        }
+                    }, 500);
+                };
+                script.onerror = () => reject(new Error(`Failed to load script: ${url}`));
+                document.head.appendChild(script);
+            });
         },
         
         async process(files) {
@@ -8270,11 +8306,9 @@ const Tools = {
             Utils.updateProgress(5, 'Loading encryption engine...');
             
             // Lazy-load the WASM encryption engine
-            let pdfOxide;
-            try {
-                pdfOxide = await this._loadPdfOxide();
-            } catch (e) {
-                Utils.showStatus(e.message, 'error');
+            const pdfOxide = await this._loadPdfOxide();
+            if (!pdfOxide) {
+                // Error already shown by _loadPdfOxide
                 return;
             }
             
