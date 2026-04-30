@@ -2,12 +2,12 @@
 
 <div align="center">
 
-![PDF Workspace](https://img.shields.io/badge/Tools-47-blue)
+![PDF Workspace](https://img.shields.io/badge/Tools-48-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Client Side](https://img.shields.io/badge/processing-100%25%20client--side-orange)
 ![No Tracking](https://img.shields.io/badge/tracking-none-brightgreen)
 
-**47 professional PDF tools running entirely in your browser**
+**48 professional PDF tools running entirely in your browser**
 
 [Live Demo](#) | [Features](#features) | [Privacy](#privacy) | [Tools](#available-tools)
 
@@ -44,7 +44,7 @@ A complete suite of PDF tools that runs **100% in your browser**. No uploads, no
 - Lightweight (~500 KB total)
 
 ### 🛠️ Professional Tools
-- 47 tools covering all PDF needs
+- 48 tools covering all PDF needs
 - No watermarks
 - No quality loss
 - Batch processing
@@ -101,7 +101,7 @@ A complete suite of PDF tools that runs **100% in your browser**. No uploads, no
 - **Repair PDF** - Fix corrupted PDFs
 - **PDF Audit** - Detailed file analysis
 
-[See all 47 tools →](#)
+[See all 48 tools →](#)
 
 ---
 
@@ -206,7 +206,7 @@ No build process needed!
 
 ## 📊 Stats
 
-- **Tools:** 47
+- **Tools:** 48
 - **File Size:** ~500 KB (entire app)
 - **Dependencies:** 0 npm packages (uses CDN libraries)
 - **Tracking:** 0% (none)

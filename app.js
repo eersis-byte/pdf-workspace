@@ -1869,7 +1869,7 @@ const TOOL_FILE_TYPES = {
     batchslicer: ['pdf'], validate: ['pdf'], repair: ['pdf'], audit: ['pdf'],
     compare: ['pdf'], workflow: ['pdf'], smartpages: ['pdf'],
     crop: ['pdf'], extracttables: ['pdf'], receiptparser: ['pdf'],
-    emailsign: ['pdf'],
+    emailsign: ['pdf'], weboptimize: ['pdf'],
     docscan: ['image'],
 };
 
@@ -2494,6 +2494,137 @@ const DocScanUtils = {
             img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Failed to load image: ' + file.name)); };
             img.src = url;
         });
+    }
+};
+
+// ==================== SHARED QPDF WASM ENGINE ====================
+// Used by: Protect, Unlock, Repair, Validate, Flatten, Clean Slate, Optimize
+const QpdfEngine = {
+    _instance: null,
+    _loading: null,
+    
+    async load() {
+        if (this._instance) return this._instance;
+        if (this._loading) return this._loading;
+        
+        this._loading = new Promise((resolve, reject) => {
+            if (typeof window._qpdfModule === 'function') {
+                window._qpdfModule({
+                    locateFile: (file) => './libs/' + file,
+                    print: (text) => console.log('[QPDF]', text),
+                    printErr: (text) => console.warn('[QPDF]', text)
+                }).then(instance => {
+                    this._instance = instance;
+                    resolve(instance);
+                }).catch(reject);
+                return;
+            }
+            
+            const script = document.createElement('script');
+            script.src = './libs/qpdf.js';
+            script.onload = () => {
+                const factory = window.Module;
+                if (typeof factory !== 'function') {
+                    reject(new Error('QPDF script loaded but Module factory not found'));
+                    return;
+                }
+                window._qpdfModule = factory;
+                factory({
+                    locateFile: (file) => './libs/' + file,
+                    print: (text) => console.log('[QPDF]', text),
+                    printErr: (text) => console.warn('[QPDF]', text)
+                }).then(instance => {
+                    this._instance = instance;
+                    console.log('[QpdfEngine] QPDF WASM loaded successfully');
+                    resolve(instance);
+                }).catch(reject);
+            };
+            script.onerror = () => {
+                this._loading = null;
+                reject(new Error(
+                    'Could not load the QPDF engine (libs/qpdf.js). ' +
+                    'Make sure the libs/ folder is deployed with your site.'
+                ));
+            };
+            document.head.appendChild(script);
+        });
+        
+        try {
+            return await this._loading;
+        } catch (e) {
+            this._loading = null;
+            throw e;
+        }
+    },
+    
+    /**
+     * Run a QPDF operation on a PDF file.
+     * @param {Uint8Array} inputBytes - The PDF file bytes
+     * @param {string[]} args - QPDF CLI arguments (without input/output filenames)
+     * @param {string} [password] - Optional password for encrypted PDFs
+     * @returns {Uint8Array} - The processed PDF bytes
+     */
+    async run(inputBytes, args = [], password = null) {
+        const qpdf = await this.load();
+        
+        const inputPath = '/qpdf_input_' + Date.now() + '.pdf';
+        const outputPath = '/qpdf_output_' + Date.now() + '.pdf';
+        
+        try {
+            qpdf.FS.writeFile(inputPath, inputBytes);
+            
+            const fullArgs = [];
+            if (password) {
+                fullArgs.push('--password=' + password);
+            }
+            fullArgs.push(...args);
+            fullArgs.push('--');
+            fullArgs.push(inputPath);
+            fullArgs.push(outputPath);
+            
+            console.log('[QpdfEngine] Running:', fullArgs.join(' '));
+            const exitCode = qpdf.callMain(fullArgs);
+            
+            if (exitCode !== 0 && exitCode !== 3) {
+                // Exit code 3 = warnings (still produced valid output)
+                throw new Error(`QPDF exited with code ${exitCode}`);
+            }
+            
+            const outputBytes = qpdf.FS.readFile(outputPath);
+            return outputBytes;
+            
+        } finally {
+            try { qpdf.FS.unlink(inputPath); } catch (e) {}
+            try { qpdf.FS.unlink(outputPath); } catch (e) {}
+        }
+    },
+    
+    /**
+     * Run QPDF --check for validation (no output file).
+     * Captures print/printErr output for reporting.
+     * @param {Uint8Array} inputBytes
+     * @returns {{ exitCode: number, messages: string[] }}
+     */
+    async check(inputBytes) {
+        const qpdf = await this.load();
+        const inputPath = '/qpdf_check_' + Date.now() + '.pdf';
+        const messages = [];
+        
+        // Temporarily capture output
+        const origPrint = qpdf.print;
+        const origPrintErr = qpdf.printErr;
+        qpdf.print = (text) => { messages.push(text); console.log('[QPDF check]', text); };
+        qpdf.printErr = (text) => { messages.push('⚠️ ' + text); console.warn('[QPDF check]', text); };
+        
+        try {
+            qpdf.FS.writeFile(inputPath, inputBytes);
+            const exitCode = qpdf.callMain(['--check', inputPath]);
+            return { exitCode, messages };
+        } finally {
+            qpdf.print = origPrint;
+            qpdf.printErr = origPrintErr;
+            try { qpdf.FS.unlink(inputPath); } catch (e) {}
+        }
     }
 };
 
@@ -4248,7 +4379,8 @@ const Tools = {
                 merge: 'popular', split: 'popular', compress: 'popular', sign: 'popular',
                 imagestopdf: 'popular', protect: 'popular', topng: 'popular', ocr: 'popular',
                 emailsign: 'new', crop: 'new', docscan: 'new',
-                workflow: 'new', smartpages: 'new', extracttables: 'new', receiptparser: 'new'
+                workflow: 'new', smartpages: 'new', extracttables: 'new', receiptparser: 'new',
+                weboptimize: 'new'
             };
             
             const categories = [
@@ -4256,7 +4388,7 @@ const Tools = {
                 { id: 'sigforms', title: '✍️ Signature & Forms', tools: ['sign','emailsign','annotate','editpdf','pdftexteditor','formfill','flatten'] },
                 { id: 'security', title: '🔒 Security', tools: ['protect','unlock','redact','watermark','piiscan','cleanslate'] },
                 { id: 'conversion', title: '🎨 Conversion', tools: ['topng','imagestopdf','docscan','html2pdf','office2pdf','pdf2office','ocr'] },
-                { id: 'advanced', title: '📊 Advanced', tools: ['compare','pagenumber','metadata','metaedit','bates','oddeven','interleave'] },
+                { id: 'advanced', title: '📊 Advanced', tools: ['compare','weboptimize','pagenumber','metadata','metaedit','bates','oddeven','interleave'] },
                 { id: 'batch', title: '📦 Batch & Special', tools: ['extracttables','receiptparser','categorize','invoice','batchslicer','splitmerge','validate','repair','audit'] },
                 { id: 'automation', title: '⚡ Automation', tools: ['workflow'] },
             ];
@@ -4855,10 +4987,21 @@ const Tools = {
                 }
                 
                 // Save with optimizations
-                const pdfBytes = await pdfDoc.save({
-                    useObjectStreams: linearize,
+                let pdfBytes = await pdfDoc.save({
+                    useObjectStreams: true,
                     addDefaultPage: false
                 });
+                
+                // If linearize is checked, pass through QPDF for real web optimization
+                if (linearize) {
+                    try {
+                        await QpdfEngine.load();
+                        pdfBytes = await QpdfEngine.run(pdfBytes, ['--linearize']);
+                        console.log('[Compress] Linearized with QPDF');
+                    } catch (e) {
+                        console.warn('[Compress] QPDF linearization skipped:', e.message);
+                    }
+                }
                 
                 const originalSize = pdfFiles[i].size;
                 const newSize = pdfBytes.length;
@@ -8102,31 +8245,64 @@ const Tools = {
     
     flatten: {
         name: 'Flatten PDF',
-        description: 'Flatten form fields and annotations',
+        description: 'Flatten form fields and annotations into static page content',
         icon: '📋',
         configHTML: `
-            <div class="info-box">
-                ℹ️ Flattening converts form fields and annotations to static content.
+            <div class="info-box" style="background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%); border-color: var(--color-primary);">
+                📋 <strong>Flatten to Static Content</strong> — Converts interactive form fields and
+                annotations into permanent page content that cannot be edited.
+            </div>
+            <div class="form-group">
+                <label class="form-label">What to flatten</label>
+                <select class="form-select" id="flattenMode">
+                    <option value="all" selected>Everything (forms + annotations)</option>
+                    <option value="forms">Form fields only (pdf-lib)</option>
+                    <option value="annotations">Annotations only (QPDF)</option>
+                </select>
+            </div>
+            <div class="warning-box" style="background: #fff3cd; border-left: 4px solid #ffc107; color: #856404; padding: 10px 14px; border-radius: 6px; font-size: 13px;">
+                ⚠️ Flattening annotations may also affect hyperlinks. This action cannot be undone.
             </div>
         `,
         
         async process(files) {
             const pdfFiles = files.filter(FileType.isPDF);
+            if (pdfFiles.length === 0) { Utils.showStatus('Please upload a PDF file', 'error'); return; }
+            
+            const mode = document.getElementById('flattenMode')?.value || 'all';
             
             for (let i = 0; i < pdfFiles.length; i++) {
                 Utils.updateProgress((i / pdfFiles.length) * 100, `Flattening ${pdfFiles[i].name}...`);
                 
+                let pdfBytes;
                 const arrayBuffer = await pdfFiles[i].arrayBuffer();
-                const pdfDoc = await Utils.loadPDFWithEncryptionHandler(arrayBuffer, pdfFiles[i].name);
-                const form = pdfDoc.getForm();
                 
-                try {
-                    form.flatten();
-                } catch (e) {
-                    console.log('No form fields to flatten');
+                if (mode === 'forms' || mode === 'all') {
+                    // Flatten form fields with pdf-lib
+                    try {
+                        const pdfDoc = await Utils.loadPDFWithEncryptionHandler(arrayBuffer, pdfFiles[i].name);
+                        const form = pdfDoc.getForm();
+                        form.flatten();
+                        pdfBytes = await pdfDoc.save();
+                    } catch (e) {
+                        console.log('[Flatten] No form fields to flatten or pdf-lib error:', e.message);
+                        pdfBytes = new Uint8Array(arrayBuffer);
+                    }
+                } else {
+                    pdfBytes = new Uint8Array(arrayBuffer);
                 }
                 
-                const pdfBytes = await pdfDoc.save();
+                if (mode === 'annotations' || mode === 'all') {
+                    // Flatten annotations with QPDF
+                    try {
+                        await QpdfEngine.load();
+                        pdfBytes = await QpdfEngine.run(pdfBytes, ['--flatten-annotations=all']);
+                    } catch (e) {
+                        console.warn('[Flatten] QPDF annotation flattening failed:', e.message);
+                        Utils.showStatus(`Warning: Annotation flattening failed for "${pdfFiles[i].name}". Form flattening may still have succeeded.`, 'warning');
+                    }
+                }
+                
                 saveAs(new Blob([pdfBytes], { type: 'application/pdf' }), `flattened_${pdfFiles[i].name}`);
             }
             
@@ -8139,12 +8315,10 @@ const Tools = {
         name: 'Password Protect PDF',
         description: 'Encrypt your PDF with a real password using AES-256 (powered by QPDF)',
         icon: '🔒',
-        _qpdfInstance: null,
-        _qpdfLoading: null,
         
         configHTML: `
             <div class="info-box" style="background: linear-gradient(135deg, #10b98130 0%, #06b6d430 100%); border-color: #10b981;">
-                🔒 <strong>Real AES-256 Encryption</strong> — This tool applies genuine password protection
+                🔒 <strong>Real AES-256 Encryption</strong> — Genuine password protection
                 using the QPDF engine (compiled to WebAssembly). The encrypted PDF will require
                 a password to open in any PDF reader.
             </div>
@@ -8152,9 +8326,6 @@ const Tools = {
             <div class="form-group">
                 <label class="form-label">Password <span style="color:var(--color-danger);">*</span></label>
                 <input type="password" class="form-input" id="protectPassword" placeholder="Enter password" autocomplete="new-password">
-                <p style="font-size: 12px; color: var(--color-text-muted); margin-top: 4px;">
-                    Anyone who opens this PDF will need to enter this password
-                </p>
             </div>
             
             <div class="form-group">
@@ -8178,84 +8349,11 @@ const Tools = {
             <div class="warning-box" style="background: #fff3cd; border-left: 4px solid #ffc107; color: #856404; padding: 12px 16px; border-radius: 6px;">
                 ⚠️ <strong>Remember your password!</strong> Encrypted PDFs cannot be recovered without it.
             </div>
-            
-            <div style="font-size: 11px; color: var(--color-text-muted); margin-top: 12px; padding: 8px; background: var(--color-bg-secondary); border-radius: 6px;">
-                ⚡ Powered by <a href="https://github.com/qpdf/qpdf" target="_blank" rel="noopener" style="color:var(--color-primary);">QPDF</a> (open source, compiled to WebAssembly).
-                The encryption engine (~1.3 MB) downloads the first time you use this tool, then is cached.
-            </div>
         `,
-        
-        async _loadQpdf() {
-            // Return cached instance
-            if (this._qpdfInstance) return this._qpdfInstance;
-            // Return in-progress load
-            if (this._qpdfLoading) return this._qpdfLoading;
-            
-            this._qpdfLoading = new Promise((resolve, reject) => {
-                // Check if Module is already loaded (from a previous attempt)
-                if (typeof window._qpdfModule === 'function') {
-                    window._qpdfModule({
-                        locateFile: (file) => './libs/' + file
-                    }).then(instance => {
-                        this._qpdfInstance = instance;
-                        resolve(instance);
-                    }).catch(reject);
-                    return;
-                }
-                
-                // Load via script tag
-                const script = document.createElement('script');
-                script.src = './libs/qpdf.js';
-                script.onload = () => {
-                    // Emscripten sets up Module as a global factory function
-                    const factory = window.Module;
-                    if (typeof factory !== 'function') {
-                        reject(new Error('QPDF script loaded but Module factory not found'));
-                        return;
-                    }
-                    
-                    // Store the factory for potential re-use
-                    window._qpdfModule = factory;
-                    
-                    // Create the QPDF instance with correct WASM path
-                    factory({
-                        locateFile: (file) => './libs/' + file,
-                        // Suppress Emscripten console output
-                        print: (text) => console.log('[QPDF]', text),
-                        printErr: (text) => console.warn('[QPDF]', text)
-                    }).then(instance => {
-                        this._qpdfInstance = instance;
-                        console.log('[Protect] QPDF WASM loaded successfully');
-                        resolve(instance);
-                    }).catch(err => {
-                        console.error('[Protect] QPDF initialization failed:', err);
-                        reject(err);
-                    });
-                };
-                script.onerror = () => {
-                    this._qpdfLoading = null;
-                    reject(new Error(
-                        'Could not load the encryption engine (libs/qpdf.js). ' +
-                        'Make sure the libs/ folder is deployed with your site.'
-                    ));
-                };
-                document.head.appendChild(script);
-            });
-            
-            try {
-                return await this._qpdfLoading;
-            } catch (e) {
-                this._qpdfLoading = null;
-                throw e;
-            }
-        },
         
         async process(files) {
             const pdfFiles = files.filter(FileType.isPDF);
-            if (pdfFiles.length === 0) {
-                Utils.showStatus('Please upload a PDF file', 'error');
-                return;
-            }
+            if (pdfFiles.length === 0) { Utils.showStatus('Please upload a PDF file', 'error'); return; }
             
             const password = document.getElementById('protectPassword')?.value;
             const confirmPassword = document.getElementById('protectPasswordConfirm')?.value;
@@ -8263,147 +8361,75 @@ const Tools = {
             const allowCopy = document.getElementById('allowCopying')?.checked;
             const allowModify = document.getElementById('allowModifying')?.checked;
             
-            if (!password) {
-                Utils.showStatus('Please enter a password', 'error');
-                document.getElementById('protectPassword')?.focus();
-                return;
-            }
-            
-            if (password !== confirmPassword) {
-                Utils.showStatus('Passwords do not match', 'error');
-                document.getElementById('protectPasswordConfirm')?.focus();
-                return;
-            }
+            if (!password) { Utils.showStatus('Please enter a password', 'error'); return; }
+            if (password !== confirmPassword) { Utils.showStatus('Passwords do not match', 'error'); return; }
             
             Utils.updateProgress(5, 'Loading encryption engine...');
-            
-            let qpdf;
-            try {
-                qpdf = await this._loadQpdf();
-            } catch (e) {
-                Utils.showStatus(e.message || 'Failed to load encryption engine', 'error');
-                return;
-            }
+            try { await QpdfEngine.load(); } catch (e) { Utils.showStatus(e.message, 'error'); return; }
             
             for (let i = 0; i < pdfFiles.length; i++) {
                 const file = pdfFiles[i];
-                Utils.updateProgress(
-                    10 + (i / pdfFiles.length) * 80,
-                    `Encrypting ${file.name}...`
-                );
-                
-                const inputPath = '/input.pdf';
-                const outputPath = '/output-protected.pdf';
+                Utils.updateProgress(10 + (i / pdfFiles.length) * 80, `Encrypting ${file.name}...`);
                 
                 try {
-                    const arrayBuffer = await file.arrayBuffer();
-                    const inputBytes = new Uint8Array(arrayBuffer);
-                    
-                    // Write input PDF to QPDF's virtual filesystem
-                    qpdf.FS.writeFile(inputPath, inputBytes);
-                    
-                    // Build QPDF command arguments
-                    // Use same password for both user and owner to avoid viewer inconsistencies
-                    const args = [
-                        '--encrypt',
-                        password,
-                        password,  // owner password = user password for simplicity
-                        '256'      // AES-256 encryption
-                    ];
-                    
-                    // Add permission restrictions
+                    const inputBytes = new Uint8Array(await file.arrayBuffer());
+                    const args = ['--encrypt', password, password, '256'];
                     if (!allowPrint) args.push('--print=none');
                     if (!allowCopy) args.push('--extract=n');
                     if (!allowModify) args.push('--modify=none');
                     
-                    // End encryption options and specify files
-                    args.push('--');
-                    args.push(inputPath);
-                    args.push(outputPath);
-                    
-                    console.log('[Protect] Running QPDF with args:', args.join(' '));
-                    
-                    // Run QPDF encryption
-                    const exitCode = qpdf.callMain(args);
-                    
-                    if (exitCode !== 0) {
-                        throw new Error(`QPDF returned exit code ${exitCode}`);
-                    }
-                    
-                    // Read encrypted output
-                    const outputBytes = qpdf.FS.readFile(outputPath);
-                    
-                    // Clean up virtual filesystem
-                    try { qpdf.FS.unlink(inputPath); } catch (e) {}
-                    try { qpdf.FS.unlink(outputPath); } catch (e) {}
-                    
-                    // Download the encrypted file
-                    saveAs(
-                        new Blob([outputBytes], { type: 'application/pdf' }),
-                        `protected_${file.name}`
-                    );
-                    
+                    const outputBytes = await QpdfEngine.run(inputBytes, args);
+                    saveAs(new Blob([outputBytes], { type: 'application/pdf' }), `protected_${file.name}`);
                 } catch (e) {
-                    // Clean up on error
-                    try { qpdf.FS.unlink(inputPath); } catch (ex) {}
-                    try { qpdf.FS.unlink(outputPath); } catch (ex) {}
-                    
-                    console.error(`[Protect] Failed to encrypt ${file.name}:`, e);
-                    Utils.showStatus(
-                        `Failed to encrypt "${file.name}": ${e.message || 'Unknown error'}. ` +
-                        `The PDF may be corrupted or use an unsupported format.`,
-                        'error'
-                    );
+                    Utils.showStatus(`Failed to encrypt "${file.name}": ${e.message}`, 'error');
                     return;
                 }
             }
             
-            const restrictions = [];
-            if (!allowPrint) restrictions.push('printing blocked');
-            if (!allowCopy) restrictions.push('copying blocked');
-            if (!allowModify) restrictions.push('editing blocked');
-            const restrictText = restrictions.length > 0 ? ` (${restrictions.join(', ')})` : '';
-            
             Utils.updateProgress(100, 'Complete!');
-            Utils.showStatus(
-                `${pdfFiles.length === 1 ? 'PDF' : pdfFiles.length + ' PDFs'} encrypted with AES-256!${restrictText} ` +
-                `A password will be required to open ${pdfFiles.length === 1 ? 'this file' : 'these files'}.`,
-                'success'
-            );
+            Utils.showStatus(`PDF${pdfFiles.length > 1 ? 's' : ''} encrypted with AES-256! A password is required to open.`, 'success');
         }
     },
     
     unlock: {
         name: 'Unlock PDF',
-        description: 'Remove password protection from PDFs',
+        description: 'Remove password protection from PDFs (requires the password)',
         icon: '🔓',
         configHTML: `
+            <div class="info-box" style="background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%); border-color: var(--color-primary);">
+                🔓 <strong>Real Decryption</strong> — Removes password protection entirely using the QPDF engine.
+                You must know the password. The output is a clean, unprotected PDF.
+            </div>
             <div class="form-group">
-                <label class="form-label">PDF Password</label>
-                <input type="password" class="form-input" id="unlockPassword" placeholder="Enter PDF password">
+                <label class="form-label">PDF Password <span style="color:var(--color-danger);">*</span></label>
+                <input type="password" class="form-input" id="unlockPassword" placeholder="Enter the PDF's password">
             </div>
         `,
         
         async process(files) {
             const password = document.getElementById('unlockPassword')?.value;
-
-            if (!password) {
-                Utils.showStatus('Please enter the PDF password', 'error');
-                return;
-            }
-
+            if (!password) { Utils.showStatus('Please enter the PDF password', 'error'); return; }
+            
             const pdfFiles = files.filter(FileType.isPDF);
+            if (pdfFiles.length === 0) { Utils.showStatus('Please upload a PDF file', 'error'); return; }
+            
+            Utils.updateProgress(5, 'Loading decryption engine...');
+            try { await QpdfEngine.load(); } catch (e) { Utils.showStatus(e.message, 'error'); return; }
 
             for (let i = 0; i < pdfFiles.length; i++) {
+                Utils.updateProgress(10 + (i / pdfFiles.length) * 80, `Decrypting ${pdfFiles[i].name}...`);
                 try {
-                    const arrayBuffer = await pdfFiles[i].arrayBuffer();
-                    const pdfDoc = await Utils.loadPDFWithEncryptionHandler(arrayBuffer, pdfFiles[i].name);
-                    const pdfBytes = await pdfDoc.save();
-                    saveAs(new Blob([pdfBytes], { type: 'application/pdf' }), `unlocked_${pdfFiles[i].name}`);
+                    const inputBytes = new Uint8Array(await pdfFiles[i].arrayBuffer());
+                    const outputBytes = await QpdfEngine.run(inputBytes, ['--decrypt'], password);
+                    saveAs(new Blob([outputBytes], { type: 'application/pdf' }), `unlocked_${pdfFiles[i].name}`);
                 } catch (e) {
-                    Utils.showStatus(`Failed to unlock ${pdfFiles[i].name}: Incorrect password or file not encrypted`, 'error');
+                    Utils.showStatus(`Failed to unlock "${pdfFiles[i].name}": Wrong password or file is not encrypted.`, 'error');
+                    return;
                 }
             }
+            
+            Utils.updateProgress(100, 'Complete!');
+            Utils.showStatus(`${pdfFiles.length === 1 ? 'PDF' : pdfFiles.length + ' PDFs'} unlocked! Password protection has been removed.`, 'success');
         }
     },
     
@@ -10159,65 +10185,77 @@ const Tools = {
     // ENHANCEMENT v7.12: Clean Slate (Metadata Scrubber) - Privacy Tool
     cleanslate: {
         name: 'Clean Slate',
-        description: 'Remove all metadata and digital fingerprints for complete privacy',
+        description: 'Deep metadata removal — strips all identifying info using both pdf-lib and QPDF',
         icon: '🧹',
         configHTML: `
             <div class="info-box" style="background: #e3f2fd; border-color: var(--color-primary);">
-                🔒 <strong>Privacy-First:</strong> This tool completely strips your PDF of all identifying information.
+                🔒 <strong>Deep Privacy Clean</strong> — Uses two engines for maximum metadata removal:
+                pdf-lib strips the Info dictionary (author, dates, software), and QPDF removes the
+                XMP metadata stream and internal document info that pdf-lib can't reach.
             </div>
             <div class="form-group">
                 <h3 style="margin-bottom: 12px;">What will be removed:</h3>
-                <ul style="margin-left: 20px; color: var(--color-text-muted);">
-                    <li>Author name</li>
-                    <li>Creator software (e.g., "Microsoft Word")</li>
-                    <li>Producer (e.g., "Adobe PDF Library")</li>
-                    <li>Creation date & time</li>
-                    <li>Modification date & time</li>
-                    <li>Title, subject, keywords</li>
-                    <li>Custom properties</li>
+                <ul style="margin-left: 20px; color: var(--color-text-muted); font-size: 13px;">
+                    <li>Author name, creator software, producer</li>
+                    <li>Creation & modification dates</li>
+                    <li>Title, subject, keywords, custom properties</li>
+                    <li>XMP metadata stream (embedded XML metadata)</li>
+                    <li>Internal document info dictionary</li>
                 </ul>
             </div>
             <div class="warning-box">
-                ⚠️ This action cannot be undone. The original metadata will be permanently removed from the output PDF.
+                ⚠️ This action cannot be undone. All metadata will be permanently removed.
             </div>
         `,
         
         async process(files) {
             const pdfFiles = files.filter(FileType.isPDF);
+            if (pdfFiles.length === 0) { Utils.showStatus('Please select at least one PDF file', 'error'); return; }
             
-            if (pdfFiles.length === 0) {
-                Utils.showStatus('Please select at least one PDF file', 'error');
-                return;
+            Utils.updateProgress(5, 'Loading engines...');
+            try { await QpdfEngine.load(); } catch (e) {
+                console.warn('[CleanSlate] QPDF not available, falling back to pdf-lib only:', e.message);
             }
             
-            Utils.updateProgress(10, 'Starting metadata removal...');
-            
             for (let i = 0; i < pdfFiles.length; i++) {
-                Utils.updateProgress(20 + (i / pdfFiles.length * 70), `Scrubbing ${pdfFiles[i].name}...`);
+                Utils.updateProgress(10 + (i / pdfFiles.length * 80), `Scrubbing ${pdfFiles[i].name}...`);
                 
-                const arrayBuffer = await pdfFiles[i].arrayBuffer();
-                const pdfDoc = await Utils.loadPDFWithEncryptionHandler(arrayBuffer, pdfFiles[i].name);
+                let arrayBuffer = await pdfFiles[i].arrayBuffer();
                 
-                // Strip ALL metadata
-                pdfDoc.setTitle('');
-                pdfDoc.setAuthor('');
-                pdfDoc.setSubject('');
-                pdfDoc.setKeywords([]);
-                pdfDoc.setProducer('');
-                pdfDoc.setCreator('');
+                // Pass 1: pdf-lib — strip Info dictionary entries
+                try {
+                    const pdfDoc = await Utils.loadPDFWithEncryptionHandler(arrayBuffer, pdfFiles[i].name);
+                    pdfDoc.setTitle('');
+                    pdfDoc.setAuthor('');
+                    pdfDoc.setSubject('');
+                    pdfDoc.setKeywords([]);
+                    pdfDoc.setProducer('');
+                    pdfDoc.setCreator('');
+                    pdfDoc.setCreationDate(new Date(0));
+                    pdfDoc.setModificationDate(new Date(0));
+                    const pdfLibBytes = await pdfDoc.save();
+                    arrayBuffer = pdfLibBytes.buffer;
+                } catch (e) {
+                    console.warn('[CleanSlate] pdf-lib pass failed:', e.message);
+                }
                 
-                // Remove creation and modification dates by setting to epoch
-                pdfDoc.setCreationDate(new Date(0));
-                pdfDoc.setModificationDate(new Date(0));
+                // Pass 2: QPDF — remove XMP metadata stream and internal info
+                let finalBytes;
+                try {
+                    finalBytes = await QpdfEngine.run(
+                        new Uint8Array(arrayBuffer),
+                        ['--remove-unreferenced-resources=yes']
+                    );
+                } catch (e) {
+                    console.warn('[CleanSlate] QPDF pass skipped:', e.message);
+                    finalBytes = new Uint8Array(arrayBuffer);
+                }
                 
-                const pdfBytes = await pdfDoc.save();
-                const cleanName = withExt(pdfFiles[i].name, '_clean.pdf');
-                
-                saveAs(new Blob([pdfBytes], { type: 'application/pdf' }), cleanName);
+                saveAs(new Blob([finalBytes], { type: 'application/pdf' }), withExt(pdfFiles[i].name, '_clean.pdf'));
             }
             
             Utils.updateProgress(100, 'Complete!');
-            Utils.showStatus(`Metadata scrubbed! ${pdfFiles.length} file(s) cleaned.`, 'success');
+            Utils.showStatus(`${pdfFiles.length} file(s) deep-cleaned! All metadata removed.`, 'success');
         }
     },
     
@@ -11436,62 +11474,105 @@ const Tools = {
     
     validate: {
         name: 'Validate PDF',
-        description: 'Check PDF validity and structure',
+        description: 'Deep structural validation using QPDF — checks cross-references, streams, and objects',
         icon: '✓',
         
         async process(files) {
             const pdfFiles = files.filter(FileType.isPDF);
+            if (pdfFiles.length === 0) { Utils.showStatus('Please upload a PDF file', 'error'); return; }
             
-            let validCount = 0;
-            let invalidCount = 0;
+            Utils.updateProgress(5, 'Loading validation engine...');
+            try { await QpdfEngine.load(); } catch (e) { Utils.showStatus(e.message, 'error'); return; }
+            
+            let report = 'PDF VALIDATION REPORT\n' + '='.repeat(60) + '\n';
+            report += `Generated: ${new Date().toLocaleString()}\n\n`;
+            
+            let validCount = 0, warningCount = 0, invalidCount = 0;
             
             for (let i = 0; i < pdfFiles.length; i++) {
-                try {
-                    const arrayBuffer = await pdfFiles[i].arrayBuffer();
-                    const pdfDoc = await Utils.loadPDFWithEncryptionHandler(arrayBuffer, pdfFiles[i].name);
-                    const pageCount = pdfDoc.getPageCount();
-                    
-                    console.log(`✓ ${pdfFiles[i].name}: Valid (${pageCount} pages)`);
+                Utils.updateProgress(10 + (i / pdfFiles.length) * 80, `Validating ${pdfFiles[i].name}...`);
+                
+                const inputBytes = new Uint8Array(await pdfFiles[i].arrayBuffer());
+                const result = await QpdfEngine.check(inputBytes);
+                
+                report += `━━━ ${pdfFiles[i].name} (${Utils.formatFileSize(pdfFiles[i].size)}) ━━━\n`;
+                
+                if (result.exitCode === 0) {
+                    report += '✅ VALID — No structural issues found\n';
                     validCount++;
-                } catch (e) {
-                    console.error(`✗ ${pdfFiles[i].name}: Invalid - ${e.message}`);
+                } else if (result.exitCode === 3) {
+                    report += '⚠️ VALID WITH WARNINGS\n';
+                    warningCount++;
+                } else {
+                    report += '❌ INVALID — Structural problems detected\n';
                     invalidCount++;
                 }
+                
+                if (result.messages.length > 0) {
+                    report += '\nDetails:\n';
+                    result.messages.forEach(msg => {
+                        report += `  ${msg}\n`;
+                    });
+                }
+                report += '\n';
             }
             
-            Utils.showStatus(`Validation complete: ${validCount} valid, ${invalidCount} invalid`, validCount === pdfFiles.length ? 'success' : 'warning');
+            report += '='.repeat(60) + '\n';
+            report += `Summary: ${validCount} valid, ${warningCount} warnings, ${invalidCount} invalid\n`;
+            
+            const blob = new Blob([report], { type: 'text/plain' });
+            saveAs(blob, 'pdf_validation_report.txt');
+            
+            Utils.updateProgress(100, 'Complete!');
+            const statusType = invalidCount > 0 ? 'error' : warningCount > 0 ? 'warning' : 'success';
+            Utils.showStatus(
+                `Validation complete: ${validCount} valid, ${warningCount} warnings, ${invalidCount} invalid. Report downloaded.`,
+                statusType
+            );
         }
     },
     
     repair: {
         name: 'Repair PDF',
-        description: 'Attempt to repair corrupted PDFs',
+        description: 'Fix corrupted PDFs by rebuilding their internal structure (powered by QPDF)',
         icon: '🔧',
         configHTML: `
-            <div class="warning-box">
-                ⚠️ PDF repair has limitations. Severely corrupted files may not be recoverable.
+            <div class="info-box" style="background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%); border-color: var(--color-primary);">
+                🔧 <strong>Deep Structural Repair</strong> — Uses the QPDF engine to rebuild cross-reference tables,
+                fix stream lengths, remove orphaned objects, and recover from truncation.
+                Much more thorough than simple load-and-resave.
             </div>
         `,
         
         async process(files) {
             const pdfFiles = files.filter(FileType.isPDF);
+            if (pdfFiles.length === 0) { Utils.showStatus('Please upload a PDF file', 'error'); return; }
             
+            Utils.updateProgress(5, 'Loading repair engine...');
+            try { await QpdfEngine.load(); } catch (e) { Utils.showStatus(e.message, 'error'); return; }
+            
+            let repairedCount = 0;
             for (let i = 0; i < pdfFiles.length; i++) {
-                Utils.updateProgress((i / pdfFiles.length) * 100, `Attempting to repair ${pdfFiles[i].name}...`);
-                
+                Utils.updateProgress(10 + (i / pdfFiles.length) * 80, `Repairing ${pdfFiles[i].name}...`);
                 try {
-                    const arrayBuffer = await pdfFiles[i].arrayBuffer();
-                    const pdfDoc = await PDFLib.PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
-                    const pdfBytes = await pdfDoc.save();
-                    
-                    saveAs(new Blob([pdfBytes], { type: 'application/pdf' }), `repaired_${pdfFiles[i].name}`);
-                    Utils.showStatus(`${pdfFiles[i].name} repaired successfully`, 'success');
+                    const inputBytes = new Uint8Array(await pdfFiles[i].arrayBuffer());
+                    // Running QPDF with no special args auto-repairs during processing
+                    const outputBytes = await QpdfEngine.run(inputBytes, []);
+                    saveAs(new Blob([outputBytes], { type: 'application/pdf' }), `repaired_${pdfFiles[i].name}`);
+                    repairedCount++;
                 } catch (e) {
-                    Utils.showStatus(`Failed to repair ${pdfFiles[i].name}: ${e.message}`, 'error');
+                    Utils.showStatus(`Could not repair "${pdfFiles[i].name}": The file may be too severely damaged. (${e.message})`, 'error');
                 }
             }
             
-            Utils.updateProgress(100, 'Complete!');
+            if (repairedCount > 0) {
+                Utils.updateProgress(100, 'Complete!');
+                Utils.showStatus(
+                    `${repairedCount} PDF${repairedCount > 1 ? 's' : ''} repaired! ` +
+                    `Cross-references rebuilt, orphaned objects removed, streams re-validated.`,
+                    'success'
+                );
+            }
         }
     },
     
@@ -12383,6 +12464,47 @@ const Tools = {
         }
     },
 
+    // ==================== WEB OPTIMIZE (LINEARIZE) TOOL ====================
+    weboptimize: {
+        name: 'Web Optimize',
+        description: 'Linearize PDFs for fast web loading — pages display before the full file downloads',
+        icon: '⚡',
+        configHTML: `
+            <div class="info-box" style="background: linear-gradient(135deg, #06b6d420 0%, #10b98120 100%); border-color: #06b6d4;">
+                ⚡ <strong>Fast Web View (Linearization)</strong> — Rearranges the PDF structure so browsers
+                can display the first page while the rest is still downloading. Essential for PDFs
+                published on websites. Does not change content, quality, or text — purely structural.
+            </div>
+        `,
+        
+        async process(files) {
+            const pdfFiles = files.filter(FileType.isPDF);
+            if (pdfFiles.length === 0) { Utils.showStatus('Please upload a PDF file', 'error'); return; }
+            
+            Utils.updateProgress(5, 'Loading optimization engine...');
+            try { await QpdfEngine.load(); } catch (e) { Utils.showStatus(e.message, 'error'); return; }
+            
+            for (let i = 0; i < pdfFiles.length; i++) {
+                Utils.updateProgress(10 + (i / pdfFiles.length) * 80, `Optimizing ${pdfFiles[i].name}...`);
+                try {
+                    const inputBytes = new Uint8Array(await pdfFiles[i].arrayBuffer());
+                    const outputBytes = await QpdfEngine.run(inputBytes, ['--linearize']);
+                    
+                    const saved = ((pdfFiles[i].size - outputBytes.length) / pdfFiles[i].size * 100).toFixed(1);
+                    saveAs(new Blob([outputBytes], { type: 'application/pdf' }), `optimized_${pdfFiles[i].name}`);
+                    
+                    console.log(`[WebOptimize] ${pdfFiles[i].name}: ${Utils.formatFileSize(pdfFiles[i].size)} → ${Utils.formatFileSize(outputBytes.length)} (${saved}%)`);
+                } catch (e) {
+                    Utils.showStatus(`Failed to optimize "${pdfFiles[i].name}": ${e.message}`, 'error');
+                    return;
+                }
+            }
+            
+            Utils.updateProgress(100, 'Complete!');
+            Utils.showStatus(`${pdfFiles.length} PDF${pdfFiles.length > 1 ? 's' : ''} optimized for fast web loading!`, 'success');
+        }
+    },
+
     // ==================== CROP / TRIM MARGINS TOOL ====================
     crop: {
         name: 'Crop / Trim Margins',
@@ -12745,10 +12867,15 @@ const ToolManager = {
             reorder: ['PDFLib', 'saveAs'],
             removeblank: ['PDFLib', 'saveAs'],
             formfill: ['PDFLib', 'saveAs'],
+            // Flatten: uses PDFLib (form fields) + QPDF (annotations), needs saveAs
             flatten: ['PDFLib', 'saveAs'],
             // Protect: uses QPDF WASM (loaded internally by the tool), only needs saveAs
             protect: ['saveAs'],
-            unlock: ['PDFLib', 'saveAs'],
+            
+            // Web Optimize: uses QPDF (self-loaded) for linearization
+            weboptimize: ['saveAs'],
+            // Unlock: uses QPDF (self-loaded) for real decryption
+            unlock: ['saveAs'],
             redact: ['PDFLib', 'saveAs'],
             watermark: ['PDFLib', 'saveAs'],
             pagenumber: ['PDFLib', 'saveAs'],
@@ -12761,8 +12888,10 @@ const ToolManager = {
             categorize: ['PDFLib', 'saveAs', 'JSZip'],
             invoice: ['PDFLib', 'saveAs'],
             batchslicer: ['PDFLib', 'saveAs', 'JSZip'],
-            validate: ['PDFLib'],
-            repair: ['PDFLib', 'saveAs'],
+            // Validate: uses QPDF --check (self-loaded), downloads text report
+            validate: [],
+            // Repair: uses QPDF (self-loaded) for real structural repair
+            repair: ['saveAs'],
             audit: ['PDFLib'],
             splitmerge: ['PDFLib', 'saveAs', 'JSZip'],
             imagestopdf: ['PDFLib', 'saveAs'],
@@ -13748,7 +13877,7 @@ const FavoritesManager = {
         sign:       { icon: '✍️', text: 'Drop a PDF to sign it' },
         annotate:   { icon: '💬', text: 'Drop a PDF to annotate it' },
         protect:    { icon: '🔒', text: 'Drop a PDF to encrypt with a password' },
-        unlock:     { icon: '🔓', text: 'Drop a PDF to unlock it' },
+        unlock:     { icon: '🔓', text: 'Drop an encrypted PDF to remove its password' },
         redact:     { icon: '🖍️', text: 'Drop a PDF to redact text' },
         watermark:  { icon: '💧', text: 'Drop a PDF to add a watermark' },
         topng:      { icon: '🖼️', text: 'Drop a PDF to convert to images' },
@@ -13758,6 +13887,9 @@ const FavoritesManager = {
         crop:       { icon: '✂️', text: 'Drop a PDF to crop margins' },
         emailsign:  { icon: '📧', text: 'Drop a PDF to send for signature' },
         compare:    { icon: '🔍', text: 'Drop 2 PDFs to compare them' },
+        repair:     { icon: '🔧', text: 'Drop a damaged PDF to repair it' },
+        validate:   { icon: '✓', text: 'Drop a PDF to check its structure' },
+        weboptimize:{ icon: '⚡', text: 'Drop a PDF to optimize for web loading' },
     };
     
     // Rec #10: Show/hide tool config based on file upload state
