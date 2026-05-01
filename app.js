@@ -6441,12 +6441,16 @@ const Tools = {
             const margin = 40;
             let x, y;
 
+            // X position: straightforward left/center/right
             if (horizontal === 'left')        x = margin;
             else if (horizontal === 'center') x = (pageWidth - this.signatureSettings.width) / 2;
             else                              x = pageWidth - this.signatureSettings.width - margin;
 
-            if (vertical === 'top')   y = pageHeight - this.signatureSettings.height - margin;
-            else                      y = margin;
+            // Y position: slider uses screen coordinates (0=top, large=bottom)
+            // process() converts to PDF coords with: pdfY = height - sliderY - sigHeight
+            // So we store screen-like values here:
+            if (vertical === 'top')   y = margin;  // near top of page
+            else                      y = pageHeight - this.signatureSettings.height - margin; // near bottom
 
             this.signatureSettings.x = Math.round(x);
             this.signatureSettings.y = Math.round(y);
@@ -6472,16 +6476,37 @@ const Tools = {
                 input.addEventListener('change', (e) => {
                     const file = e.target.files[0];
                     if (!file) return;
-                    const reader = new FileReader();
-                    reader.onload = (ev) => {
-                        this.signatureImage = ev.target.result;
-                        document.getElementById('signatureImg').src = ev.target.result;
+                    
+                    // FIX: Convert all uploaded images to PNG via canvas
+                    // This avoids "SOI not found" errors with JPEG files that have
+                    // EXIF data, unusual encoding, or other quirks that pdf-lib can't parse
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = img.naturalWidth;
+                        canvas.height = img.naturalHeight;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0);
+                        
+                        // Always save as PNG — universal compatibility with pdf-lib
+                        const pngDataUrl = canvas.toDataURL('image/png');
+                        this.signatureImage = pngDataUrl;
+                        
+                        document.getElementById('signatureImg').src = pngDataUrl;
                         document.getElementById('signaturePreview').classList.remove('hidden');
                         document.getElementById('signatureControls').classList.remove('hidden');
                         PDFPreview.updateSignatureOverlay();
+                        Utils.showStatus('Signature image loaded!', 'success');
+                        
+                        // Clean up
+                        URL.revokeObjectURL(img.src);
                     };
-                    reader.onerror = () => Utils.showStatus('Failed to load signature image.', 'error');
-                    reader.readAsDataURL(file);
+                    img.onerror = () => {
+                        Utils.showStatus('Failed to load signature image. Please try a different file.', 'error');
+                        URL.revokeObjectURL(img.src);
+                    };
+                    // Use object URL instead of FileReader for better memory handling
+                    img.src = URL.createObjectURL(file);
                 });
             }
 
@@ -6544,26 +6569,23 @@ const Tools = {
                 const arrayBuffer = await pdfFiles[i].arrayBuffer();
                 const pdfDoc = await Utils.loadPDFWithEncryptionHandler(arrayBuffer, pdfFiles[i].name);
 
-                // FIX: Robust signature image embedding - convert data URL to bytes
-                // Helper function to convert data URL to bytes
+                // FIX: All signatures are now stored as PNG data URLs
+                // (uploaded images are converted to PNG on load, typed/drawn use canvas.toDataURL('image/png'))
                 const dataUrlToBytes = (dataUrl) => {
                     const base64 = dataUrl.split(',')[1];
                     return Uint8Array.from(atob(base64), c => c.charCodeAt(0));
                 };
                 
-                // Embed signature image with proper format detection
                 let signatureImg;
-                if (this.signatureImage.startsWith('data:image/png')) {
+                try {
                     signatureImg = await pdfDoc.embedPng(dataUrlToBytes(this.signatureImage));
-                } else if (this.signatureImage.startsWith('data:image/jpeg') ||
-                           this.signatureImage.startsWith('data:image/jpg')) {
-                    signatureImg = await pdfDoc.embedJpg(dataUrlToBytes(this.signatureImage));
-                } else {
-                    // Fallback: try PNG first, then JPG
+                } catch (e) {
+                    console.warn('[Sign] PNG embed failed, trying JPEG fallback:', e.message);
                     try {
-                        signatureImg = await pdfDoc.embedPng(dataUrlToBytes(this.signatureImage));
-                    } catch {
                         signatureImg = await pdfDoc.embedJpg(dataUrlToBytes(this.signatureImage));
+                    } catch (e2) {
+                        Utils.showStatus('Failed to embed signature image. Please try uploading a different image.', 'error');
+                        return;
                     }
                 }
 
@@ -8387,7 +8409,7 @@ const Tools = {
             }
             
             Utils.updateProgress(100, 'Complete!');
-            Utils.showStatus(`PDF${pdfFiles.length > 1 ? 's' : ''} encrypted with AES-256! A password is required to open.`, 'success');
+            Utils.showStatus(`PDF${pdfFiles.length > 1 ? 's' : ''} encrypted with AES-256! A password is required to open. Tip: test the protected file before deleting the original.`, 'success');
         }
     },
     
@@ -12889,7 +12911,7 @@ const ToolManager = {
             invoice: ['PDFLib', 'saveAs'],
             batchslicer: ['PDFLib', 'saveAs', 'JSZip'],
             // Validate: uses QPDF --check (self-loaded), downloads text report
-            validate: [],
+            validate: ['saveAs'],
             // Repair: uses QPDF (self-loaded) for real structural repair
             repair: ['saveAs'],
             audit: ['PDFLib'],
@@ -13148,7 +13170,7 @@ function setupEventHandlers() {
 
 // Initialization
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('🚀 PDF Workspace v9.6.0 - 20 Enhancements');
+    console.log('🚀 PDF Workspace v9.6.0 - 48 Tools, QPDF Engine');
     console.log('🌙 Dark mode • ⌨️ Keyboard shortcuts • 📱 Mobile sidebar • 🔗 Deep links');
     console.log('⚡ Lazy loading • 🔀 File reorder • 📦 Batch ZIP • 📡 Offline indicator');
     console.log('🎯 100% Client-Side Processing - Your Files Never Leave Your Browser');
@@ -13969,106 +13991,7 @@ const FavoritesManager = {
         } catch (e) {}
     });
     
-    // Enhancement: Typed Signature support for Sign tool
-    // Monkey-patch Sign tool init to add typed signature UI
-    if (Tools.sign && Tools.sign.init) {
-        const originalSignInit = Tools.sign.init.bind(Tools.sign);
-        Tools.sign.init = function() {
-            originalSignInit();
-            
-            // Add typed signature option after the file upload
-            const sigInput = document.getElementById('signatureInput');
-            if (!sigInput) return;
-            const sigGroup = sigInput.closest('.form-group');
-            if (!sigGroup) return;
-            
-            const typedHTML = document.createElement('div');
-            typedHTML.className = 'sig-type-container';
-            typedHTML.innerHTML = `
-                <div class="form-label" style="margin-bottom:8px;">Or type your signature:</div>
-                <input type="text" class="sig-type-input" id="sigTypeInput" placeholder="Type your name...">
-                <div class="sig-font-select" id="sigFontSelect">
-                    <button class="sig-font-btn active" data-font="'Brush Script MT', 'Segoe Script', cursive" style="font-family: 'Brush Script MT', 'Segoe Script', cursive;">Signature</button>
-                    <button class="sig-font-btn" data-font="'Georgia', serif" style="font-family: Georgia, serif; font-style: italic;">Signature</button>
-                    <button class="sig-font-btn" data-font="'Courier New', monospace" style="font-family: 'Courier New', monospace;">Signature</button>
-                    <button class="sig-font-btn" data-font="'Palatino', 'Book Antiqua', serif" style="font-family: Palatino, 'Book Antiqua', serif; font-style:italic;">Signature</button>
-                </div>
-                <canvas class="sig-preview-canvas" id="sigTypePreview"></canvas>
-                <button class="btn btn-primary" id="sigTypeApply" style="width:100%;margin-top:8px;" disabled>
-                    ✍️ Use This Signature
-                </button>
-            `;
-            sigGroup.parentNode.insertBefore(typedHTML, sigGroup.nextSibling);
-            
-            // Wire up typed signature
-            const input = document.getElementById('sigTypeInput');
-            const preview = document.getElementById('sigTypePreview');
-            const applyBtn = document.getElementById('sigTypeApply');
-            const fontBtns = document.querySelectorAll('#sigFontSelect .sig-font-btn');
-            let currentFont = "'Brush Script MT', 'Segoe Script', cursive";
-            
-            function renderTypedSig() {
-                if (!preview || !input) return;
-                const text = input.value.trim();
-                const ctx = preview.getContext('2d');
-                preview.width = preview.clientWidth * 2;
-                preview.height = preview.clientHeight * 2;
-                ctx.scale(2, 2);
-                
-                ctx.clearRect(0, 0, preview.clientWidth, preview.clientHeight);
-                ctx.fillStyle = 'white';
-                ctx.fillRect(0, 0, preview.clientWidth, preview.clientHeight);
-                
-                if (text) {
-                    ctx.fillStyle = '#1a1a2e';
-                    ctx.font = `italic 32px ${currentFont}`;
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText(text, preview.clientWidth / 2, preview.clientHeight / 2);
-                    if (applyBtn) applyBtn.disabled = false;
-                } else {
-                    ctx.fillStyle = '#ccc';
-                    ctx.font = '14px sans-serif';
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText('Type your name above', preview.clientWidth / 2, preview.clientHeight / 2);
-                    if (applyBtn) applyBtn.disabled = true;
-                }
-            }
-            
-            if (input) input.addEventListener('input', renderTypedSig);
-            
-            fontBtns.forEach(btn => {
-                btn.addEventListener('click', () => {
-                    fontBtns.forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    currentFont = btn.dataset.font;
-                    renderTypedSig();
-                });
-            });
-            
-            if (applyBtn) {
-                applyBtn.addEventListener('click', () => {
-                    if (!preview || !input?.value.trim()) return;
-                    const dataUrl = preview.toDataURL('image/png');
-                    
-                    // Set on the sign tool's signatureImage property
-                    Tools.sign.signatureImage = dataUrl;
-                    
-                    // Update the preview image in the Sign tool UI
-                    const sigImg = document.getElementById('signatureImg');
-                    const sigPreviewDiv = document.getElementById('signaturePreview');
-                    if (sigImg) sigImg.src = dataUrl;
-                    if (sigPreviewDiv) sigPreviewDiv.classList.remove('hidden');
-                    
-                    Utils.showStatus('Typed signature applied! Position it on the PDF preview.', 'success');
-                });
-            }
-            
-            // Initial render
-            setTimeout(renderTypedSig, 100);
-        };
-    }
+    // (Old typed signature monkey-patch removed in v9.6.0 — the Sign tool now has a native Type tab)
     
     // Enhancement #2: URL hash routing - listen for back/forward navigation
     // (Initial hash-based tool load is handled above in the startup block)
