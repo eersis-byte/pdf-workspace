@@ -1392,27 +1392,24 @@ const PDFPreview = {
     
     updateOverlayPosition(overlay, settings) {
         const canvas = document.getElementById('pdfPreviewCanvas');
-        if (!canvas) {
-            console.warn('[PDFPreview] Cannot update overlay position - canvas not found');
-            return;
-        }
+        if (!canvas) return;
         
-        // BUG FIX: Use actual PDF page dimensions instead of assuming 612pt (Letter)
-        // This fixes coordinate drift for A4 (595pt) and other page sizes
-        const actualPageWidth = this.currentPageWidth || 612; // Fallback to Letter if not set
-        const scale = canvas.width / actualPageWidth;
+        // Use CSS display dimensions for positioning (handles high-DPI correctly)
+        const canvasRect = canvas.getBoundingClientRect();
+        const pageWidth = this.currentPageWidth || 612;
+        const pageHeight = this.currentPageHeight || 792;
         
-        // Calculate position relative to canvas
-        const screenX = settings.x * scale;
-        const screenY = (canvas.height / scale - settings.y - settings.height) * scale;
-        const screenWidth = settings.width * scale;
-        const screenHeight = settings.height * scale;
+        // Scale from PDF points to CSS display pixels
+        const scaleX = canvasRect.width / pageWidth;
+        const scaleY = canvasRect.height / pageHeight;
         
+        // settings.y is SCREEN TOP-DOWN: 0 = top of page, increasing downward
+        // Direct mapping — no coordinate flip needed for preview
         overlay.style.position = 'absolute';
-        overlay.style.left = screenX + 'px';
-        overlay.style.top = screenY + 'px';
-        overlay.style.width = screenWidth + 'px';
-        overlay.style.height = screenHeight + 'px';
+        overlay.style.left = (settings.x * scaleX) + 'px';
+        overlay.style.top = (settings.y * scaleY) + 'px';
+        overlay.style.width = (settings.width * scaleX) + 'px';
+        overlay.style.height = (settings.height * scaleY) + 'px';
     },
     
     updateSignatureOverlay() {
@@ -1456,7 +1453,6 @@ const PDFPreview = {
             const initialLeft = overlay.offsetLeft;
             const initialTop = overlay.offsetTop;
             
-            // CRITICAL FIX #6: Scoped listeners that clean up properly
             const onMove = (e) => {
                 const deltaX = e.clientX - startX;
                 const deltaY = e.clientY - startY;
@@ -1469,22 +1465,21 @@ const PDFPreview = {
                 
                 const canvas = document.getElementById('pdfPreviewCanvas');
                 if (canvas) {
-                    // Use actual PDF page dimensions (not hardcoded Letter)
-                    const w = this.currentPageWidth || 612;
-                    const h = this.currentPageHeight || 792;
-                    const scale = canvas.width / w;
+                    const canvasRect = canvas.getBoundingClientRect();
+                    const pageWidth = this.currentPageWidth || 612;
+                    const pageHeight = this.currentPageHeight || 792;
+                    const scaleX = canvasRect.width / pageWidth;
+                    const scaleY = canvasRect.height / pageHeight;
+                    
                     const screenX = parseFloat(overlay.style.left);
                     const screenY = parseFloat(overlay.style.top);
                     
-                    // Convert screen coordinates back to PDF coordinates
-                    const pdfX = screenX / scale;
-                    const pdfY = (canvas.height / scale) - (screenY / scale) - settings.height;
+                    // Convert CSS display pixels back to PDF points (screen top-down)
+                    // No coordinate flip — settings.y is screen top-down
+                    settings.x = Math.max(0, Math.min(pageWidth - settings.width, Math.round(screenX / scaleX)));
+                    settings.y = Math.max(0, Math.min(pageHeight - settings.height, Math.round(screenY / scaleY)));
                     
-                    // Clamp to actual page bounds (not hardcoded 600x800)
-                    settings.x = Math.max(0, Math.min(w - settings.width, Math.round(pdfX)));
-                    settings.y = Math.max(0, Math.min(h - settings.height, Math.round(pdfY)));
-                    
-                    console.log('[PDFPreview] Drag complete - new position:', settings);
+                    console.log('[PDFPreview] Drag complete - position (screen top-down):', settings);
                     
                     // Update sliders
                     const sigX = document.getElementById('sigX');
@@ -1498,7 +1493,6 @@ const PDFPreview = {
                     if (sigYValue) sigYValue.textContent = settings.y;
                 }
                 
-                // Remove listeners to prevent leak
                 document.removeEventListener('mousemove', onMove);
                 document.removeEventListener('mouseup', onUp);
             };
@@ -6049,7 +6043,7 @@ const Tools = {
         description: 'Add your signature to PDF documents',
         icon: '✍️',
         signatureImage: null,
-        signatureSettings: { x: 450, y: 40, width: 160, height: 60 },
+        signatureSettings: { x: 380, y: 700, width: 160, height: 60 },
         drawingState: { isDrawing: false, lastX: 0, lastY: 0 },
 
         configHTML: `
@@ -6187,12 +6181,12 @@ const Tools = {
                 </div>
                 
                 <div class="range-group">
-                    <div class="range-label"><span>X Position</span><span class="range-value" id="sigXValue">450</span></div>
-                    <input type="range" id="sigX" min="0" max="600" value="450">
+                    <div class="range-label"><span>X Position</span><span class="range-value" id="sigXValue">380</span></div>
+                    <input type="range" id="sigX" min="0" max="600" value="380">
                 </div>
                 <div class="range-group">
-                    <div class="range-label"><span>Y Position</span><span class="range-value" id="sigYValue">40</span></div>
-                    <input type="range" id="sigY" min="0" max="800" value="40">
+                    <div class="range-label"><span>Y Position (top → bottom)</span><span class="range-value" id="sigYValue">700</span></div>
+                    <input type="range" id="sigY" min="0" max="800" value="700">
                 </div>
                 <div class="range-group">
                     <div class="range-label"><span>Width</span><span class="range-value" id="sigWidthValue">160</span></div>
