@@ -1863,7 +1863,7 @@ const TOOL_FILE_TYPES = {
     batchslicer: ['pdf'], validate: ['pdf'], repair: ['pdf'], audit: ['pdf'],
     compare: ['pdf'], workflow: ['pdf'], smartpages: ['pdf'],
     crop: ['pdf'], extracttables: ['pdf'], receiptparser: ['pdf'],
-    emailsign: ['pdf'], weboptimize: ['pdf'],
+    emailsign: ['pdf'], weboptimize: ['pdf'], sortpages: ['pdf'],
     docscan: ['image'],
 };
 
@@ -4374,7 +4374,7 @@ const Tools = {
                 imagestopdf: 'popular', protect: 'popular', topng: 'popular', ocr: 'popular',
                 emailsign: 'new', crop: 'new', docscan: 'new',
                 workflow: 'new', smartpages: 'new', extracttables: 'new', receiptparser: 'new',
-                weboptimize: 'new'
+                weboptimize: 'new', sortpages: 'new'
             };
             
             const categories = [
@@ -4382,7 +4382,7 @@ const Tools = {
                 { id: 'sigforms', title: '✍️ Signature & Forms', tools: ['sign','emailsign','annotate','editpdf','pdftexteditor','formfill','flatten'] },
                 { id: 'security', title: '🔒 Security', tools: ['protect','unlock','redact','watermark','piiscan','cleanslate'] },
                 { id: 'conversion', title: '🎨 Conversion', tools: ['topng','imagestopdf','docscan','html2pdf','office2pdf','pdf2office','ocr'] },
-                { id: 'advanced', title: '📊 Advanced', tools: ['compare','weboptimize','pagenumber','metadata','metaedit','bates','oddeven','interleave'] },
+                { id: 'advanced', title: '📊 Advanced', tools: ['compare','weboptimize','sortpages','pagenumber','metadata','metaedit','bates','oddeven','interleave'] },
                 { id: 'batch', title: '📦 Batch & Special', tools: ['extracttables','receiptparser','categorize','invoice','batchslicer','splitmerge','validate','repair','audit'] },
                 { id: 'automation', title: '⚡ Automation', tools: ['workflow'] },
             ];
@@ -5916,6 +5916,266 @@ const Tools = {
             
             saveAs(new Blob([pdfBytes], { type: 'application/pdf' }), 'reordered.pdf');
             Utils.showStatus('Pages reordered successfully!', 'success');
+        }
+    },
+    
+    // ==================== SORT PAGES TOOL ====================
+    sortpages: {
+        name: 'Sort Pages',
+        description: 'Automatically sort pages by text content — alphabetical, numeric, or by a field on each page',
+        icon: '🔤',
+        _extractedData: null,
+        
+        configHTML: `
+            <div class="info-box" style="background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%); border-color: var(--color-primary);">
+                🔤 <strong>Smart Page Sorting</strong> — Extracts text from each page and sorts
+                alphabetically, numerically, or by a pattern you specify.
+                Great for invoices, form submissions, or scanned documents.
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Sort By</label>
+                <select class="form-select" id="sortField">
+                    <option value="firstline">First line of text on each page</option>
+                    <option value="lastline">Last line of text on each page</option>
+                    <option value="firstnumber">First number found on each page</option>
+                    <option value="pattern">Custom pattern (regex)</option>
+                    <option value="alltext">All text on page (full text sort)</option>
+                </select>
+            </div>
+            
+            <div class="form-group" id="sortPatternGroup" style="display:none;">
+                <label class="form-label">Pattern (regular expression)</label>
+                <input type="text" class="form-input" id="sortPattern" placeholder="e.g., Invoice #(\\d+) or Name: (.+)">
+                <p style="font-size: 12px; color: var(--color-text-muted); margin-top: 4px;">
+                    Use parentheses to capture the value to sort by. Example: <code>Invoice #(\\d+)</code> captures the invoice number.
+                </p>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Sort Order</label>
+                <select class="form-select" id="sortOrder">
+                    <option value="asc">A → Z / 0 → 9 (ascending)</option>
+                    <option value="desc">Z → A / 9 → 0 (descending)</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Sort Method</label>
+                <select class="form-select" id="sortMethod">
+                    <option value="auto">Auto-detect (numbers sorted numerically, text alphabetically)</option>
+                    <option value="alpha">Always alphabetical</option>
+                    <option value="numeric">Always numeric</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <button class="btn btn-secondary" id="sortPreviewBtn" style="width:100%;">
+                    🔍 Preview Extracted Values (before sorting)
+                </button>
+                <div id="sortPreviewArea" style="display:none; margin-top:12px; max-height:300px; overflow-y:auto; background:var(--color-bg-secondary); border-radius:8px; padding:12px; font-size:13px; font-family:monospace;">
+                </div>
+            </div>
+        `,
+        
+        init() {
+            const fieldSelect = document.getElementById('sortField');
+            const patternGroup = document.getElementById('sortPatternGroup');
+            if (fieldSelect && patternGroup) {
+                fieldSelect.addEventListener('change', () => {
+                    patternGroup.style.display = fieldSelect.value === 'pattern' ? 'block' : 'none';
+                });
+            }
+            
+            const previewBtn = document.getElementById('sortPreviewBtn');
+            if (previewBtn) {
+                previewBtn.addEventListener('click', async () => {
+                    const pdfFiles = AppState.files.filter(FileType.isPDF);
+                    if (pdfFiles.length === 0) {
+                        Utils.showStatus('Upload a PDF first', 'error');
+                        return;
+                    }
+                    
+                    previewBtn.disabled = true;
+                    previewBtn.textContent = '⏳ Extracting text...';
+                    
+                    try {
+                        const extracted = await this._extractSortValues(pdfFiles[0]);
+                        this._extractedData = extracted;
+                        
+                        const area = document.getElementById('sortPreviewArea');
+                        if (area) {
+                            area.style.display = 'block';
+                            area.innerHTML = extracted.map((item, i) => {
+                                const hasValue = item.value && item.value.trim();
+                                const display = hasValue
+                                    ? Utils.escapeHtml(String(item.value).substring(0, 100))
+                                    : '<em style="color:var(--color-text-muted);">(no text found)</em>';
+                                return `<div style="padding:4px 0; border-bottom:1px solid var(--color-border);">
+                                    <strong>Page ${item.pageNum}:</strong> ${display}
+                                </div>`;
+                            }).join('');
+                        }
+                    } catch (e) {
+                        Utils.showStatus('Failed to extract text: ' + e.message, 'error');
+                    }
+                    
+                    previewBtn.disabled = false;
+                    previewBtn.textContent = '🔍 Preview Extracted Values (before sorting)';
+                });
+            }
+        },
+        
+        async _extractSortValues(file) {
+            const sortField = document.getElementById('sortField')?.value || 'firstline';
+            const patternStr = document.getElementById('sortPattern')?.value || '';
+            
+            const arrayBuffer = await file.arrayBuffer();
+            const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer.slice(0) });
+            const pdf = await loadingTask.promise;
+            
+            const results = [];
+            
+            for (let i = 1; i <= pdf.numPages; i++) {
+                Utils.updateProgress((i / pdf.numPages) * 50, `Reading page ${i}/${pdf.numPages}...`);
+                
+                const page = await pdf.getPage(i);
+                const textContent = await page.getTextContent();
+                const fullText = textContent.items.map(item => item.str).join(' ').trim();
+                const lines = fullText.split(/\s{3,}|\n/).map(l => l.trim()).filter(l => l.length > 0);
+                
+                let value = '';
+                
+                switch (sortField) {
+                    case 'firstline':
+                        value = lines[0] || '';
+                        break;
+                    case 'lastline':
+                        value = lines[lines.length - 1] || '';
+                        break;
+                    case 'firstnumber':
+                        const numMatch = fullText.match(/[\d,]+\.?\d*/);
+                        value = numMatch ? numMatch[0].replace(/,/g, '') : '';
+                        break;
+                    case 'pattern':
+                        if (patternStr) {
+                            try {
+                                const regex = new RegExp(patternStr);
+                                const match = fullText.match(regex);
+                                value = match ? (match[1] || match[0]) : '';
+                            } catch (e) {
+                                // Only warn once (on first page)
+                                if (i === 1) {
+                                    Utils.showStatus(`Invalid regex pattern: ${e.message}. Check your pattern syntax.`, 'warning');
+                                }
+                                value = '';
+                            }
+                        } else {
+                            if (i === 1) {
+                                Utils.showStatus('Please enter a regex pattern in the Pattern field.', 'warning');
+                            }
+                            value = '';
+                        }
+                        break;
+                    case 'alltext':
+                        value = fullText;
+                        break;
+                }
+                
+                results.push({ pageNum: i, pageIndex: i - 1, value: value });
+            }
+            
+            return results;
+        },
+        
+        async process(files) {
+            const pdfFiles = files.filter(FileType.isPDF);
+            if (pdfFiles.length !== 1) {
+                Utils.showStatus('Please select exactly one PDF file', 'error');
+                return;
+            }
+            
+            const sortOrder = document.getElementById('sortOrder')?.value || 'asc';
+            const sortMethod = document.getElementById('sortMethod')?.value || 'auto';
+            
+            // Extract values if not already previewed
+            Utils.updateProgress(5, 'Extracting text from pages...');
+            let extracted;
+            try {
+                extracted = await this._extractSortValues(pdfFiles[0]);
+            } catch (e) {
+                Utils.showStatus('Failed to extract text: ' + e.message, 'error');
+                return;
+            }
+            
+            if (extracted.length < 2) {
+                Utils.showStatus('This PDF has only one page — nothing to sort.', 'warning');
+                return;
+            }
+            
+            // Check if we got any values
+            const hasValues = extracted.some(item => item.value && item.value.trim());
+            if (!hasValues) {
+                Utils.showStatus('No text found on any page with the selected sort method. Try a different "Sort By" option, or the PDF may be image-based (try OCR first).', 'warning');
+                return;
+            }
+            
+            // Sort
+            Utils.updateProgress(60, 'Sorting pages...');
+            
+            const sorted = [...extracted].sort((a, b) => {
+                let valA = (a.value || '').trim();
+                let valB = (b.value || '').trim();
+                
+                // Determine if we should sort numerically
+                let useNumeric = sortMethod === 'numeric';
+                if (sortMethod === 'auto') {
+                    const numA = parseFloat(valA.replace(/[^0-9.-]/g, ''));
+                    const numB = parseFloat(valB.replace(/[^0-9.-]/g, ''));
+                    if (!isNaN(numA) && !isNaN(numB)) {
+                        useNumeric = true;
+                        valA = numA;
+                        valB = numB;
+                    }
+                }
+                
+                let result;
+                if (useNumeric) {
+                    const nA = typeof valA === 'number' ? valA : parseFloat(String(valA).replace(/[^0-9.-]/g, '')) || 0;
+                    const nB = typeof valB === 'number' ? valB : parseFloat(String(valB).replace(/[^0-9.-]/g, '')) || 0;
+                    result = nA - nB;
+                } else {
+                    result = String(valA).localeCompare(String(valB), undefined, { sensitivity: 'base', numeric: true });
+                }
+                
+                return sortOrder === 'desc' ? -result : result;
+            });
+            
+            // Build new PDF in sorted order
+            Utils.updateProgress(70, 'Building sorted PDF...');
+            const arrayBuffer = await pdfFiles[0].arrayBuffer();
+            const pdfDoc = await Utils.loadPDFWithEncryptionHandler(arrayBuffer, pdfFiles[0].name);
+            
+            const sortedIndices = sorted.map(item => item.pageIndex);
+            const newPdf = await PDFLib.PDFDocument.create();
+            const pages = await newPdf.copyPages(pdfDoc, sortedIndices);
+            pages.forEach(page => newPdf.addPage(page));
+            
+            Utils.updateProgress(90, 'Saving...');
+            const pdfBytes = await newPdf.save();
+            
+            saveAs(new Blob([pdfBytes], { type: 'application/pdf' }), `sorted_${pdfFiles[0].name}`);
+            
+            // Show the sort result
+            const orderDescription = sorted.map((item, i) => `${i + 1}. Page ${item.pageNum}: "${String(item.value).substring(0, 40)}"`).join('\n');
+            console.log('[SortPages] Final order:\n' + orderDescription);
+            
+            Utils.updateProgress(100, 'Complete!');
+            Utils.showStatus(
+                `Pages sorted ${sortOrder === 'asc' ? 'A→Z / 0→9' : 'Z→A / 9→0'}! ` +
+                `${sorted.length} pages reordered by extracted text values.`,
+                'success'
+            );
         }
     },
     
@@ -12890,6 +13150,7 @@ const ToolManager = {
             
             // Web Optimize: uses QPDF (self-loaded) for linearization
             weboptimize: ['saveAs'],
+            sortpages: ['pdfjsLib', 'PDFLib', 'saveAs'],
             // Unlock: uses QPDF (self-loaded) for real decryption
             unlock: ['saveAs'],
             redact: ['PDFLib', 'saveAs'],
@@ -13906,6 +14167,7 @@ const FavoritesManager = {
         repair:     { icon: '🔧', text: 'Drop a damaged PDF to repair it' },
         validate:   { icon: '✓', text: 'Drop a PDF to check its structure' },
         weboptimize:{ icon: '⚡', text: 'Drop a PDF to optimize for web loading' },
+        sortpages:  { icon: '🔤', text: 'Drop a PDF to sort its pages by content' },
     };
     
     // Rec #10: Show/hide tool config based on file upload state

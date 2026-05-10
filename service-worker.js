@@ -18,7 +18,9 @@ const LOCAL_ASSETS = [
     './app.js',
     './styles.css',
     './manifest.json',  // PWA manifest - required for offline install
-    './favicon.ico'
+    './favicon.ico',
+    './libs/qpdf.js',   // QPDF encryption engine
+    './libs/qpdf.wasm'  // QPDF WebAssembly binary (~1.3 MB)
 ];
 
 // CDN libraries - cached at runtime or best-effort during install

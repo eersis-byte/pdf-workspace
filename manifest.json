@@ -1,7 +1,7 @@
 {
   "name": "PDF Workspace - Privacy-First PDF Tools",
   "short_name": "PDF Workspace",
-  "description": "47+ professional PDF tools running entirely in your browser. No uploads, complete privacy.",
+  "description": "49 professional PDF tools running entirely in your browser. No uploads, complete privacy.",
   "start_url": "./",
   "display": "standalone",
   "display_override": ["window-controls-overlay", "standalone"],
