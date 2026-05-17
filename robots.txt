@@ -1,0 +1,8 @@
+# PDF Workspace - Privacy-First PDF Tools
+# https://emailgate.org
+
+User-agent: *
+Allow: /
+
+# Sitemap location
+Sitemap: https://emailgate.org/sitemap.xml

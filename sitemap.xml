@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <!-- Homepage -->
+  <url>
+    <loc>https://emailgate.org/</loc>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  
+  <!-- Basic Operations -->
+  <url><loc>https://emailgate.org/#tool=merge</loc><priority>0.9</priority></url>
+  <url><loc>https://emailgate.org/#tool=split</loc><priority>0.9</priority></url>
+  <url><loc>https://emailgate.org/#tool=compress</loc><priority>0.9</priority></url>
+  <url><loc>https://emailgate.org/#tool=rotate</loc><priority>0.7</priority></url>
+  <url><loc>https://emailgate.org/#tool=extract</loc><priority>0.8</priority></url>
+  <url><loc>https://emailgate.org/#tool=reorder</loc><priority>0.6</priority></url>
+  <url><loc>https://emailgate.org/#tool=reverse</loc><priority>0.5</priority></url>
+  <url><loc>https://emailgate.org/#tool=removeblank</loc><priority>0.6</priority></url>
+  <url><loc>https://emailgate.org/#tool=crop</loc><priority>0.6</priority></url>
+  <url><loc>https://emailgate.org/#tool=smartpages</loc><priority>0.5</priority></url>
+  
+  <!-- Signature & Forms -->
+  <url><loc>https://emailgate.org/#tool=sign</loc><priority>0.9</priority></url>
+  <url><loc>https://emailgate.org/#tool=emailsign</loc><priority>0.6</priority></url>
+  <url><loc>https://emailgate.org/#tool=annotate</loc><priority>0.7</priority></url>
+  <url><loc>https://emailgate.org/#tool=editpdf</loc><priority>0.7</priority></url>
+  <url><loc>https://emailgate.org/#tool=pdftexteditor</loc><priority>0.6</priority></url>
+  <url><loc>https://emailgate.org/#tool=formfill</loc><priority>0.6</priority></url>
+  <url><loc>https://emailgate.org/#tool=flatten</loc><priority>0.6</priority></url>
+  
+  <!-- Security -->
+  <url><loc>https://emailgate.org/#tool=protect</loc><priority>0.9</priority></url>
+  <url><loc>https://emailgate.org/#tool=unlock</loc><priority>0.8</priority></url>
+  <url><loc>https://emailgate.org/#tool=redact</loc><priority>0.7</priority></url>
+  <url><loc>https://emailgate.org/#tool=watermark</loc><priority>0.7</priority></url>
+  <url><loc>https://emailgate.org/#tool=piiscan</loc><priority>0.6</priority></url>
+  <url><loc>https://emailgate.org/#tool=cleanslate</loc><priority>0.6</priority></url>
+  
+  <!-- Conversion -->
+  <url><loc>https://emailgate.org/#tool=topng</loc><priority>0.8</priority></url>
+  <url><loc>https://emailgate.org/#tool=imagestopdf</loc><priority>0.8</priority></url>
+  <url><loc>https://emailgate.org/#tool=ocr</loc><priority>0.8</priority></url>
+  <url><loc>https://emailgate.org/#tool=docscan</loc><priority>0.6</priority></url>
+  <url><loc>https://emailgate.org/#tool=html2pdf</loc><priority>0.5</priority></url>
+  <url><loc>https://emailgate.org/#tool=office2pdf</loc><priority>0.6</priority></url>
+  <url><loc>https://emailgate.org/#tool=pdf2office</loc><priority>0.6</priority></url>
+  
+  <!-- Advanced -->
+  <url><loc>https://emailgate.org/#tool=compare</loc><priority>0.6</priority></url>
+  <url><loc>https://emailgate.org/#tool=weboptimize</loc><priority>0.7</priority></url>
+  <url><loc>https://emailgate.org/#tool=sortpages</loc><priority>0.6</priority></url>
+  <url><loc>https://emailgate.org/#tool=pagenumber</loc><priority>0.7</priority></url>
+  <url><loc>https://emailgate.org/#tool=metadata</loc><priority>0.6</priority></url>
+  <url><loc>https://emailgate.org/#tool=metaedit</loc><priority>0.5</priority></url>
+  <url><loc>https://emailgate.org/#tool=bates</loc><priority>0.5</priority></url>
+  <url><loc>https://emailgate.org/#tool=oddeven</loc><priority>0.5</priority></url>
+  <url><loc>https://emailgate.org/#tool=interleave</loc><priority>0.5</priority></url>
+  
+  <!-- Batch & Special -->
+  <url><loc>https://emailgate.org/#tool=extracttables</loc><priority>0.6</priority></url>
+  <url><loc>https://emailgate.org/#tool=receiptparser</loc><priority>0.5</priority></url>
+  <url><loc>https://emailgate.org/#tool=categorize</loc><priority>0.5</priority></url>
+  <url><loc>https://emailgate.org/#tool=invoice</loc><priority>0.5</priority></url>
+  <url><loc>https://emailgate.org/#tool=batchslicer</loc><priority>0.5</priority></url>
+  <url><loc>https://emailgate.org/#tool=splitmerge</loc><priority>0.5</priority></url>
+  <url><loc>https://emailgate.org/#tool=validate</loc><priority>0.6</priority></url>
+  <url><loc>https://emailgate.org/#tool=repair</loc><priority>0.7</priority></url>
+  <url><loc>https://emailgate.org/#tool=audit</loc><priority>0.5</priority></url>
+  
+  <!-- Automation -->
+  <url><loc>https://emailgate.org/#tool=workflow</loc><priority>0.5</priority></url>
+</urlset>
