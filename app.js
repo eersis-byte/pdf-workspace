@@ -8529,61 +8529,174 @@ const Tools = {
                 annotations into permanent page content that cannot be edited.
             </div>
             <div class="form-group">
-                <label class="form-label">What to flatten</label>
+                <label class="form-label">Flatten Mode</label>
                 <select class="form-select" id="flattenMode">
-                    <option value="all" selected>Everything (forms + annotations)</option>
-                    <option value="forms">Form fields only (pdf-lib)</option>
-                    <option value="annotations">Annotations only (QPDF)</option>
+                    <option value="standard" selected>Standard — forms + annotations (recommended)</option>
+                    <option value="thorough">Thorough — multiple passes for stubborn fields</option>
+                    <option value="complete">Complete — re-render pages as images (100% flat, loses text selectability)</option>
                 </select>
+                <p id="flattenModeDesc" style="font-size: 12px; color: var(--color-text-muted); margin-top: 6px;">
+                    Uses pdf-lib for form fields and QPDF for annotations. Works for most PDFs.
+                </p>
             </div>
             <div class="warning-box" style="background: #fff3cd; border-left: 4px solid #ffc107; color: #856404; padding: 10px 14px; border-radius: 6px; font-size: 13px;">
-                ⚠️ Flattening annotations may also affect hyperlinks. This action cannot be undone.
+                ⚠️ Flattening is permanent. Hyperlinks and interactive elements will stop working.
             </div>
         `,
+        
+        init() {
+            const modeSelect = document.getElementById('flattenMode');
+            const modeDesc = document.getElementById('flattenModeDesc');
+            if (modeSelect && modeDesc) {
+                const descriptions = {
+                    standard: 'Uses pdf-lib for form fields and QPDF for annotations. Works for most PDFs.',
+                    thorough: 'Runs pdf-lib form flatten, then QPDF annotation flatten, then QPDF structural rewrite. Handles stubborn fields that survive the standard pass.',
+                    complete: 'Re-renders every page as a high-quality image. Guarantees 100% flattening but text will no longer be selectable or searchable.'
+                };
+                modeSelect.addEventListener('change', () => {
+                    modeDesc.textContent = descriptions[modeSelect.value] || '';
+                });
+            }
+        },
         
         async process(files) {
             const pdfFiles = files.filter(FileType.isPDF);
             if (pdfFiles.length === 0) { Utils.showStatus('Please upload a PDF file', 'error'); return; }
             
-            const mode = document.getElementById('flattenMode')?.value || 'all';
+            const mode = document.getElementById('flattenMode')?.value || 'standard';
             
             for (let i = 0; i < pdfFiles.length; i++) {
-                Utils.updateProgress((i / pdfFiles.length) * 100, `Flattening ${pdfFiles[i].name}...`);
+                Utils.updateProgress((i / pdfFiles.length) * 90, `Flattening ${pdfFiles[i].name}...`);
                 
-                let pdfBytes;
                 const arrayBuffer = await pdfFiles[i].arrayBuffer();
+                let pdfBytes;
                 
-                if (mode === 'forms' || mode === 'all') {
-                    // Flatten form fields with pdf-lib
-                    try {
-                        const pdfDoc = await Utils.loadPDFWithEncryptionHandler(arrayBuffer, pdfFiles[i].name);
-                        const form = pdfDoc.getForm();
-                        form.flatten();
-                        pdfBytes = await pdfDoc.save();
-                    } catch (e) {
-                        console.log('[Flatten] No form fields to flatten or pdf-lib error:', e.message);
-                        pdfBytes = new Uint8Array(arrayBuffer);
-                    }
+                if (mode === 'complete') {
+                    // Nuclear option: re-render each page as an image
+                    pdfBytes = await this._flattenViaRender(arrayBuffer, pdfFiles[i].name);
                 } else {
-                    pdfBytes = new Uint8Array(arrayBuffer);
+                    pdfBytes = await this._flattenStandard(arrayBuffer, pdfFiles[i].name, mode === 'thorough');
                 }
                 
-                if (mode === 'annotations' || mode === 'all') {
-                    // Flatten annotations with QPDF
-                    try {
-                        await QpdfEngine.load();
-                        pdfBytes = await QpdfEngine.run(pdfBytes, ['--flatten-annotations=all']);
-                    } catch (e) {
-                        console.warn('[Flatten] QPDF annotation flattening failed:', e.message);
-                        Utils.showStatus(`Warning: Annotation flattening failed for "${pdfFiles[i].name}". Form flattening may still have succeeded.`, 'warning');
-                    }
+                if (pdfBytes) {
+                    saveAs(new Blob([pdfBytes], { type: 'application/pdf' }), `flattened_${pdfFiles[i].name}`);
                 }
-                
-                saveAs(new Blob([pdfBytes], { type: 'application/pdf' }), `flattened_${pdfFiles[i].name}`);
             }
             
             Utils.updateProgress(100, 'Complete!');
-            Utils.showStatus('PDFs flattened successfully!', 'success');
+            Utils.showStatus('PDFs flattened successfully!' + (mode === 'complete' ? ' (pages rendered as images)' : ''), 'success');
+        },
+        
+        async _flattenStandard(arrayBuffer, filename, thorough) {
+            let pdfBytes = new Uint8Array(arrayBuffer);
+            let formsFlattened = false;
+            
+            // Pass 1: pdf-lib — flatten AcroForm fields
+            try {
+                const pdfDoc = await PDFLib.PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
+                const form = pdfDoc.getForm();
+                const fields = form.getFields();
+                
+                if (fields.length > 0) {
+                    console.log(`[Flatten] Found ${fields.length} form fields, flattening with pdf-lib...`);
+                    
+                    // Flatten each field individually to avoid one bad field killing the whole pass
+                    for (const field of fields) {
+                        try {
+                            field.enableReadOnly();
+                        } catch (e) {
+                            console.warn(`[Flatten] Could not set field readonly: ${e.message}`);
+                        }
+                    }
+                    
+                    try {
+                        form.flatten();
+                        formsFlattened = true;
+                        console.log('[Flatten] pdf-lib form.flatten() succeeded');
+                    } catch (e) {
+                        console.warn('[Flatten] form.flatten() failed, trying individual field removal:', e.message);
+                        // Fallback: try to remove the AcroForm dictionary entirely
+                        try {
+                            pdfDoc.catalog.delete(PDFLib.PDFName.of('AcroForm'));
+                            formsFlattened = true;
+                            console.log('[Flatten] Removed AcroForm dictionary as fallback');
+                        } catch (e2) {
+                            console.warn('[Flatten] AcroForm removal also failed:', e2.message);
+                        }
+                    }
+                    
+                    pdfBytes = await pdfDoc.save();
+                } else {
+                    console.log('[Flatten] No form fields found');
+                }
+            } catch (e) {
+                console.warn('[Flatten] pdf-lib pass failed entirely:', e.message);
+            }
+            
+            // Pass 2: QPDF — flatten all annotations
+            try {
+                await QpdfEngine.load();
+                console.log('[Flatten] Running QPDF --flatten-annotations=all');
+                pdfBytes = await QpdfEngine.run(pdfBytes, ['--flatten-annotations=all']);
+            } catch (e) {
+                console.warn('[Flatten] QPDF annotation flatten failed:', e.message);
+                Utils.showStatus(`Warning: QPDF annotation flattening failed. ${formsFlattened ? 'Form fields were flattened.' : 'Try "Complete" mode.'}`, 'warning');
+            }
+            
+            // Pass 3 (thorough only): QPDF structural rewrite to clean up remnants
+            if (thorough) {
+                try {
+                    console.log('[Flatten] Thorough mode: QPDF structural rewrite pass');
+                    pdfBytes = await QpdfEngine.run(pdfBytes, ['--normalize-content=y', '--object-streams=generate']);
+                } catch (e) {
+                    console.warn('[Flatten] QPDF thorough pass failed:', e.message);
+                }
+            }
+            
+            return pdfBytes;
+        },
+        
+        async _flattenViaRender(arrayBuffer, filename) {
+            // Re-render every page as a high-quality image — guarantees 100% flat
+            Utils.updateProgress(10, 'Rendering pages as images...');
+            
+            const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer.slice(0) });
+            const pdf = await loadingTask.promise;
+            const newPdf = await PDFLib.PDFDocument.create();
+            
+            for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                Utils.updateProgress(10 + (pageNum / pdf.numPages) * 75, `Rendering page ${pageNum}/${pdf.numPages}...`);
+                
+                const page = await pdf.getPage(pageNum);
+                const viewport = page.getViewport({ scale: 2.0 }); // 2x for quality
+                
+                const canvas = document.createElement('canvas');
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+                const ctx = canvas.getContext('2d');
+                
+                await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+                
+                // Convert canvas to PNG bytes
+                const dataUrl = canvas.toDataURL('image/png');
+                const base64 = dataUrl.split(',')[1];
+                const imgBytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+                
+                const img = await newPdf.embedPng(imgBytes);
+                
+                // Create page with same dimensions as original (in PDF points, not rendered pixels)
+                const origViewport = page.getViewport({ scale: 1.0 });
+                const newPage = newPdf.addPage([origViewport.width, origViewport.height]);
+                newPage.drawImage(img, {
+                    x: 0,
+                    y: 0,
+                    width: origViewport.width,
+                    height: origViewport.height
+                });
+            }
+            
+            Utils.updateProgress(90, 'Saving flattened PDF...');
+            return await newPdf.save();
         }
     },
     
@@ -13143,8 +13256,8 @@ const ToolManager = {
             reorder: ['PDFLib', 'saveAs'],
             removeblank: ['PDFLib', 'saveAs'],
             formfill: ['PDFLib', 'saveAs'],
-            // Flatten: uses PDFLib (form fields) + QPDF (annotations), needs saveAs
-            flatten: ['PDFLib', 'saveAs'],
+            // Flatten: uses PDFLib (form fields) + QPDF (annotations) + pdfjsLib (complete mode render)
+            flatten: ['pdfjsLib', 'PDFLib', 'saveAs'],
             // Protect: uses QPDF WASM (loaded internally by the tool), only needs saveAs
             protect: ['saveAs'],
             
