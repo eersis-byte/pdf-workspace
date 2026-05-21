@@ -1,0 +1,3541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>File Workspace — 25 Local File Tools | No Upload, 100% Private</title>
+<meta name="description" content="25 free file organization tools that run entirely in your browser. Cleanup, rename, sort, deduplicate, and organize files locally. No uploads, no servers, no accounts — your files never leave your device.">
+<meta name="keywords" content="file organizer, cleanup files, duplicate finder, batch rename, file manager, local file tools, no upload, privacy file organizer, browser file tools, offline file manager">
+<meta name="author" content="File Workspace">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://emailgate.org/file-workspace.html">
+
+<!-- Open Graph -->
+<meta property="og:title" content="File Workspace — 25 Local File Tools, 100% Private">
+<meta property="og:description" content="Cleanup, rename, sort, deduplicate, and organize files entirely in your browser. No uploads, no servers, no accounts. Your files never leave your device.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://emailgate.org/file-workspace.html">
+<meta property="og:site_name" content="File Workspace">
+<meta property="og:image" content="https://emailgate.org/icons/icon-512.png">
+<meta property="og:image:width" content="512">
+<meta property="og:image:height" content="512">
+
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="File Workspace — 25 Local File Tools, 100% Private">
+<meta name="twitter:description" content="Cleanup, rename, sort, deduplicate, and organize files entirely in your browser. No uploads, no servers. Your files never leave your device.">
+<meta name="twitter:image" content="https://emailgate.org/icons/icon-512.png">
+
+<!-- Mobile -->
+<meta name="theme-color" content="#667eea">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="File Workspace">
+<link rel="icon" href="icons/icon-512.png" type="image/png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════
+   CSS VARIABLES — matching emailgate.org
+   ═══════════════════════════════════════════ */
+:root {
+  --primary: #667eea;
+  --primary-dark: #5a6fd6;
+  --primary-light: #8b9cf7;
+  --primary-glow: rgba(102, 126, 234, 0.15);
+  --accent: #764ba2;
+  --gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  --gradient-subtle: linear-gradient(135deg, rgba(102,126,234,0.08) 0%, rgba(118,75,162,0.08) 100%);
+
+  --bg: #f7f8fc;
+  --bg-card: #ffffff;
+  --bg-sidebar: #ffffff;
+  --bg-hover: #f0f2f8;
+  --bg-input: #f7f8fc;
+
+  --text: #1a1a2e;
+  --text-secondary: #64648c;
+  --text-muted: #9999b8;
+
+  --border: #e8e8f0;
+  --border-focus: #667eea;
+
+  --success: #22c55e;
+  --success-bg: rgba(34, 197, 94, 0.1);
+  --warning: #f59e0b;
+  --warning-bg: rgba(245, 158, 11, 0.1);
+  --danger: #ef4444;
+  --danger-bg: rgba(239, 68, 68, 0.1);
+  --info: #3b82f6;
+  --info-bg: rgba(59, 130, 246, 0.1);
+
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-lg: 16px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 30px rgba(0,0,0,0.12);
+
+  --sidebar-w: 260px;
+  --header-h: 60px;
+
+  --font-display: 'Space Grotesk', sans-serif;
+  --font-body: 'DM Sans', sans-serif;
+}
+
+[data-theme="dark"] {
+  --bg: #0f0f1a;
+  --bg-card: #1a1a2e;
+  --bg-sidebar: #141425;
+  --bg-hover: #22223a;
+  --bg-input: #22223a;
+  --text: #e8e8f0;
+  --text-secondary: #9999b8;
+  --text-muted: #64648c;
+  --border: #2a2a45;
+  --border-focus: #8b9cf7;
+  --shadow: 0 1px 3px rgba(0,0,0,0.3);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
+  --shadow-lg: 0 8px 30px rgba(0,0,0,0.5);
+  --primary-glow: rgba(102, 126, 234, 0.1);
+  --gradient-subtle: linear-gradient(135deg, rgba(102,126,234,0.06) 0%, rgba(118,75,162,0.06) 100%);
+}
+
+/* ═══════════════════════════════════════════
+   RESET & BASE
+   ═══════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { font-size: 16px; -webkit-text-size-adjust: 100%; }
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  overflow: hidden;
+  height: 100vh;
+}
+
+/* ═══════════════════════════════════════════
+   LAYOUT
+   ═══════════════════════════════════════════ */
+.app-layout {
+  display: flex;
+  height: 100vh;
+  width: 100%;
+}
+
+/* ── TRUST STRIP ── */
+.trust-strip {
+  background: var(--gradient);
+  color: white;
+  text-align: center;
+  padding: 6px 16px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+  font-family: var(--font-body);
+}
+.trust-strip span { margin: 0 12px; opacity: 0.9; }
+
+/* ── HEADER ── */
+.header {
+  height: var(--header-h);
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  color: var(--text);
+}
+
+.header-brand .logo {
+  width: 36px; height: 36px;
+  background: var(--gradient);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.2rem;
+  color: white;
+  box-shadow: 0 2px 8px rgba(102,126,234,0.3);
+}
+
+.header-brand h1 {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 700;
+  background: var(--gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-icon {
+  width: 38px; height: 38px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem;
+  transition: all 0.2s;
+}
+.btn-icon:hover { background: var(--bg-hover); color: var(--text); border-color: var(--primary); }
+
+/* ── SIDEBAR ── */
+.sidebar {
+  width: var(--sidebar-w);
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.sidebar-section {
+  padding: 6px 12px;
+}
+
+.sidebar-section-title {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  padding: 12px 12px 6px;
+  font-family: var(--font-display);
+}
+
+.tool-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  font-family: var(--font-body);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+}
+.tool-btn:hover { background: var(--bg-hover); color: var(--text); }
+.tool-btn.active {
+  background: var(--primary-glow);
+  color: var(--primary);
+  font-weight: 500;
+}
+.tool-btn .icon { font-size: 1.15rem; width: 24px; text-align: center; }
+
+/* ── MAIN CONTENT ── */
+.main-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+/* ── CARDS ── */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow);
+  margin-bottom: 20px;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.card-header .card-icon {
+  width: 42px; height: 42px;
+  border-radius: var(--radius);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.3rem;
+}
+.card-header h2 {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+.card-header p {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+/* ── BUTTONS ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: var(--radius-sm);
+  border: none;
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-primary {
+  background: var(--gradient);
+  color: white;
+  box-shadow: 0 2px 8px rgba(102,126,234,0.3);
+}
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(102,126,234,0.4); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+.btn-secondary {
+  background: var(--bg-input);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.btn-secondary:hover { border-color: var(--primary); background: var(--primary-glow); }
+
+.btn-danger {
+  background: var(--danger-bg);
+  color: var(--danger);
+  border: 1px solid transparent;
+}
+.btn-danger:hover { border-color: var(--danger); }
+
+.btn-success {
+  background: var(--success-bg);
+  color: #16a34a;
+  border: 1px solid transparent;
+}
+.btn-success:hover { border-color: var(--success); }
+
+.btn-sm { padding: 6px 14px; font-size: 0.82rem; }
+
+.btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ── FOLDER PICKER ── */
+.folder-picker {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-lg);
+  padding: 48px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s;
+  background: var(--gradient-subtle);
+}
+.folder-picker:hover {
+  border-color: var(--primary);
+  background: var(--primary-glow);
+}
+.folder-picker .pick-icon {
+  font-size: 3rem;
+  margin-bottom: 12px;
+  display: block;
+}
+.folder-picker h3 {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.folder-picker p {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+/* ── STATUS BAR ── */
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  margin-bottom: 20px;
+  font-size: 0.88rem;
+}
+.status-bar .status-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--success);
+  flex-shrink: 0;
+}
+.status-bar .status-dot.scanning {
+  background: var(--warning);
+  animation: pulse 1s ease infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ── RESULTS TABLE ── */
+.results-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+.results-table th {
+  text-align: left;
+  padding: 10px 12px;
+  font-weight: 600;
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  border-bottom: 2px solid var(--border);
+}
+.results-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.results-table tr:hover td { background: var(--bg-hover); }
+
+.results-table .check-col { width: 36px; }
+.results-table input[type="checkbox"] {
+  width: 16px; height: 16px;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+/* ── TAG / BADGE ── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.badge-info { background: var(--info-bg); color: var(--info); }
+.badge-success { background: var(--success-bg); color: #16a34a; }
+.badge-warning { background: var(--warning-bg); color: #d97706; }
+.badge-danger { background: var(--danger-bg); color: var(--danger); }
+
+/* ── SCAN SUMMARY GRID ── */
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.summary-stat {
+  background: var(--bg-input);
+  border-radius: var(--radius);
+  padding: 16px;
+  text-align: center;
+  border: 1px solid var(--border);
+}
+.summary-stat .stat-value {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+.summary-stat .stat-label {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* ── TABS ── */
+.tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 2px solid var(--border);
+  margin-bottom: 20px;
+}
+.tab-btn {
+  padding: 10px 18px;
+  border: none;
+  background: none;
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: all 0.2s;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+  font-weight: 600;
+}
+
+/* ── FORM INPUTS ── */
+.form-group {
+  margin-bottom: 16px;
+}
+.form-group label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 500;
+  margin-bottom: 6px;
+  color: var(--text-secondary);
+}
+.form-group input, .form-group select, .form-group textarea {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-input);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  transition: border-color 0.2s;
+}
+.form-group input:focus, .form-group select:focus {
+  outline: none;
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px var(--primary-glow);
+}
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.toggle-row:last-child { border-bottom: none; }
+
+.toggle {
+  position: relative;
+  width: 44px; height: 24px;
+  background: var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+  border: none;
+}
+.toggle.on { background: var(--primary); }
+.toggle::after {
+  content: '';
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 20px; height: 20px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+.toggle.on::after { transform: translateX(20px); }
+
+/* ── PROGRESS BAR ── */
+.progress-bar {
+  width: 100%;
+  height: 6px;
+  background: var(--bg-input);
+  border-radius: 3px;
+  overflow: hidden;
+  margin: 12px 0;
+}
+.progress-bar .fill {
+  height: 100%;
+  background: var(--gradient);
+  border-radius: 3px;
+  transition: width 0.3s;
+}
+
+/* ── ACTIVITY LOG ── */
+.log-entries {
+  max-height: 300px;
+  overflow-y: auto;
+  font-size: 0.82rem;
+  font-family: 'SF Mono', 'Consolas', monospace;
+}
+.log-entry {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: 10px;
+}
+.log-entry .log-time { color: var(--text-muted); white-space: nowrap; }
+.log-entry .log-action { color: var(--primary); font-weight: 500; min-width: 70px; }
+.log-entry .log-detail { color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── STEP INDICATOR ── */
+.steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 16px 24px;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+}
+.step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.step.active { color: var(--primary); font-weight: 600; }
+.step.done { color: var(--success); }
+.step .step-num {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700;
+  font-size: 0.82rem;
+  font-family: var(--font-display);
+}
+.step.active .step-num { background: var(--primary); color: white; border-color: var(--primary); }
+.step.done .step-num { background: var(--success); color: white; border-color: var(--success); }
+.step-arrow { margin: 0 12px; color: var(--border); font-size: 0.9rem; }
+
+/* ── FOOTER ── */
+.footer {
+  padding: 10px 24px;
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+  background: var(--bg-card);
+}
+.footer a { color: var(--primary); text-decoration: none; }
+.footer a:hover { text-decoration: underline; }
+
+/* ── HOME GRID ── */
+.home-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 14px;
+}
+.home-tool-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+.home-tool-card:hover {
+  border-color: var(--primary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+.home-tool-card .htc-icon { font-size: 2rem; margin-bottom: 8px; }
+.home-tool-card .htc-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 0.92rem;
+  margin-bottom: 4px;
+}
+.home-tool-card .htc-desc {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* ── SEARCH ── */
+.search-box {
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.search-box input {
+  width: 100%;
+  padding: 9px 14px 9px 36px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-input);
+  color: var(--text);
+  font-size: 0.88rem;
+  font-family: var(--font-body);
+}
+.search-box input:focus { outline: none; border-color: var(--primary); }
+.search-wrap { position: relative; }
+.search-wrap::before {
+  content: '🔍';
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.85rem;
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 768px) {
+  .sidebar { display: none; }
+  .sidebar.open {
+    display: flex;
+    position: fixed;
+    z-index: 200;
+    top: 0; left: 0; bottom: 0;
+    box-shadow: var(--shadow-lg);
+  }
+  .content { padding: 16px; }
+  .summary-grid { grid-template-columns: repeat(2, 1fr); }
+  .home-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* ── ANIMATION ── */
+.fade-in {
+  animation: fadeIn 0.3s ease;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── MODAL ── */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 500;
+  align-items: center;
+  justify-content: center;
+}
+.modal-overlay.show { display: flex; }
+.modal {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  width: min(560px, 92vw);
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 28px;
+  box-shadow: var(--shadow-lg);
+}
+.modal h3 {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+/* ── NOTIFICATION TOAST ── */
+.toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 600;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.toast {
+  padding: 12px 20px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+  font-size: 0.88rem;
+  animation: slideIn 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(40px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* unsupported browser banner */
+.unsupported-banner {
+  background: var(--warning-bg);
+  border: 1px solid var(--warning);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+.unsupported-banner h3 { color: var(--warning); margin-bottom: 6px; }
+/* ── WORKSPACE SWITCHER ── */
+.workspace-switcher {
+  display: flex;
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.workspace-switcher a {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  font-weight: 500;
+  font-family: var(--font-body);
+  text-decoration: none;
+  color: var(--text-muted);
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.workspace-switcher a:hover { background: var(--bg-hover); color: var(--text); }
+.workspace-switcher a.active-ws {
+  background: var(--primary-glow);
+  color: var(--primary);
+  font-weight: 600;
+}
+</style>
+</head>
+<body>
+
+<noscript>
+  <div style="font-family:sans-serif;max-width:500px;margin:60px auto;text-align:center;padding:20px;">
+    <h1 style="font-size:1.5rem;">📁 File Workspace requires JavaScript</h1>
+    <p style="color:#666;margin-top:12px;">All file processing runs entirely in your browser using JavaScript. Please enable JavaScript in your browser settings to use File Workspace.</p>
+  </div>
+</noscript>
+
+<div class="app-layout">
+  <!-- ═══ SIDEBAR ═══ -->
+  <aside class="sidebar" id="sidebar">
+    <div style="padding: 16px 16px 8px; display: flex; align-items: center; gap: 10px;">
+      <div class="logo" style="width:34px;height:34px;background:var(--gradient);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;color:white;box-shadow:0 2px 8px rgba(102,126,234,0.3);flex-shrink:0;">📁</div>
+      <div>
+        <div style="font-family:var(--font-display);font-weight:700;font-size:1rem;background:var(--gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">File Workspace</div>
+        <div style="font-size:0.7rem;color:var(--text-muted);">v1.0.0 • 25 Tools • Local Only</div>
+      </div>
+    </div>
+
+    <div class="workspace-switcher">
+      <a href="https://emailgate.org/">📄 PDF Workspace</a>
+      <a href="file-workspace.html" class="active-ws">📁 File Workspace</a>
+    </div>
+
+    <div class="search-box">
+      <div class="search-wrap">
+        <input type="text" id="toolSearch" placeholder="Search tools…  /" autocomplete="off">
+      </div>
+    </div>
+
+    <nav class="sidebar-section" id="sidebarNav">
+      <div class="sidebar-section-title">Home</div>
+      <button class="tool-btn active" data-tool="home" onclick="showTool('home')">
+        <span class="icon">🏠</span> All Tools
+      </button>
+
+      <div class="sidebar-section-title">🧹 Cleanup</div>
+      <button class="tool-btn" data-tool="empty-folders" onclick="showTool('empty-folders')">
+        <span class="icon">📂</span> Empty Folders
+      </button>
+      <button class="tool-btn" data-tool="duplicates" onclick="showTool('duplicates')">
+        <span class="icon">🔍</span> Find Duplicates
+      </button>
+      <button class="tool-btn" data-tool="temp-files" onclick="showTool('temp-files')">
+        <span class="icon">🗑️</span> Temp Files
+      </button>
+      <button class="tool-btn" data-tool="zero-byte" onclick="showTool('zero-byte')">
+        <span class="icon">⚠️</span> Zero-Byte Files
+      </button>
+      <button class="tool-btn" data-tool="old-backups" onclick="showTool('old-backups')">
+        <span class="icon">💾</span> Old Backups
+      </button>
+      <button class="tool-btn" data-tool="biggest-folders" onclick="showTool('biggest-folders')">
+        <span class="icon">📊</span> Biggest Folders
+      </button>
+
+      <div class="sidebar-section-title">📁 Organization</div>
+      <button class="tool-btn" data-tool="organize" onclick="showTool('organize')">
+        <span class="icon">🗂️</span> Organize Files
+      </button>
+      <button class="tool-btn" data-tool="auto-folders" onclick="showTool('auto-folders')">
+        <span class="icon">📁</span> Auto-Create Folders
+      </button>
+      <button class="tool-btn" data-tool="sort-downloads" onclick="showTool('sort-downloads')">
+        <span class="icon">⬇️</span> Sort Downloads
+      </button>
+      <button class="tool-btn" data-tool="custom-folders" onclick="showTool('custom-folders')">
+        <span class="icon">📝</span> Custom Folders
+      </button>
+
+      <div class="sidebar-section-title">✏️ Renaming</div>
+      <button class="tool-btn" data-tool="batch-rename" onclick="showTool('batch-rename')">
+        <span class="icon">✏️</span> Batch Rename
+      </button>
+      <button class="tool-btn" data-tool="add-dates" onclick="showTool('add-dates')">
+        <span class="icon">📅</span> Add Dates
+      </button>
+      <button class="tool-btn" data-tool="normalize" onclick="showTool('normalize')">
+        <span class="icon">🔤</span> Normalize Names
+      </button>
+      <button class="tool-btn" data-tool="sequential" onclick="showTool('sequential')">
+        <span class="icon">🔢</span> Sequential Names
+      </button>
+
+      <div class="sidebar-section-title">📦 File Movement</div>
+      <button class="tool-btn" data-tool="archive-old" onclick="showTool('archive-old')">
+        <span class="icon">🗄️</span> Archive Old Files
+      </button>
+      <button class="tool-btn" data-tool="move-media" onclick="showTool('move-media')">
+        <span class="icon">📸</span> Sort Media by Date
+      </button>
+      <button class="tool-btn" data-tool="screenshot-org" onclick="showTool('screenshot-org')">
+        <span class="icon">🖥️</span> Screenshot Organizer
+      </button>
+
+      <div class="sidebar-section-title">🔎 Search & Analyze</div>
+      <button class="tool-btn" data-tool="file-search" onclick="showTool('file-search')">
+        <span class="icon">🔍</span> File Search
+      </button>
+      <button class="tool-btn" data-tool="disk-viz" onclick="showTool('disk-viz')">
+        <span class="icon">📊</span> Disk Space Map
+      </button>
+      <button class="tool-btn" data-tool="timeline" onclick="showTool('timeline')">
+        <span class="icon">📅</span> File Timeline
+      </button>
+
+      <div class="sidebar-section-title">🚀 Workflows</div>
+      <button class="tool-btn" data-tool="smart-cleanup" onclick="showTool('smart-cleanup')">
+        <span class="icon">✨</span> Smart Cleanup
+      </button>
+      <button class="tool-btn" data-tool="prep-share" onclick="showTool('prep-share')">
+        <span class="icon">📤</span> Prepare for Sharing
+      </button>
+      <button class="tool-btn" data-tool="privacy-scan" onclick="showTool('privacy-scan')">
+        <span class="icon">🛡️</span> Privacy Scanner
+      </button>
+      <button class="tool-btn" data-tool="dupe-folders" onclick="showTool('dupe-folders')">
+        <span class="icon">📂</span> Merge Duplicate Folders
+      </button>
+
+      <div class="sidebar-section-title">📋 Reports</div>
+      <button class="tool-btn" data-tool="activity-log" onclick="showTool('activity-log')">
+        <span class="icon">📝</span> Activity Log
+      </button>
+    </nav>
+  </aside>
+
+  <!-- ═══ MAIN ═══ -->
+  <div class="main-area">
+    <div class="trust-strip">
+      <span>🔒 Client-Side Only</span>
+      <span>🚫 No Server Uploads</span>
+      <span>🛡️ Works Offline After First Load</span>
+      <span>⚡ No Install Required</span>
+    </div>
+
+    <header class="header">
+      <div class="header-brand">
+        <button class="btn-icon" id="menuToggle" onclick="toggleSidebar()" style="display:none;">☰</button>
+        <div>
+          <h1>File Workspace</h1>
+          <div style="font-size:0.75rem;color:var(--text-muted);margin-top:-2px;">Local File Organizer — 100% Private</div>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="btn-icon" id="historyBtn" title="View action history" onclick="showTool('activity-log')">📋</button>
+        <button class="btn-icon" onclick="toggleSettings()">⚙️</button>
+        <button class="btn-icon" onclick="toggleTheme()">🌙</button>
+      </div>
+    </header>
+
+    <!-- STEPS -->
+    <div class="steps">
+      <div class="step active" id="step1"><span class="step-num">1</span> Choose Folder</div>
+      <span class="step-arrow">→</span>
+      <div class="step" id="step2"><span class="step-num">2</span> Scan & Review</div>
+      <span class="step-arrow">→</span>
+      <div class="step" id="step3"><span class="step-num">3</span> Apply Changes</div>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content" id="mainContent">
+      <!-- Gets replaced by JS -->
+    </div>
+
+    <footer class="footer">
+      File Workspace v1.0.0 • 25 Tools •
+      <a href="https://emailgate.org/">📄 PDF Workspace</a> •
+      <a href="#" onclick="showTool('home');return false;">🏠 Home</a> •
+      <a href="#" onclick="showAbout();return false;">ℹ️ About & Privacy</a> •
+      <a href="https://github.com/eersis-byte/pdf-workspace" target="_blank">📋 GitHub</a> •
+      <a href="mailto:feedback@emailgate.org">💬 Feedback</a>
+    </footer>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal" id="modalContent"></div>
+</div>
+
+<!-- TOASTS -->
+<div class="toast-container" id="toasts"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   FILE WORKSPACE — Browser-based File Organizer
+   All processing runs locally via File System Access API
+   ═══════════════════════════════════════════════════════════════ */
+
+// ── STATE ──
+const state = {
+  dirHandle: null,
+  files: [],          // { handle, path, name, size, modified, ext, type, parentDir }
+  folders: [],        // { handle, path, name, fileCount }
+  scanning: false,
+  dryRun: true,
+  useTrash: true,
+  scanCancelled: false,
+  undoStack: [],      // { description, reverseActions: [] }
+  log: [],            // { time, action, detail }
+  currentTool: 'home',
+  results: [],
+  totalSize: 0,
+  apiSupported: ('showDirectoryPicker' in window)
+};
+
+// ── UTILITY ──
+function esc(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function formatSize(bytes) {
+  if (bytes === 0) return '0 B';
+  const k = 1024, sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+function formatDate(d) {
+  if (!d) return '—';
+  const dt = new Date(d);
+  return dt.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+function timeStr() {
+  return new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+function addLog(action, detail) {
+  state.log.unshift({ time: timeStr(), action, detail });
+}
+
+function toast(msg, type = 'info') {
+  const el = document.createElement('div');
+  el.className = 'toast';
+  const icons = { info: 'ℹ️', success: '✅', warning: '⚠️', error: '❌' };
+  el.textContent = (icons[type] || 'ℹ️') + ' ' + msg;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+
+function getExt(name) {
+  const i = name.lastIndexOf('.');
+  return i > 0 ? name.slice(i).toLowerCase() : '';
+}
+
+function getFileType(ext) {
+  const map = {
+    image: ['.jpg','.jpeg','.png','.gif','.bmp','.webp','.svg','.ico','.tiff','.heic','.avif'],
+    video: ['.mp4','.avi','.mov','.mkv','.wmv','.flv','.webm','.m4v'],
+    audio: ['.mp3','.wav','.flac','.aac','.ogg','.wma','.m4a'],
+    document: ['.pdf','.doc','.docx','.xls','.xlsx','.ppt','.pptx','.txt','.rtf','.odt','.csv'],
+    code: ['.js','.ts','.py','.java','.cpp','.c','.h','.css','.html','.json','.xml','.yml','.yaml','.sh','.go','.rs','.php','.rb','.swift'],
+    archive: ['.zip','.rar','.7z','.tar','.gz','.bz2','.xz'],
+    font: ['.ttf','.otf','.woff','.woff2'],
+    executable: ['.exe','.msi','.dmg','.app','.deb','.rpm'],
+  };
+  for (const [type, exts] of Object.entries(map)) {
+    if (exts.includes(ext)) return type;
+  }
+  return 'other';
+}
+
+const TEMP_PATTERNS = [/\.tmp$/i, /\.temp$/i, /^~\$/, /^thumbs\.db$/i, /^desktop\.ini$/i, /^\.ds_store$/i, /\.cache$/i, /\.crdownload$/i, /\.partial$/i];
+const BACKUP_PATTERNS = [/\.bak$/i, /\.backup$/i, /\.old$/i, /\(\d+\)\.[^.]+$/, /\.orig$/i, /~$/];
+
+function isTemp(name) { return TEMP_PATTERNS.some(p => p.test(name)); }
+function isBackup(name) { return BACKUP_PATTERNS.some(p => p.test(name)); }
+
+// ── HASH (for duplicate detection using chunks) ──
+async function hashFile(fileHandle) {
+  try {
+    const file = await fileHandle.getFile();
+    // For speed, hash first 64KB + last 64KB + size
+    const CHUNK = 65536;
+    let data;
+    if (file.size <= CHUNK * 2) {
+      data = await file.arrayBuffer();
+    } else {
+      const first = await file.slice(0, CHUNK).arrayBuffer();
+      const last = await file.slice(file.size - CHUNK).arrayBuffer();
+      const combined = new Uint8Array(CHUNK * 2 + 8);
+      combined.set(new Uint8Array(first), 0);
+      combined.set(new Uint8Array(last), CHUNK);
+      new DataView(combined.buffer).setBigUint64(CHUNK * 2, BigInt(file.size));
+      data = combined.buffer;
+    }
+    const hashBuf = await crypto.subtle.digest('SHA-256', data);
+    return Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
+  } catch (e) {
+    return null;
+  }
+}
+
+// ── FOLDER SCANNING ──
+async function pickFolder() {
+  if (!state.apiSupported) {
+    toast('File System Access API not supported in this browser. Use Chrome or Edge.', 'error');
+    return;
+  }
+  try {
+    state.dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+    toast(`Opened folder: ${state.dirHandle.name}`, 'success');
+    addLog('OPEN', state.dirHandle.name);
+    await scanFolder();
+  } catch (e) {
+    if (e.name !== 'AbortError') toast('Could not open folder: ' + e.message, 'error');
+  }
+}
+
+async function scanFolder() {
+  state.scanning = true;
+  state.scanCancelled = false;
+  state.files = [];
+  state.folders = [];
+  state.totalSize = 0;
+  updateSteps(2);
+  renderCurrentTool();
+
+  let scanCount = 0;
+
+  async function walk(dirHandle, path = '') {
+    if (state.scanCancelled) return 0;
+    let fileCount = 0;
+    try {
+      for await (const entry of dirHandle.values()) {
+        if (state.scanCancelled) return fileCount;
+        // Skip our trash folder
+        if (entry.kind === 'directory' && entry.name === TRASH_FOLDER && path === '') continue;
+
+        if (entry.kind === 'file') {
+          try {
+            const file = await entry.getFile();
+            const ext = getExt(entry.name);
+            state.files.push({
+              handle: entry,
+              dirHandle: dirHandle,
+              path: path + '/' + entry.name,
+              parentDir: path || '/',
+              name: entry.name,
+              size: file.size,
+              modified: file.lastModified,
+              ext,
+              type: getFileType(ext)
+            });
+            state.totalSize += file.size;
+            fileCount++;
+            scanCount++;
+            // Update progress every 50 files
+            if (scanCount % 50 === 0) {
+              const el = document.getElementById('scanProgress');
+              if (el) el.textContent = `Scanning… ${scanCount} files found (${formatSize(state.totalSize)})`;
+            }
+          } catch (e) { /* skip unreadable */ }
+        } else if (entry.kind === 'directory') {
+          const subPath = path + '/' + entry.name;
+          const childCount = await walk(entry, subPath);
+          state.folders.push({
+            handle: entry,
+            parentHandle: dirHandle,
+            path: subPath,
+            name: entry.name,
+            fileCount: childCount
+          });
+          fileCount += childCount;
+        }
+      }
+    } catch (e) { /* permission denied */ }
+    return fileCount;
+  }
+
+  await walk(state.dirHandle);
+  state.scanning = false;
+
+  if (state.scanCancelled) {
+    toast('Scan cancelled', 'warning');
+    addLog('SCAN', 'Scan cancelled by user');
+  } else {
+    addLog('SCAN', `${state.files.length} files, ${state.folders.length} folders (${formatSize(state.totalSize)})`);
+    toast(`Scan complete: ${state.files.length} files in ${state.folders.length} folders`, 'success');
+  }
+  renderCurrentTool();
+}
+
+// ── FILE OPERATIONS (Safe: trash, size verification) ──
+const TRASH_FOLDER = '_FileWorkspace_Trash';
+
+async function getTrashDir() {
+  return await state.dirHandle.getDirectoryHandle(TRASH_FOLDER, { create: true });
+}
+
+async function safeDelete(fileEntry, dirHandle) {
+  try {
+    if (state.useTrash) {
+      // Move to trash instead of permanent delete
+      const trashDir = await getTrashDir();
+      const file = await fileEntry.getFile();
+      let name = fileEntry.name;
+      // Avoid collisions in trash
+      try {
+        await trashDir.getFileHandle(name, { create: false });
+        const ext = getExt(name);
+        const base = name.slice(0, name.length - ext.length);
+        name = `${base}_${Date.now()}${ext}`;
+      } catch { /* no collision */ }
+      const newHandle = await trashDir.getFileHandle(name, { create: true });
+      const writable = await newHandle.createWritable();
+      await writable.write(file);
+      await writable.close();
+      // Verify size before removing original
+      const written = await newHandle.getFile();
+      if (written.size !== file.size) {
+        await trashDir.removeEntry(name);
+        return false;
+      }
+      await dirHandle.removeEntry(fileEntry.name);
+      return true;
+    } else {
+      await dirHandle.removeEntry(fileEntry.name);
+      return true;
+    }
+  } catch (e) { return false; }
+}
+
+async function removeEmptyDirectory(dirHandle, parentHandle) {
+  try {
+    // Re-verify folder is truly empty at execution time
+    let isEmpty = true;
+    for await (const entry of dirHandle.values()) {
+      if (entry.name === TRASH_FOLDER) continue; // ignore our trash folder
+      isEmpty = false;
+      break;
+    }
+    if (!isEmpty) return false;
+    await parentHandle.removeEntry(dirHandle.name);
+    return true;
+  } catch (e) { return false; }
+}
+
+function getSafeName(dirHandle, name) {
+  return (async () => {
+    try {
+      await dirHandle.getFileHandle(name, { create: false });
+      const ext = getExt(name);
+      const base = name.slice(0, name.length - ext.length);
+      let i = 1;
+      let safeName = `${base}_${i}${ext}`;
+      while (i < 1000) {
+        try { await dirHandle.getFileHandle(safeName, { create: false }); i++; safeName = `${base}_${i}${ext}`; }
+        catch { break; }
+      }
+      return safeName;
+    } catch { return name; }
+  })();
+}
+
+async function moveFile(fileEntry, sourceDirHandle, destDirHandle, newName) {
+  try {
+    const file = await fileEntry.getFile();
+    const origSize = file.size;
+    let name = await getSafeName(destDirHandle, newName || fileEntry.name);
+
+    const newFileHandle = await destDirHandle.getFileHandle(name, { create: true });
+    const writable = await newFileHandle.createWritable();
+    await writable.write(file);
+    await writable.close();
+
+    // Verify written file matches original size before removing
+    const written = await newFileHandle.getFile();
+    if (written.size !== origSize) {
+      await destDirHandle.removeEntry(name);
+      return false;
+    }
+
+    await sourceDirHandle.removeEntry(fileEntry.name);
+    return true;
+  } catch (e) { return false; }
+}
+
+async function renameFile(fileEntry, dirHandle, newName) {
+  try {
+    newName = await getSafeName(dirHandle, newName);
+    const file = await fileEntry.getFile();
+    const origSize = file.size;
+
+    const newHandle = await dirHandle.getFileHandle(newName, { create: true });
+    const writable = await newHandle.createWritable();
+    await writable.write(file);
+    await writable.close();
+
+    // Verify written file matches original size before removing
+    const written = await newHandle.getFile();
+    if (written.size !== origSize) {
+      await dirHandle.removeEntry(newName);
+      return false;
+    }
+
+    await dirHandle.removeEntry(fileEntry.name);
+    return true;
+  } catch (e) { return false; }
+}
+
+async function getOrCreateSubDir(parentHandle, name) {
+  return await parentHandle.getDirectoryHandle(name, { create: true });
+}
+
+// ── FULL HASH (for exact duplicate verification) ──
+async function hashFileFull(fileHandle) {
+  try {
+    const file = await fileHandle.getFile();
+    const data = await file.arrayBuffer();
+    const hashBuf = await crypto.subtle.digest('SHA-256', data);
+    return Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
+  } catch (e) {
+    return null;
+  }
+}
+
+// ── CONFIRMATION MODAL ──
+let _pendingAction = null;
+
+function confirmAction(title, description, count, actionType, callback) {
+  if (state.dryRun) {
+    callback();
+    return;
+  }
+  _pendingAction = callback;
+  const icons = { delete: '🗑️', move: '📦', rename: '✏️', create: '📁', archive: '🗄️' };
+  const colors = { delete: 'var(--danger)', move: 'var(--info)', rename: 'var(--primary)', create: 'var(--success)', archive: 'var(--warning)' };
+  showModal(`
+    <h3>${icons[actionType] || '⚠️'} ${esc(title)}</h3>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">${esc(description)}</p>
+    <div style="padding:14px;background:var(--bg-input);border-radius:var(--radius-sm);border:1px solid var(--border);margin-bottom:16px;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:1.8rem;">${icons[actionType] || '⚠️'}</span>
+        <div>
+          <div style="font-family:var(--font-display);font-weight:700;font-size:1.3rem;color:${colors[actionType] || 'var(--text)'};">${count}</div>
+          <div style="font-size:0.82rem;color:var(--text-muted);">file(s) will be affected</div>
+        </div>
+      </div>
+    </div>
+    ${state.useTrash && actionType === 'delete' ? '<p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:12px;">📁 Files will be moved to <code>_FileWorkspace_Trash</code> for recovery.</p>' : ''}
+    ${!state.useTrash && actionType === 'delete' ? '<p style="font-size:0.85rem;color:var(--danger);margin-bottom:12px;">⚠️ This cannot be undone. Enable "Move to Trash" in Settings for safer deletion.</p>' : ''}
+    ${actionType === 'move' || actionType === 'rename' ? '<p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:12px;">File sizes will be verified after copy before originals are removed.</p>' : ''}
+    <div class="btn-group" style="justify-content:flex-end;">
+      <button class="btn btn-secondary btn-sm" onclick="closeModal()">Cancel</button>
+      <button class="btn ${actionType === 'delete' ? 'btn-danger' : 'btn-primary'} btn-sm" onclick="closeModal();executePendingAction()">
+        ${icons[actionType] || '⚡'} Apply ${count} Change${count !== 1 ? 's' : ''}
+      </button>
+    </div>
+  `);
+}
+
+function executePendingAction() {
+  if (_pendingAction) {
+    const action = _pendingAction;
+    _pendingAction = null;
+    action();
+  }
+}
+
+// ── THEME ──
+function toggleTheme() {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  document.documentElement.setAttribute('data-theme', isDark ? '' : 'dark');
+}
+
+// ── SIDEBAR ──
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+}
+
+// ── STEPS ──
+function updateSteps(n) {
+  for (let i = 1; i <= 3; i++) {
+    const el = document.getElementById('step' + i);
+    el.className = 'step' + (i < n ? ' done' : i === n ? ' active' : '');
+  }
+}
+
+// ── MODAL ──
+function showModal(html) {
+  document.getElementById('modalContent').innerHTML = html;
+  document.getElementById('modalOverlay').classList.add('show');
+}
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('show');
+}
+
+function showAbout() {
+  showModal(`
+    <h3>About File Workspace</h3>
+    <p style="color:var(--text-secondary);margin-bottom:16px;">A free, privacy-first suite of 25 file organization tools that run entirely in your browser. Part of the <a href="https://emailgate.org/" style="color:var(--primary)">Workspace</a> family.</p>
+
+    <h4 style="margin-top:14px;font-family:var(--font-display);">🔒 Privacy Promise</h4>
+    <p style="color:var(--text-secondary);font-size:0.9rem;margin:8px 0 14px;">Every file you manage stays on your device. We have no servers that receive your data — all file operations happen client-side using the browser's File System Access API. We cannot see, store, or access your files.</p>
+
+    <h4 style="font-family:var(--font-display);">📡 How It Works</h4>
+    <p style="color:var(--text-secondary);font-size:0.9rem;margin:8px 0 14px;">File Workspace uses the File System Access API to read and write files directly on your device. Google Fonts are loaded on first visit for typography. After that first load, everything works offline. Your files are never uploaded anywhere.</p>
+
+    <h4 style="font-family:var(--font-display);">🍪 No Cookies, No Tracking</h4>
+    <p style="color:var(--text-secondary);font-size:0.9rem;margin:8px 0 14px;">There are no analytics, no cookies, no fingerprinting, and no advertising.</p>
+
+    <h4 style="font-family:var(--font-display);">🌐 Browser Support</h4>
+    <p style="color:var(--text-secondary);font-size:0.9rem;margin:8px 0 14px;">Requires Chrome 86+, Edge 86+, or Opera 72+. Firefox and Safari don't yet support the File System Access API.</p>
+
+    <h4 style="font-family:var(--font-display);">📋 Open Source</h4>
+    <p style="color:var(--text-secondary);font-size:0.9rem;margin:8px 0 14px;">This project is open source. <a href="https://github.com/eersis-byte/pdf-workspace" target="_blank" style="color:var(--primary);">View the code on GitHub →</a></p>
+
+    <h4 style="font-family:var(--font-display);">🛠️ Other Workspace Tools</h4>
+    <p style="color:var(--text-secondary);font-size:0.9rem;margin:8px 0 14px;"><a href="https://emailgate.org/" style="color:var(--primary);">📄 PDF Workspace</a> — 49 free PDF tools, also 100% private and browser-based.</p>
+
+    <h4 style="font-family:var(--font-display);">💬 Feedback & Suggestions</h4>
+    <p style="color:var(--text-secondary);font-size:0.9rem;margin:8px 0 14px;">Found a bug? Have a feature idea? We'd love to hear from you.<br><a href="mailto:feedback@emailgate.org" style="color:var(--primary);">feedback@emailgate.org</a></p>
+
+    <div style="text-align:right;margin-top:20px;">
+      <button class="btn btn-primary btn-sm" onclick="closeModal()">Got it</button>
+    </div>
+  `);
+}
+
+function toggleSettings() {
+  showModal(`
+    <h3>⚙️ Settings</h3>
+    <div class="toggle-row">
+      <div>
+        <div style="font-weight:500;">🧪 Dry-Run Mode</div>
+        <div style="font-size:0.82rem;color:var(--text-muted);">Preview changes without applying them</div>
+      </div>
+      <button class="toggle ${state.dryRun ? 'on' : ''}" onclick="state.dryRun=!state.dryRun;this.classList.toggle('on');toast(state.dryRun?'Dry-run ON — changes are previewed only':'Dry-run OFF — changes will be applied','info')"></button>
+    </div>
+    <div class="toggle-row">
+      <div>
+        <div style="font-weight:500;">🗑️ Move to Trash</div>
+        <div style="font-size:0.82rem;color:var(--text-muted);">Deleted files go to _FileWorkspace_Trash for recovery</div>
+      </div>
+      <button class="toggle ${state.useTrash ? 'on' : ''}" onclick="state.useTrash=!state.useTrash;this.classList.toggle('on');toast(state.useTrash?'Trash ON — deleted files are recoverable':'Trash OFF — deletions are permanent','info')"></button>
+    </div>
+    <div class="toggle-row">
+      <div>
+        <div style="font-weight:500;">🌙 Dark Mode</div>
+        <div style="font-size:0.82rem;color:var(--text-muted);">Toggle dark theme</div>
+      </div>
+      <button class="toggle ${document.documentElement.getAttribute('data-theme')==='dark'?'on':''}" onclick="toggleTheme();this.classList.toggle('on')"></button>
+    </div>
+    <div style="margin-top:16px;display:flex;gap:8px;">
+      <button class="btn btn-secondary btn-sm" onclick="state.log=[];toast('Activity log cleared','success');closeModal()">🗑️ Clear Log</button>
+      <button class="btn btn-secondary btn-sm" onclick="emptyTrash()">🔥 Empty Trash</button>
+    </div>
+    <div style="text-align:right;margin-top:20px;">
+      <button class="btn btn-primary btn-sm" onclick="closeModal()">Done</button>
+    </div>
+  `);
+}
+
+async function emptyTrash() {
+  if (!state.dirHandle) { toast('Open a folder first', 'warning'); return; }
+  try {
+    const trashDir = await state.dirHandle.getDirectoryHandle(TRASH_FOLDER, { create: false });
+    let count = 0;
+
+    // Manually delete all entries (recursive: true isn't supported everywhere)
+    async function clearDir(dir) {
+      for await (const entry of dir.values()) {
+        if (entry.kind === 'file') {
+          await dir.removeEntry(entry.name);
+          count++;
+        } else {
+          await clearDir(await dir.getDirectoryHandle(entry.name));
+          await dir.removeEntry(entry.name);
+          count++;
+        }
+      }
+    }
+    await clearDir(trashDir);
+    await state.dirHandle.removeEntry(TRASH_FOLDER);
+
+    toast('Trash emptied — ' + count + ' item(s) permanently deleted', 'success');
+    addLog('TRASH', 'Emptied trash: ' + count + ' items permanently deleted');
+    closeModal();
+  } catch (e) {
+    toast('No trash folder found or already empty', 'info');
+    closeModal();
+  }
+}
+
+// ── SEARCH FILTER ──
+document.addEventListener('DOMContentLoaded', () => {
+  const search = document.getElementById('toolSearch');
+  search.addEventListener('input', () => {
+    const q = search.value.toLowerCase();
+    document.querySelectorAll('#sidebarNav .tool-btn').forEach(btn => {
+      btn.style.display = btn.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+  });
+  // Show menu toggle on mobile
+  if (window.innerWidth <= 768) {
+    document.getElementById('menuToggle').style.display = 'flex';
+  }
+  showTool('home');
+});
+
+// ── KEYBOARD SHORTCUTS ──
+document.addEventListener('keydown', e => {
+  if (e.key === '/' && document.activeElement.tagName !== 'INPUT') {
+    e.preventDefault();
+    document.getElementById('toolSearch').focus();
+  }
+  if (e.key === 'Escape') closeModal();
+  if (e.ctrlKey && e.key === 'd') { e.preventDefault(); toggleTheme(); }
+  if (e.ctrlKey && e.key === 'o') { e.preventDefault(); pickFolder(); }
+});
+
+// ═══════════════════════════════════════════
+//   TOOL RENDERING
+// ═══════════════════════════════════════════
+
+function showTool(id) {
+  state.currentTool = id;
+  // Update sidebar active
+  document.querySelectorAll('.tool-btn').forEach(b => b.classList.toggle('active', b.dataset.tool === id));
+  // Close sidebar on mobile
+  if (window.innerWidth <= 768) document.getElementById('sidebar').classList.remove('open');
+  renderCurrentTool();
+}
+
+function renderCurrentTool() {
+  const c = document.getElementById('mainContent');
+
+  if (!state.apiSupported) {
+    c.innerHTML = `
+      <div class="unsupported-banner">
+        <h3>⚠️ Browser Not Supported</h3>
+        <p>File Workspace requires the File System Access API.<br>Please use <strong>Chrome 86+</strong>, <strong>Edge 86+</strong>, or <strong>Opera 72+</strong>.</p>
+      </div>`;
+    return;
+  }
+
+  // If no folder selected (except home view)
+  if (!state.dirHandle && state.currentTool !== 'home' && state.currentTool !== 'activity-log') {
+    c.innerHTML = `
+      <div class="fade-in">
+        <div class="folder-picker" onclick="pickFolder()">
+          <span class="pick-icon">📁</span>
+          <h3>Choose a Folder to Get Started</h3>
+          <p>Select any folder on your device. File Workspace only accesses what you choose.</p>
+          <div style="margin-top:14px;"><span class="btn btn-primary">📂 Pick Folder</span></div>
+        </div>
+        <div style="margin-top:20px;text-align:center;">
+          <p style="color:var(--text-muted);font-size:0.85rem;">
+            🛡️ Your files never leave your device. All processing happens locally in your browser.
+          </p>
+        </div>
+      </div>`;
+    updateSteps(1);
+    return;
+  }
+
+  const renderers = {
+    'home': renderHome,
+    'empty-folders': renderEmptyFolders,
+    'duplicates': renderDuplicates,
+    'temp-files': renderTempFiles,
+    'zero-byte': renderZeroByte,
+    'old-backups': renderOldBackups,
+    'biggest-folders': renderBiggestFolders,
+    'organize': renderOrganize,
+    'auto-folders': renderAutoFolders,
+    'sort-downloads': renderSortDownloads,
+    'custom-folders': renderCustomFolders,
+    'batch-rename': renderBatchRename,
+    'add-dates': renderAddDates,
+    'normalize': renderNormalize,
+    'sequential': renderSequential,
+    'archive-old': renderArchiveOld,
+    'move-media': renderMoveMedia,
+    'screenshot-org': renderScreenshotOrg,
+    'file-search': renderFileSearch,
+    'disk-viz': renderDiskViz,
+    'timeline': renderTimeline,
+    'smart-cleanup': renderSmartCleanup,
+    'prep-share': renderPrepShare,
+    'privacy-scan': renderPrivacyScan,
+    'dupe-folders': renderDupeFolders,
+    'activity-log': renderActivityLog,
+  };
+
+  (renderers[state.currentTool] || renderHome)(c);
+}
+
+// ── HOME ──
+function renderHome(c) {
+  const tools = [
+    { id: 'empty-folders', icon: '📂', title: 'Empty Folders', desc: 'Find and remove empty directories' },
+    { id: 'duplicates', icon: '🔍', title: 'Find Duplicates', desc: 'Detect duplicate files by content hash' },
+    { id: 'temp-files', icon: '🗑️', title: 'Temp Files', desc: 'Clean up .tmp, .cache, .log files' },
+    { id: 'zero-byte', icon: '⚠️', title: 'Zero-Byte Files', desc: 'Find empty/corrupted files' },
+    { id: 'old-backups', icon: '💾', title: 'Old Backups', desc: 'Find .bak, .old, .backup files' },
+    { id: 'biggest-folders', icon: '📊', title: 'Biggest Folders', desc: 'Find what\'s using the most space' },
+    { id: 'organize', icon: '🗂️', title: 'Organize Files', desc: 'Sort by date, type, extension, size' },
+    { id: 'auto-folders', icon: '📁', title: 'Auto-Create Folders', desc: 'Generate organized folder structures' },
+    { id: 'sort-downloads', icon: '⬇️', title: 'Sort Downloads', desc: 'Auto-sort downloads by type' },
+    { id: 'custom-folders', icon: '📝', title: 'Custom Folders', desc: 'Create folders from a typed or pasted list' },
+    { id: 'batch-rename', icon: '✏️', title: 'Batch Rename', desc: 'Rename multiple files at once' },
+    { id: 'add-dates', icon: '📅', title: 'Add Dates', desc: 'Prepend/append dates to filenames' },
+    { id: 'normalize', icon: '🔤', title: 'Normalize Names', desc: 'Fix spaces, caps, special chars' },
+    { id: 'sequential', icon: '🔢', title: 'Sequential Names', desc: 'Photo_001, Photo_002, etc.' },
+    { id: 'archive-old', icon: '🗄️', title: 'Archive Old Files', desc: 'Move old files to archive folders' },
+    { id: 'move-media', icon: '📸', title: 'Sort Media', desc: 'Sort photos/videos by date taken' },
+    { id: 'screenshot-org', icon: '🖥️', title: 'Screenshots', desc: 'Organize screenshots by date' },
+    { id: 'file-search', icon: '🔍', title: 'File Search', desc: 'Search by name, type, size, date' },
+    { id: 'disk-viz', icon: '📊', title: 'Disk Space Map', desc: 'Visual treemap of disk usage' },
+    { id: 'timeline', icon: '📅', title: 'File Timeline', desc: 'See when files were modified' },
+    { id: 'smart-cleanup', icon: '✨', title: 'Smart Cleanup', desc: 'One-click cleanup presets' },
+    { id: 'prep-share', icon: '📤', title: 'Prepare for Sharing', desc: 'Clean folder for delivery' },
+    { id: 'privacy-scan', icon: '🛡️', title: 'Privacy Scanner', desc: 'Find sensitive data in filenames' },
+    { id: 'dupe-folders', icon: '📂', title: 'Merge Folders', desc: 'Find and merge similar folders' },
+    { id: 'activity-log', icon: '📝', title: 'Activity Log', desc: 'View all actions and changes' },
+  ];
+
+  let folderInfo = '';
+  if (state.dirHandle) {
+    folderInfo = `
+      <div class="status-bar">
+        <span class="status-dot"></span>
+        <strong>${esc(state.dirHandle.name)}</strong>
+        <span style="color:var(--text-muted);">•</span>
+        ${state.files.length} files
+        <span style="color:var(--text-muted);">•</span>
+        ${state.folders.length} folders
+        <span style="color:var(--text-muted);">•</span>
+        ${formatSize(state.totalSize)}
+        <span style="flex:1;"></span>
+        <button class="btn btn-secondary btn-sm" onclick="pickFolder()">📂 Change</button>
+        <button class="btn btn-secondary btn-sm" onclick="scanFolder()">🔄 Rescan</button>
+      </div>
+      <div class="summary-grid">
+        <div class="summary-stat"><div class="stat-value">${state.files.length}</div><div class="stat-label">Total Files</div></div>
+        <div class="summary-stat"><div class="stat-value">${state.folders.length}</div><div class="stat-label">Folders</div></div>
+        <div class="summary-stat"><div class="stat-value">${formatSize(state.totalSize)}</div><div class="stat-label">Total Size</div></div>
+        <div class="summary-stat"><div class="stat-value">${new Set(state.files.map(f=>f.ext).filter(Boolean)).size}</div><div class="stat-label">File Types</div></div>
+      </div>`;
+  } else {
+    folderInfo = `
+      <div class="folder-picker" onclick="pickFolder()" style="margin-bottom:24px;">
+        <span class="pick-icon">📁</span>
+        <h3>Choose a Folder to Get Started</h3>
+        <p>Select any folder on your device to scan and organize.</p>
+        <div style="margin-top:14px;"><span class="btn btn-primary">📂 Pick Folder</span></div>
+      </div>
+      <div style="text-align:center;margin-bottom:24px;">
+        <p style="color:var(--text-muted);font-size:0.85rem;">🛡️ Your files never leave your device • 🚫 No server uploads • ⚡ 25 tools, all local</p>
+        <p style="color:var(--text-muted);font-size:0.82rem;margin-top:8px;">Also try <a href="https://emailgate.org/" style="color:var(--primary);">📄 PDF Workspace</a> — 49 free PDF tools, same privacy-first approach.</p>
+      </div>`;
+  }
+
+  c.innerHTML = `
+    <div class="fade-in">
+      ${folderInfo}
+      <h2 style="font-family:var(--font-display);font-size:1.15rem;margin-bottom:14px;">All Tools</h2>
+      <div class="home-grid">
+        ${tools.map(t => `
+          <div class="home-tool-card" onclick="showTool('${t.id}')">
+            <div class="htc-icon">${t.icon}</div>
+            <div class="htc-title">${t.title}</div>
+            <div class="htc-desc">${t.desc}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>`;
+}
+
+// ── EMPTY FOLDERS ──
+function renderEmptyFolders(c) {
+  const empty = state.folders.filter(f => f.fileCount === 0);
+  c.innerHTML = `
+    <div class="fade-in">
+      ${folderStatusBar()}
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon" style="background:var(--info-bg);color:var(--info);">📂</div>
+          <div><h2>Empty Folders</h2><p>Found ${empty.length} empty folders</p></div>
+        </div>
+        ${empty.length === 0 ? '<p style="color:var(--text-muted);text-align:center;padding:20px;">No empty folders found ✨</p>' : `
+          <div style="margin-bottom:12px;">
+            <label><input type="checkbox" id="selectAllEmpty" onchange="toggleAllChecks(this,'empty-check')"> Select all</label>
+            <span style="float:right;" class="badge badge-info">${state.dryRun ? '🧪 Dry-Run Mode' : '⚡ Live Mode'}</span>
+          </div>
+          <div style="max-height:400px;overflow-y:auto;">
+            <table class="results-table">
+              <thead><tr><th class="check-col"></th><th>Path</th></tr></thead>
+              <tbody>
+                ${empty.map((f, i) => `<tr><td><input type="checkbox" class="empty-check" data-idx="${i}"></td><td>${esc(f.path)}</td></tr>`).join('')}
+              </tbody>
+            </table>
+          </div>
+          <div style="margin-top:16px;" class="btn-group">
+            <button class="btn btn-danger btn-sm" onclick="deleteEmptyFolders()">🗑️ ${state.dryRun ? 'Preview Delete' : 'Delete Selected'}</button>
+          </div>
+        `}
+      </div>
+    </div>`;
+}
+
+async function deleteEmptyFolders() {
+  const checks = document.querySelectorAll('.empty-check:checked');
+  if (!checks.length) { toast('No folders selected', 'warning'); return; }
+  const empty = state.folders.filter(f => f.fileCount === 0);
+  const selected = Array.from(checks).map(ch => empty[+ch.dataset.idx]);
+
+  const doIt = async () => {
+    let count = 0, skipped = 0;
+    for (const f of selected) {
+      if (state.dryRun) {
+        addLog('DRY-RUN', `Would delete folder: ${f.path}`);
+        count++;
+      } else {
+        if (await removeEmptyDirectory(f.handle, f.parentHandle)) {
+          addLog('DELETE', `Removed empty folder: ${f.path}`);
+          count++;
+        } else {
+          addLog('SKIP', `Folder not empty at execution time: ${f.path}`);
+          skipped++;
+        }
+      }
+    }
+    const msg = `${state.dryRun ? 'Would remove' : 'Removed'} ${count} empty folder(s)` + (skipped ? `, ${skipped} skipped (no longer empty)` : '');
+    toast(msg, skipped ? 'warning' : 'success');
+    if (!state.dryRun) await scanFolder();
+    else renderCurrentTool();
+  };
+
+  confirmAction('Remove Empty Folders', `Remove ${selected.length} empty folder(s)? Folders are re-checked to confirm they are still empty.`, selected.length, 'delete', doIt);
+}
+
+// ── DUPLICATES ──
+function renderDuplicates(c) {
+  c.innerHTML = `
+    <div class="fade-in">
+      ${folderStatusBar()}
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon" style="background:var(--warning-bg);color:var(--warning);">🔍</div>
+          <div><h2>Find Duplicates</h2><p>Detect duplicate files by content hash</p></div>
+        </div>
+        <p style="color:var(--text-secondary);margin-bottom:12px;">Fast scan hashes the first/last 64KB + file size. Enable exact mode for full-file SHA-256 verification before deletion.</p>
+        <div class="form-group" style="margin-bottom:16px;">
+          <label><input type="checkbox" id="dupExact"> 🔒 Verify exact match (full-file hash before delete — slower but no false positives)</label>
+        </div>
+        <div id="dupResults"></div>
+        <button class="btn btn-primary" onclick="findDuplicates()" id="scanDupBtn">🔍 Fast Scan for Duplicates</button>
+      </div>
+    </div>`;
+}
+
+async function findDuplicates() {
+  const btn = document.getElementById('scanDupBtn');
+  const res = document.getElementById('dupResults');
+  btn.disabled = true;
+  btn.textContent = '⏳ Scanning...';
+
+  res.innerHTML = '<div class="progress-bar"><div class="fill" id="dupProgress" style="width:0%"></div></div><p style="text-align:center;color:var(--text-muted);" id="dupStatus">Hashing files…</p>';
+
+  const hashMap = {};
+  let done = 0;
+  for (const f of state.files) {
+    const hash = await hashFile(f.handle);
+    if (hash) {
+      const key = hash + '_' + f.size;
+      if (!hashMap[key]) hashMap[key] = [];
+      hashMap[key].push(f);
+    }
+    done++;
+    if (done % 10 === 0) {
+      document.getElementById('dupProgress').style.width = (done / state.files.length * 100) + '%';
+      document.getElementById('dupStatus').textContent = `Hashed ${done}/${state.files.length} files…`;
+    }
+  }
+
+  const dupes = Object.values(hashMap).filter(g => g.length > 1);
+  const totalWaste = dupes.reduce((s, g) => s + g.slice(1).reduce((a, f) => a + f.size, 0), 0);
+
+  addLog('SCAN', `Duplicate scan: ${dupes.length} groups, ${formatSize(totalWaste)} reclaimable`);
+
+  if (dupes.length === 0) {
+    res.innerHTML = '<p style="text-align:center;padding:20px;color:var(--success);">✨ No duplicates found!</p>';
+    btn.disabled = false;
+    btn.textContent = '🔍 Scan for Duplicates';
+    return;
+  }
+
+  let html = `
+    <div class="summary-grid" style="margin-bottom:16px;">
+      <div class="summary-stat"><div class="stat-value">${dupes.length}</div><div class="stat-label">Duplicate Groups</div></div>
+      <div class="summary-stat"><div class="stat-value">${formatSize(totalWaste)}</div><div class="stat-label">Space Reclaimable</div></div>
+    </div>
+    <span class="badge badge-info" style="margin-bottom:12px;">${state.dryRun ? '🧪 Dry-Run Mode' : '⚡ Live Mode'}</span>`;
+
+  dupes.forEach((group, gi) => {
+    html += `
+      <div style="margin-bottom:16px;padding:12px;background:var(--bg-input);border-radius:var(--radius-sm);border:1px solid var(--border);">
+        <strong style="font-size:0.88rem;">Group ${gi + 1}</strong> — ${group.length} copies • ${formatSize(group[0].size)} each
+        <table class="results-table" style="margin-top:8px;">
+          <thead><tr><th class="check-col">Keep</th><th>File Path</th><th>Modified</th></tr></thead>
+          <tbody>
+            ${group.map((f, fi) => `
+              <tr>
+                <td><input type="radio" name="dup_${gi}" value="${fi}" ${fi === 0 ? 'checked' : ''}></td>
+                <td title="${esc(f.path)}">${esc(f.path)}</td>
+                <td>${formatDate(f.modified)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  });
+
+  html += `<button class="btn btn-danger btn-sm" onclick="deleteDuplicates()">🗑️ ${state.dryRun ? 'Preview Delete Duplicates' : 'Delete Duplicates'}</button>`;
+  res.innerHTML = html;
+
+  // Store dupes in state for later use
+  state._dupeGroups = dupes;
+  btn.disabled = false;
+  btn.textContent = '🔍 Re-Scan';
+}
+
+async function deleteDuplicates() {
+  if (!state._dupeGroups) return;
+  const exact = document.getElementById('dupExact')?.checked;
+
+  // Count how many will be deleted
+  let totalToDelete = 0;
+  for (let gi = 0; gi < state._dupeGroups.length; gi++) {
+    const keepIdx = +(document.querySelector(`input[name="dup_${gi}"]:checked`)?.value || 0);
+    totalToDelete += state._dupeGroups[gi].length - 1;
+  }
+
+  const doIt = async () => {
+    let count = 0, verified = 0, mismatches = 0;
+
+    for (let gi = 0; gi < state._dupeGroups.length; gi++) {
+      const group = state._dupeGroups[gi];
+      const keepIdx = +(document.querySelector(`input[name="dup_${gi}"]:checked`)?.value || 0);
+
+      // If exact mode, verify full hashes match before deleting
+      let keepHash = null;
+      if (exact && !state.dryRun) {
+        keepHash = await hashFileFull(group[keepIdx].handle);
+        if (!keepHash) { addLog('SKIP', `Could not verify: ${group[keepIdx].path}`); continue; }
+      }
+
+      for (let fi = 0; fi < group.length; fi++) {
+        if (fi === keepIdx) continue;
+        const f = group[fi];
+
+        if (state.dryRun) {
+          addLog('DRY-RUN', `Would delete duplicate: ${f.path}`);
+          count++;
+          continue;
+        }
+
+        // Exact verification
+        if (exact && keepHash) {
+          const fileHash = await hashFileFull(f.handle);
+          if (fileHash !== keepHash) {
+            addLog('MISMATCH', `Exact hash mismatch — skipped: ${f.path}`);
+            mismatches++;
+            continue;
+          }
+          verified++;
+        }
+
+        if (await safeDelete(f.handle, f.dirHandle)) {
+          addLog('DELETE', `Deleted duplicate: ${f.path}`);
+          count++;
+        }
+      }
+    }
+
+    let msg = `${state.dryRun ? 'Would delete' : 'Deleted'} ${count} duplicate(s)`;
+    if (verified) msg += `, ${verified} verified exact`;
+    if (mismatches) msg += `, ${mismatches} skipped (hash mismatch)`;
+    toast(msg, mismatches ? 'warning' : 'success');
+    if (!state.dryRun) await scanFolder();
+  };
+
+  confirmAction('Delete Duplicates', `Delete ${totalToDelete} duplicate file(s), keeping one copy per group.${exact ? ' Full-file hash verification is enabled.' : ''}`, totalToDelete, 'delete', doIt);
+}
+
+// ── TEMP FILES ──
+function renderTempFiles(c) {
+  const temps = state.files.filter(f => isTemp(f.name));
+  const totalSize = temps.reduce((s, f) => s + f.size, 0);
+  c.innerHTML = `
+    <div class="fade-in">
+      ${folderStatusBar()}
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon" style="background:var(--danger-bg);color:var(--danger);">🗑️</div>
+          <div><h2>Temporary Files</h2><p>Found ${temps.length} temp files (${formatSize(totalSize)})</p></div>
+        </div>
+        ${temps.length === 0 ? '<p style="color:var(--text-muted);text-align:center;padding:20px;">No temporary files found ✨</p>' : `
+          <div style="margin-bottom:12px;">
+            <label><input type="checkbox" id="selectAllTemp" onchange="toggleAllChecks(this,'temp-check')"> Select all</label>
+            <span style="float:right;" class="badge badge-info">${state.dryRun ? '🧪 Dry-Run' : '⚡ Live'}</span>
+          </div>
+          <div style="max-height:400px;overflow-y:auto;">
+            <table class="results-table">
+              <thead><tr><th class="check-col"></th><th>File</th><th>Size</th><th>Path</th></tr></thead>
+              <tbody>
+                ${temps.map((f, i) => `<tr><td><input type="checkbox" class="temp-check" data-idx="${i}" checked></td><td>${esc(f.name)}</td><td>${formatSize(f.size)}</td><td title="${esc(f.path)}">${esc(f.parentDir)}</td></tr>`).join('')}
+              </tbody>
+            </table>
+          </div>
+          <div style="margin-top:16px;" class="btn-group">
+            <button class="btn btn-danger btn-sm" onclick="deleteTempFiles()">🗑️ ${state.dryRun ? 'Preview Delete' : 'Delete Selected'}</button>
+          </div>
+        `}
+      </div>
+    </div>`;
+}
+
+async function deleteTempFiles() {
+  const checks = document.querySelectorAll('.temp-check:checked');
+  if (!checks.length) { toast('Nothing selected', 'warning'); return; }
+  const temps = state.files.filter(f => isTemp(f.name));
+  const selected = Array.from(checks).map(ch => temps[+ch.dataset.idx]);
+
+  const doIt = async () => {
+    let count = 0;
+    for (const f of selected) {
+      if (state.dryRun) { addLog('DRY-RUN', `Would delete temp: ${f.path}`); count++; }
+      else { if (await safeDelete(f.handle, f.dirHandle)) { addLog('DELETE', `Deleted temp file: ${f.path}`); count++; } }
+    }
+    toast(`${state.dryRun ? 'Would delete' : 'Deleted'} ${count} temp file(s)`, 'success');
+    if (!state.dryRun) await scanFolder();
+  };
+
+  confirmAction('Delete Temporary Files', `Delete ${selected.length} temporary file(s).`, selected.length, 'delete', doIt);
+}
+
+// ── ZERO-BYTE ──
+function renderZeroByte(c) {
+  const zeros = state.files.filter(f => f.size === 0);
+  c.innerHTML = `
+    <div class="fade-in">
+      ${folderStatusBar()}
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon" style="background:var(--warning-bg);color:var(--warning);">⚠️</div>
+          <div><h2>Zero-Byte Files</h2><p>Found ${zeros.length} empty files</p></div>
+        </div>
+        ${zeros.length === 0 ? '<p style="color:var(--text-muted);text-align:center;padding:20px;">No zero-byte files found ✨</p>' : `
+          <div style="margin-bottom:12px;">
+            <label><input type="checkbox" onchange="toggleAllChecks(this,'zero-check')"> Select all</label>
+            <span style="float:right;" class="badge badge-info">${state.dryRun ? '🧪 Dry-Run' : '⚡ Live'}</span>
+          </div>
+          <div style="max-height:400px;overflow-y:auto;">
+            <table class="results-table">
+              <thead><tr><th class="check-col"></th><th>File</th><th>Extension</th><th>Path</th></tr></thead>
+              <tbody>
+                ${zeros.map((f, i) => `<tr><td><input type="checkbox" class="zero-check" data-idx="${i}" checked></td><td>${esc(f.name)}</td><td>${esc(f.ext || '—')}</td><td>${esc(f.parentDir)}</td></tr>`).join('')}
+              </tbody>
+            </table>
+          </div>
+          <div style="margin-top:16px;" class="btn-group">
+            <button class="btn btn-danger btn-sm" onclick="deleteZeroFiles()">🗑️ ${state.dryRun ? 'Preview Delete' : 'Delete Selected'}</button>
+          </div>
+        `}
+      </div>
+    </div>`;
+}
+
+async function deleteZeroFiles() {
+  const checks = document.querySelectorAll('.zero-check:checked');
+  if (!checks.length) { toast('Nothing selected', 'warning'); return; }
+  const zeros = state.files.filter(f => f.size === 0);
+  const selected = Array.from(checks).map(ch => zeros[+ch.dataset.idx]);
+
+  const doIt = async () => {
+    let count = 0;
+    for (const f of selected) {
+      if (state.dryRun) { addLog('DRY-RUN', `Would delete: ${f.path}`); count++; }
+      else { if (await safeDelete(f.handle, f.dirHandle)) { addLog('DELETE', `Deleted: ${f.path}`); count++; } }
+    }
+    toast(`${state.dryRun ? 'Would delete' : 'Deleted'} ${count} zero-byte file(s)`, 'success');
+    if (!state.dryRun) await scanFolder();
+  };
+
+  confirmAction('Delete Zero-Byte Files', `Delete ${selected.length} zero-byte file(s).`, selected.length, 'delete', doIt);
+}
+
+// ── OLD BACKUPS ──
+function renderOldBackups(c) {
+  const backups = state.files.filter(f => isBackup(f.name));
+  const totalSize = backups.reduce((s, f) => s + f.size, 0);
+  c.innerHTML = `
+    <div class="fade-in">
+      ${folderStatusBar()}
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon" style="background:var(--info-bg);color:var(--info);">💾</div>
+          <div><h2>Old Backups</h2><p>Found ${backups.length} backup files (${formatSize(totalSize)})</p></div>
+        </div>
+        ${backups.length === 0 ? '<p style="color:var(--text-muted);text-align:center;padding:20px;">No backup files found ✨</p>' : `
+          <div style="margin-bottom:12px;">
+            <label><input type="checkbox" onchange="toggleAllChecks(this,'bak-check')"> Select all</label>
+            <span style="float:right;" class="badge badge-info">${state.dryRun ? '🧪 Dry-Run' : '⚡ Live'}</span>
+          </div>
+          <div style="max-height:400px;overflow-y:auto;">
+            <table class="results-table">
+              <thead><tr><th class="check-col"></th><th>File</th><th>Size</th><th>Modified</th><th>Path</th></tr></thead>
+              <tbody>
+                ${backups.map((f, i) => `<tr><td><input type="checkbox" class="bak-check" data-idx="${i}" checked></td><td>${esc(f.name)}</td><td>${formatSize(f.size)}</td><td>${formatDate(f.modified)}</td><td>${esc(f.parentDir)}</td></tr>`).join('')}
+              </tbody>
+            </table>
+          </div>
+          <div style="margin-top:16px;" class="btn-group">
+            <button class="btn btn-danger btn-sm" onclick="deleteBackups()">🗑️ ${state.dryRun ? 'Preview Delete' : 'Delete Selected'}</button>
+          </div>
+        `}
+      </div>
+    </div>`;
+}
+
+async function deleteBackups() {
+  const checks = document.querySelectorAll('.bak-check:checked');
+  if (!checks.length) { toast('Nothing selected', 'warning'); return; }
+  const backups = state.files.filter(f => isBackup(f.name));
+  const selected = Array.from(checks).map(ch => backups[+ch.dataset.idx]);
+
+  const doIt = async () => {
+    let count = 0;
+    for (const f of selected) {
+      if (state.dryRun) { addLog('DRY-RUN', `Would delete: ${f.path}`); count++; }
+      else { if (await safeDelete(f.handle, f.dirHandle)) { addLog('DELETE', `Deleted: ${f.path}`); count++; } }
+    }
+    toast(`${state.dryRun ? 'Would delete' : 'Deleted'} ${count} backup file(s)`, 'success');
+    if (!state.dryRun) await scanFolder();
+  };
+
+  confirmAction('Delete Backup Files', `Delete ${selected.length} backup file(s).`, selected.length, 'delete', doIt);
+}
+
+// ── BIGGEST FOLDERS ──
+function renderBiggestFolders(c) {
+  // Calculate folder sizes
+  const folderSizes = {};
+  state.files.forEach(f => {
+    const parts = f.parentDir.split('/').filter(Boolean);
+    let path = '';
+    parts.forEach(p => {
+      path += '/' + p;
+      folderSizes[path] = (folderSizes[path] || 0) + f.size;
+    });
+    // root
+    folderSizes['/'] = (folderSizes['/'] || 0) + f.size;
+  });
+  const sorted = Object.entries(folderSizes).sort((a, b) => b[1] - a[1]).slice(0, 25);
+
+  c.innerHTML = `
+    <div class="fade-in">
+      ${folderStatusBar()}
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon" style="background:var(--primary-glow);color:var(--primary);">📊</div>
+          <div><h2>Biggest Folders</h2><p>Top 25 folders by total size</p></div>
+        </div>
+        <table class="results-table">
+          <thead><tr><th>#</th><th>Folder</th><th>Size</th><th>% of Total</th></tr></thead>
+          <tbody>
+            ${sorted.map(([path, size], i) => {
+              const pct = state.totalSize ? (size / state.totalSize * 100).toFixed(1) : 0;
+              return `<tr><td>${i + 1}</td><td>${esc(path)}</td><td><strong>${formatSize(size)}</strong></td>
+                <td><div style="display:flex;align-items:center;gap:8px;"><div class="progress-bar" style="width:100px;margin:0;"><div class="fill" style="width:${pct}%"></div></div>${pct}%</div></td></tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+// ── ORGANIZE ──
+function renderOrganize(c) {
+  c.innerHTML = `
+    <div class="fade-in">
+      ${folderStatusBar()}
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon" style="background:var(--success-bg);color:#16a34a;">🗂️</div>
+          <div><h2>Organize Files</h2><p>Sort files into folders by different criteria</p></div>
+        </div>
+        <div class="form-group">
+          <label>Organize by</label>
+          <select id="organizeBy">
+            <option value="type">File Type (Images, Documents, Videos…)</option>
+            <option value="ext">File Extension (.pdf, .jpg, .docx…)</option>
+            <option value="date">Date Modified (2026/05, 2026/04…)</option>
+            <option value="size">Size Range (Tiny, Small, Medium, Large)</option>
+          </select>
+        </div>
+        <span class="badge badge-info" style="margin-bottom:12px;">${state.dryRun ? '🧪 Dry-Run' : '⚡ Live'}</span>
+        <div id="organizePreview"></div>
+        <div class="btn-group" style="margin-top:16px;">
+          <button class="btn btn-secondary" onclick="previewOrganize()">👁️ Preview</button>
+          <button class="btn btn-primary" onclick="executeOrganize()">🗂️ ${state.dryRun ? 'Preview Apply' : 'Apply'}</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function getOrganizePlan() {
+  const by = document.getElementById('organizeBy').value;
+  const plan = {};
+  state.files.forEach(f => {
+    let folder;
+    if (by === 'type') folder = f.type.charAt(0).toUpperCase() + f.type.slice(1) + 's';
+    else if (by === 'ext') folder = f.ext ? f.ext.replace('.', '').toUpperCase() : 'No Extension';
+    else if (by === 'date') {
+      const d = new Date(f.modified);
+      folder = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+    } else if (by === 'size') {
+      if (f.size < 1024) folder = '0_Tiny_Under_1KB';
+      else if (f.size < 1048576) folder = '1_Small_1KB-1MB';
+      else if (f.size < 104857600) folder = '2_Medium_1MB-100MB';
+      else folder = '3_Large_Over_100MB';
+    }
+    if (!plan[folder]) plan[folder] = [];
+    plan[folder].push(f);
+  });
+  return plan;
+}
+
+function previewOrganize() {
+  const plan = getOrganizePlan();
+  const el = document.getElementById('organizePreview');
+  let html = '<div style="max-height:300px;overflow-y:auto;margin-top:12px;">';
+  for (const [folder, files] of Object.entries(plan).sort()) {
+    html += `<div style="padding:8px 0;border-bottom:1px solid var(--border);"><strong>📁 ${esc(folder)}</strong> — ${files.length} files (${formatSize(files.reduce((s, f) => s + f.size, 0))})</div>`;
+  }
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+async function executeOrganize() {
+  const plan = getOrganizePlan();
+  const totalFiles = Object.values(plan).reduce((s, files) => s + files.length, 0);
+
+  const doIt = async () => {
+    let count = 0;
+    for (const [folder, files] of Object.entries(plan)) {
+      const parts = folder.split('/');
+      for (const f of files) {
+        if (state.dryRun) {
+          addLog('DRY-RUN', `Would move ${f.name} → ${folder}/`);
+          count++;
+        } else {
+          try {
+            let targetDir = state.dirHandle;
+            for (const part of parts) { targetDir = await getOrCreateSubDir(targetDir, part); }
+            if (await moveFile(f.handle, f.dirHandle, targetDir)) { addLog('MOVE', `${f.name} → ${folder}/`); count++; }
+          } catch (e) { /* skip */ }
+        }
+      }
+    }
+    toast(`${state.dryRun ? 'Would move' : 'Moved'} ${count} file(s)`, 'success');
+    updateSteps(3);
+    if (!state.dryRun) await scanFolder();
+  };
+
+  confirmAction('Organize Files', `Move ${totalFiles} file(s) into organized folders.`, totalFiles, 'move', doIt);
+}
+
+// ── AUTO FOLDERS ──
+function renderAutoFolders(c) {
+  c.innerHTML = `
+    <div class="fade-in">
+      ${folderStatusBar()}
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon" style="background:var(--primary-glow);color:var(--primary);">📁</div>
+          <div><h2>Auto-Create Folders</h2><p>Generate organized folder structures</p></div>
+        </div>
+        <div class="form-group">
+          <label>Template</label>
+          <select id="folderTemplate">
+            <option value="date">Date Folders (2026/01, 2026/02…)</option>
+            <option value="type">Type Folders (Photos, Documents, Videos…)</option>
+            <option value="project">Project Template (Docs, Assets, Reports, Archive)</option>
+            <option value="invoices">Invoices (by quarter)</option>
+          </select>
+        </div>
+        <div id="folderPreview"></div>
+        <div class="btn-group" style="margin-top:16px;">
+          <button class="btn btn-secondary" onclick="previewAutoFolders()">👁️ Preview</button>
+          <button class="btn btn-primary" onclick="createAutoFolders()">📁 Create Folders</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function previewAutoFolders() {
+  const tmpl = document.getElementById('folderTemplate').value;
+  let folders = [];
+  const y = new Date().getFullYear();
+  if (tmpl === 'date') {
+    for (let m = 1; m <= 12; m++) folders.push(`${y}/${String(m).padStart(2, '0')}`);
+  } else if (tmpl === 'type') {
+    folders = ['Photos', 'Documents', 'Videos', 'Music', 'Archives', 'Code', 'Other'];
+  } else if (tmpl === 'project') {
+    folders = ['01_Documents', '02_Assets', '03_Reports', '04_Archive', '05_Misc'];
+  } else if (tmpl === 'invoices') {
+    folders = [`Invoices/${y}-Q1`, `Invoices/${y}-Q2`, `Invoices/${y}-Q3`, `Invoices/${y}-Q4`];
+  }
+  document.getElementById('folderPreview').innerHTML = `
+    <div style="padding:12px;background:var(--bg-input);border-radius:var(--radius-sm);margin-top:12px;">
+      <strong>Will create:</strong><br>
+      ${folders.map(f => `📁 ${f}`).join('<br>')}
+    </div>`;
+  state._autoFolderPlan = folders;
+}
+
+async function createAutoFolders() {
+  if (!state._autoFolderPlan) { previewAutoFolders(); }
+  let count = 0;
+  for (const path of state._autoFolderPlan) {
+    const parts = path.split('/');
+    if (state.dryRun) {
+      addLog('DRY-RUN', `Would create folder: ${path}`);
+      count++;
+    } else {
+      let dir = state.dirHandle;
+      for (const p of parts) { dir = await getOrCreateSubDir(dir, p); }
+      addLog('CREATE', `Created folder: ${path}`);
+      count++;
+    }
+  }
+  toast(`${state.dryRun ? 'Would create' : 'Created'} ${count} folder(s)`, 'success');
+  if (!state.dryRun) await scanFolder();
+}
+
+// ── CUSTOM FOLDERS (from list) ──
+function renderCustomFolders(c) {
+  c.innerHTML = `
+    <div class="fade-in">
+      ${folderStatusBar()}
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon" style="background:var(--primary-glow);color:var(--primary);">📝</div>
+          <div><h2>Custom Folders from List</h2><p>Type or paste a list of folder names — one per line</p></div>
+        </div>
+        <div class="form-group">
+          <label>Folder list <span style="color:var(--text-muted);font-weight:400;">(one per line — use / for nested folders)</span></label>
+          <textarea id="customFolderList" rows="12" style="width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-input);color:var(--text);font-family:'SF Mono','Consolas',var(--font-body);font-size:0.88rem;resize:vertical;line-height:1.6;" placeholder="Clients/Acme Corp
+Clients/Globex
+Projects/2026/Website Redesign
+Projects/2026/Mobile App
+Invoices/2026-Q1
+Invoices/2026-Q2
+Archive
+Misc"></textarea>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+          <button class="btn btn-secondary btn-sm" onclick="insertFolderTemplate('months')">📅 Months</button>
+          <button class="btn btn-secondary btn-sm" onclick="insertFolderTemplate('clients')">👥 Clients</button>
+          <button class="btn btn-secondary btn-sm" onclick="insertFolderTemplate('project')">🏗️ Project</button>
+          <button class="btn btn-secondary btn-sm" onclick="insertFolderTemplate('media')">📸 Media</button>
+          <button class="btn btn-secondary btn-sm" onclick="insertFolderTemplate('finance')">💰 Finance</button>
+        </div>
+        <span class="badge badge-info">${state.dryRun ? '🧪 Dry-Run' : '⚡ Live'}</span>
+        <div id="customFolderPreview"></div>
+        <div class="btn-group" style="margin-top:16px;">
+          <button class="btn btn-secondary" onclick="previewCustomFolders()">👁️ Preview</button>
+          <button class="btn btn-primary" onclick="executeCustomFolders()">📁 Create Folders</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function insertFolderTemplate(template) {
+  const ta = document.getElementById('customFolderList');
+  const y = new Date().getFullYear();
+  const templates = {
+    months: Array.from({length:12}, (_,i) => `${y}/${String(i+1).padStart(2,'0')}`).join('\n'),
+    clients: 'Clients/Client_A\nClients/Client_B\nClients/Client_C\nClients/_Templates',
+    project: `${y}_Project_Name/01_Brief\n${y}_Project_Name/02_Research\n${y}_Project_Name/03_Design\n${y}_Project_Name/04_Development\n${y}_Project_Name/05_Testing\n${y}_Project_Name/06_Delivery\n${y}_Project_Name/07_Archive`,
+    media: `Photos/${y}\nVideos/${y}\nScreenshots/${y}\nWallpapers\nIcons\nLogos`,
+    finance: `Finance/Invoices/${y}\nFinance/Receipts/${y}\nFinance/Tax/${y}\nFinance/Reports/${y}\nFinance/Contracts`,
+  };
+  const existing = ta.value.trim();
+  ta.value = existing ? existing + '\n' + templates[template] : templates[template];
+  previewCustomFolders();
+}
+
+function parseCustomFolderList() {
+  const raw = document.getElementById('customFolderList').value;
+  return raw.split('\n')
+    .map(line => line.trim())
+    .filter(line => line.length > 0)
+    // Sanitize: remove characters that are invalid in folder names on Windows/Mac
+    .map(line => line.replace(/[<>:"|?*]/g, '_').replace(/\\/g, '/'))
+    // Remove leading/trailing slashes per segment
+    .map(line => line.split('/').map(s => s.trim().replace(/^\.+|\.+$/g, '')).filter(Boolean).join('/'))
+    .filter(line => line.length > 0)
+    // Deduplicate
+    .filter((v, i, a) => a.indexOf(v) === i);
+}
+
+function previewCustomFolders() {
+  const folders = parseCustomFolderList();
+  const el = document.getElementById('customFolderPreview');
+  if (!folders.length) {
+    el.innerHTML = '<p style="color:var(--text-muted);padding:12px;">Enter at least one folder name above.</p>';
+    return;
+  }
+  // Build a tree for display
+  const tree = {};
+  folders.forEach(f => {
+    const parts = f.split('/');
+    let node = tree;
+    parts.forEach(p => { if (!node[p]) node[p] = {}; node = node[p]; });
+  });
+  function renderTree(obj, indent = 0) {
+    let html = '';
+    for (const [name, children] of Object.entries(obj).sort(([a],[b]) => a.localeCompare(b))) {
+      html += '<div style="padding:2px 0;padding-left:' + (indent * 20) + 'px;">' +
+        (Object.keys(children).length ? '📂' : '📁') + ' ' + esc(name) + '</div>';
+      html += renderTree(children, indent + 1);
+    }
+    return html;
+  }
+  el.innerHTML = `
+    <div style="margin-top:12px;padding:14px;background:var(--bg-input);border-radius:var(--radius-sm);border:1px solid var(--border);max-height:300px;overflow-y:auto;font-size:0.88rem;">
+      <div style="margin-bottom:8px;font-weight:600;color:var(--text-muted);font-size:0.78rem;text-transform:uppercase;letter-spacing:0.5px;">Will create ${folders.length} folder path(s):</div>
+      ${renderTree(tree)}
+    </div>`;
+}
+
+async function executeCustomFolders() {
+  const folders = parseCustomFolderList();
+  if (!folders.length) { toast('Enter at least one folder name', 'warning'); return; }
+  let count = 0;
+  let errors = 0;
+  for (const path of folders) {
+    const parts = path.split('/');
+    if (state.dryRun) {
+      addLog('DRY-RUN', 'Would create folder: ' + path);
+      count++;
+    } else {
+      try {
+        let dir = state.dirHandle;
+        for (const p of parts) { dir = await getOrCreateSubDir(dir, p); }
+        addLog('CREATE', 'Created folder: ' + path);
+        count++;
+      } catch (e) {
+        addLog('ERROR', 'Failed to create: ' + path + ' — ' + e.message);
+        errors++;
+      }
+    }
+  }
+  const msg = state.dryRun
+    ? 'Would create ' + count + ' folder path(s)'
+    : 'Created ' + count + ' folder path(s)' + (errors ? ', ' + errors + ' failed' : '');
+  toast(msg, errors ? 'warning' : 'success');
+  updateSteps(3);
+  if (!state.dryRun) await scanFolder();
+}
+
+// ── SORT DOWNLOADS ──
+function renderSortDownloads(c) {
+  const typeGroups = {};
+  state.files.forEach(f => {
+    const type = f.type.charAt(0).toUpperCase() + f.type.slice(1) + 's';
+    if (!typeGroups[type]) typeGroups[type] = [];
+    typeGroups[type].push(f);
+  });
+  c.innerHTML = `
+    <div class="fade-in">
+      ${folderStatusBar()}
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon" style="background:var(--info-bg);color:var(--info);">⬇️</div>
+          <div><h2>Sort Downloads</h2><p>Automatically sort files by type into folders</p></div>
+        </div>
+        <div style="margin-bottom:16px;">
+          ${Object.entries(typeGroups).sort().map(([type, files]) =>
+            `<div style="padding:8px 0;border-bottom:1px solid var(--border);">📁 <strong>${type}</strong> — ${files.length} files (${formatSize(files.reduce((s,f) => s + f.size, 0))})</div>`
+          ).join('')}
+        </div>
+        <span class="badge badge-info">${state.dryRun ? '🧪 Dry-Run' : '⚡ Live'}</span>
+        <div class="btn-group" style="margin-top:12px;">
+          <button class="btn btn-primary" onclick="executeSortDownloads()">⬇️ Sort Files</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+async function executeSortDownloads() {
+  const doIt = async () => {
+    let count = 0;
+    for (const f of state.files) {
+      const folder = f.type.charAt(0).toUpperCase() + f.type.slice(1) + 's';
+      if (state.dryRun) { addLog('DRY-RUN', `Would move ${f.name} → ${folder}/`); count++; }
+      else {
+        const dir = await getOrCreateSubDir(state.dirHandle, folder);
+        if (await moveFile(f.handle, f.dirHandle, dir)) { addLog('MOVE', `${f.name} → ${folder}/`); count++; }
+      }
+    }
+    toast(`${state.dryRun ? 'Would sort' : 'Sorted'} ${count} file(s)`, 'success');
+    if (!state.dryRun) await scanFolder();
+  };
+
+  confirmAction('Sort Downloads', `Sort ${state.files.length} file(s) into type-based folders.`, state.files.length, 'move', doIt);
+}
+
+// ── BATCH RENAME ──
+function renderBatchRename(c) {
+  c.innerHTML = `
+    <div class="fade-in">
+      ${folderStatusBar()}
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon" style="background:var(--primary-glow);color:var(--primary);">✏️</div>
+          <div><h2>Batch Rename</h2><p>Find and replace text in filenames</p></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="form-group"><label>Find</label><input type="text" id="renameFind" placeholder="e.g. IMG_"></div>
+          <div class="form-group"><label>Replace with</label><input type="text" id="renameReplace" placeholder="e.g. Photo_"></div>
+        </div>
+        <div class="form-group">
+          <label><input type="checkbox" id="renameCase"> Case-insensitive</label>
+        </div>
+        <span class="badge badge-info">${state.dryRun ? '🧪 Dry-Run' : '⚡ Live'}</span>
+        <div id="renamePreview"></div>
+        <div class="btn-group" style="margin-top:16px;">
+          <button class="btn btn-secondary" onclick="previewBatchRename()">👁️ Preview</button>
+          <button class="btn btn-primary" onclick="executeBatchRename()">✏️ Rename</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function previewBatchRename() {
+  const find = document.getElementById('renameFind').value;
+  const replace = document.getElementById('renameReplace').value;
+  const ci = document.getElementById('renameCase').checked;
+  if (!find) { toast('Enter a search term', 'warning'); return; }
+  const escaped = find.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const testRegex = new RegExp(escaped, ci ? 'i' : '');
+  const replaceRegex = new RegExp(escaped, ci ? 'gi' : 'g');
+  const matches = state.files.filter(f => testRegex.test(f.name));
+  const el = document.getElementById('renamePreview');
+  if (!matches.length) { el.innerHTML = '<p style="color:var(--text-muted);padding:12px;">No matching files.</p>'; return; }
+  el.innerHTML = `
+    <div style="max-height:300px;overflow-y:auto;margin-top:12px;">
+      <table class="results-table">
+        <thead><tr><th>Current Name</th><th>→</th><th>New Name</th></tr></thead>
+        <tbody>
+          ${matches.slice(0, 50).map(f => {
+            const newName = f.name.replace(replaceRegex, replace);
+            return `<tr><td>${esc(f.name)}</td><td>→</td><td style="color:var(--success);font-weight:500;">${esc(newName)}</td></tr>`;
+          }).join('')}
+          ${matches.length > 50 ? `<tr><td colspan="3" style="color:var(--text-muted);">…and ${matches.length - 50} more</td></tr>` : ''}
+        </tbody>
+      </table>
+    </div>`;
+  state._renameMatches = matches;
+}
+
+async function executeBatchRename() {
+  const find = document.getElementById('renameFind').value;
+  const replace = document.getElementById('renameReplace').value;
+  const ci = document.getElementById('renameCase').checked;
+  if (!find) return;
+  const escaped = find.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const testRegex = new RegExp(escaped, ci ? 'i' : '');
+  const replaceRegex = new RegExp(escaped, ci ? 'gi' : 'g');
+  const matches = state.files.filter(f => testRegex.test(f.name));
+  if (!matches.length) { toast('No matching files', 'warning'); return; }
+
+  const doIt = async () => {
+    let count = 0;
+    for (const f of matches) {
+      const newName = f.name.replace(replaceRegex, replace);
+      if (newName === f.name) continue;
+      if (state.dryRun) { addLog('DRY-RUN', `Would rename: ${f.name} → ${newName}`); count++; }
+      else { if (await renameFile(f.handle, f.dirHandle, newName)) { addLog('RENAME', `${f.name} → ${newName}`); count++; } }
+    }
+    toast(`${state.dryRun ? 'Would rename' : 'Renamed'} ${count} file(s)`, 'success');
+    updateSteps(3);
+    if (!state.dryRun) await scanFolder();
+  };
+
+  confirmAction('Batch Rename', `Rename ${matches.length} file(s): "${find}" → "${replace}".`, matches.length, 'rename', doIt);
+}
+
+// ── ADD DATES ──
+function renderAddDates(c) {
+  c.innerHTML = `
+    <div class="fade-in">
+      ${folderStatusBar()}
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon" style="background:var(--info-bg);color:var(--info);">📅</div>
+          <div><h2>Add Dates to Filenames</h2><p>Prepend or append modification date</p></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="form-group">
+            <label>Position</label>
+            <select id="datePosition"><option value="prefix">Prefix (2026-05-20_file.txt)</option><option value="suffix">Suffix (file_2026-05-20.txt)</option></select>
+          </div>
+          <div class="form-group">
+            <label>Format</label>
+            <select id="dateFormat"><option value="YYYY-MM-DD">YYYY-MM-DD</option><option value="YYYYMMDD">YYYYMMDD</option><option value="YYYY-MM">YYYY-MM</option></select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Filter by extension (empty = all)</label>
+          <input type="text" id="dateFilterExt" placeholder=".jpg, .png, .pdf">
+        </div>
+        <span class="badge badge-info">${state.dryRun ? '🧪 Dry-Run' : '⚡ Live'}</span>
+        <div id="datePreview"></div>
+        <div class="btn-group" style="margin-top:16px;">
+          <button class="btn btn-secondary" onclick="previewAddDates()">👁️ Preview</button>
+          <button class="btn btn-primary" onclick="executeAddDates()">📅 Add Dates</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function getDateStr(ms, fmt) {
+  const d = new Date(ms);
+  const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), dd = String(d.getDate()).padStart(2, '0');
+  if (fmt === 'YYYY-MM-DD') return `${y}-${m}-${dd}`;
+  if (fmt === 'YYYYMMDD') return `${y}${m}${dd}`;
+  return `${y}-${m}`;
+}
+
+function getDateTargets() {
+  const filterRaw = document.getElementById('dateFilterExt').value.trim();
+  const exts = filterRaw ? filterRaw.split(',').map(e => e.trim().toLowerCase().replace(/^\.?/, '.')) : null;
+  return state.files.filter(f => !exts || exts.includes(f.ext));
+}
+
+function previewAddDates() {
+  const pos = document.getElementById('datePosition').value;
+  const fmt = document.getElementById('dateFormat').value;
+  const files = getDateTargets();
+  const el = document.getElementById('datePreview');
+  el.innerHTML = `
+    <div style="max-height:300px;overflow-y:auto;margin-top:12px;">
+      <table class="results-table">
+        <thead><tr><th>Current</th><th>→</th><th>New Name</th></tr></thead>
+        <tbody>
+          ${files.slice(0, 50).map(f => {
+            const ds = getDateStr(f.modified, fmt);
+            const base = f.name.replace(/\.[^.]+$/, '');
+            const ext = f.ext;
+            const newName = pos === 'prefix' ? `${ds}_${f.name}` : `${base}_${ds}${ext}`;
+            return `<tr><td>${esc(f.name)}</td><td>→</td><td style="color:var(--success);">${esc(newName)}</td></tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+async function executeAddDates() {
+  const pos = document.getElementById('datePosition').value;
+  const fmt = document.getElementById('dateFormat').value;
+  const files = getDateTargets();
+  if (!files.length) { toast('No matching files', 'warning'); return; }
+
+  const doIt = async () => {
+    let count = 0;
+    for (const f of files) {
+      const ds = getDateStr(f.modified, fmt);
+      const base = f.name.replace(/\.[^.]+$/, '');
+      const ext = f.ext;
+      const newName = pos === 'prefix' ? `${ds}_${f.name}` : `${base}_${ds}${ext}`;
+      if (state.dryRun) { addLog('DRY-RUN', `Would rename: ${f.name} → ${newName}`); count++; }
+      else { if (await renameFile(f.handle, f.dirHandle, newName)) { addLog('RENAME', `${f.name} → ${newName}`); count++; } }
+    }
+    toast(`${state.dryRun ? 'Would rename' : 'Renamed'} ${count} file(s)`, 'success');
+    if (!state.dryRun) await scanFolder();
+  };
+
+  confirmAction('Add Dates to Filenames', `Rename ${files.length} file(s) with date ${pos}.`, files.length, 'rename', doIt);
+}
+
+// ── NORMALIZE ──
+function renderNormalize(c) {
+  c.innerHTML = `
+    <div class="fade-in">
+      ${folderStatusBar()}
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon" style="background:var(--success-bg);color:#16a34a;">🔤</div>
+          <div><h2>Normalize Filenames</h2><p>Clean up messy filenames in bulk</p></div>
+        </div>
+        <div style="margin-bottom:16px;">
+          <label><input type="checkbox" id="normSpaces" checked> Replace spaces with underscores</label><br>
+          <label><input type="checkbox" id="normCase" checked> Lowercase everything</label><br>
+          <label><input type="checkbox" id="normSpecial" checked> Remove special characters (!@#$%&)</label><br>
+          <label><input type="checkbox" id="normMultiple" checked> Remove multiple underscores/hyphens</label><br>
+        </div>
+        <span class="badge badge-info">${state.dryRun ? '🧪 Dry-Run' : '⚡ Live'}</span>
+        <div id="normPreview"></div>
+        <div class="btn-group" style="margin-top:16px;">
+          <button class="btn btn-secondary" onclick="previewNormalize()">👁️ Preview</button>
+          <button class="btn btn-primary" onclick="executeNormalize()">🔤 Normalize</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function normalizeFileName(name) {
+  const ext = getExt(name);
+  let base = name.slice(0, name.length - ext.length);
+  // Use DOM checkboxes if they exist (normalize page), otherwise default to true (prepShare etc.)
+  if (document.getElementById('normSpaces')?.checked ?? true) base = base.replace(/\s+/g, '_');
+  if (document.getElementById('normSpecial')?.checked ?? true) base = base.replace(/[^a-zA-Z0-9_\-\.]/g, '');
+  if (document.getElementById('normCase')?.checked ?? true) base = base.toLowerCase();
+  if (document.getElementById('normMultiple')?.checked ?? true) base = base.replace(/[_]+/g, '_').replace(/[-]+/g, '-').replace(/^[_-]|[_-]$/g, '');
+  // If base became empty after cleanup, keep original base to avoid creating hidden/invalid files
+  if (!base) base = 'unnamed';
+  return base + ext.toLowerCase();
+}
+
+function previewNormalize() {
+  const changes = state.files.map(f => ({ f, newName: normalizeFileName(f.name) })).filter(c => c.newName !== c.f.name);
+  document.getElementById('normPreview').innerHTML = `
+    <p style="color:var(--text-muted);margin:8px 0;">${changes.length} file(s) would change</p>
+    <div style="max-height:300px;overflow-y:auto;">
+      <table class="results-table">
+        <thead><tr><th>Current</th><th>→</th><th>New</th></tr></thead>
+        <tbody>
+          ${changes.slice(0, 50).map(c => `<tr><td>${esc(c.f.name)}</td><td>→</td><td style="color:var(--success);">${esc(c.newName)}</td></tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+async function executeNormalize() {
+  const changes = state.files.map(f => ({ f, newName: normalizeFileName(f.name) })).filter(c => c.newName !== c.f.name);
+  if (!changes.length) { toast('No files to normalize', 'info'); return; }
+
+  const doIt = async () => {
+    let count = 0;
+    for (const { f, newName } of changes) {
+      if (state.dryRun) { addLog('DRY-RUN', `Would rename: ${f.name} → ${newName}`); count++; }
+      else { if (await renameFile(f.handle, f.dirHandle, newName)) { addLog('RENAME', `${f.name} → ${newName}`); count++; } }
+    }
+    toast(`${state.dryRun ? 'Would rename' : 'Renamed'} ${count} file(s)`, 'success');
+    if (!state.dryRun) await scanFolder();
+  };
+
+  confirmAction('Normalize Filenames', `Rename ${changes.length} file(s) with cleaned-up names.`, changes.length, 'rename', doIt);
+}
+
+// ── SEQUENTIAL ──
+function renderSequential(c) {
+  c.innerHTML = `
+    <div class="fade-in">
+      ${folderStatusBar()}
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon" style="background:var(--info-bg);color:var(--info);">🔢</div>
+          <div><h2>Sequential Naming</h2><p>Rename files with sequential numbers</p></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+          <div class="form-group"><label>Prefix</label><input type="text" id="seqPrefix" value="Photo" placeholder="Photo"></div>
+          <div class="form-group"><label>Start Number</label><input type="number" id="seqStart" value="1" min="0"></div>
+          <div class="form-group"><label>Padding</label><select id="seqPad"><option value="3">001, 002</option><option value="4">0001, 0002</option><option value="2">01, 02</option></select></div>
+        </div>
+        <div class="form-group">
+          <label>Filter extension (empty = all)</label>
+          <input type="text" id="seqFilterExt" placeholder=".jpg, .png">
+        </div>
+        <div class="form-group">
+          <label>Sort files by</label>
+          <select id="seqSort"><option value="name">Name</option><option value="date">Date Modified</option><option value="size">Size</option></select>
+        </div>
+        <span class="badge badge-info">${state.dryRun ? '🧪 Dry-Run' : '⚡ Live'}</span>
+        <div id="seqPreview"></div>
+        <div class="btn-group" style="margin-top:16px;">
+          <button class="btn btn-secondary" onclick="previewSequential()">👁️ Preview</button>
+          <button class="btn btn-primary" onclick="executeSequential()">🔢 Rename</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function getSeqFiles() {
+  const filterRaw = document.getElementById('seqFilterExt').value.trim();
+  const exts = filterRaw ? filterRaw.split(',').map(e => e.trim().toLowerCase().replace(/^\.?/, '.')) : null;
+  let files = state.files.filter(f => !exts || exts.includes(f.ext));
+  const sort = document.getElementById('seqSort').value;
+  if (sort === 'name') files.sort((a, b) => a.name.localeCompare(b.name));
+  else if (sort === 'date') files.sort((a, b) => a.modified - b.modified);
+  else files.sort((a, b) => a.size - b.size);
+  return files;
+}
+
+function previewSequential() {
+  const prefix = document.getElementById('seqPrefix').value || 'File';
+  const start = +document.getElementById('seqStart').value || 1;
+  const pad = +document.getElementById('seqPad').value || 3;
+  const files = getSeqFiles();
+  document.getElementById('seqPreview').innerHTML = `
+    <div style="max-height:300px;overflow-y:auto;margin-top:12px;">
+      <table class="results-table">
+        <thead><tr><th>Current</th><th>→</th><th>New</th></tr></thead>
+        <tbody>
+          ${files.slice(0, 50).map((f, i) => {
+            const num = String(start + i).padStart(pad, '0');
+            const newName = `${prefix}_${num}${f.ext}`;
+            return `<tr><td>${esc(f.name)}</td><td>→</td><td style="color:var(--success);">${esc(newName)}</td></tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+async function executeSequential() {
+  const prefix = document.getElementById('seqPrefix').value || 'File';
+  const start = +document.getElementById('seqStart').value || 1;
+  const pad = +document.getElementById('seqPad').value || 3;
+  const files = getSeqFiles();
+  if (!files.length) { toast('No matching files', 'warning'); return; }
+
+  const doIt = async () => {
+    let count = 0;
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i];
+      const num = String(start + i).padStart(pad, '0');
+      const newName = `${prefix}_${num}${f.ext}`;
+      if (state.dryRun) { addLog('DRY-RUN', `Would rename: ${f.name} → ${newName}`); count++; }
+      else { if (await renameFile(f.handle, f.dirHandle, newName)) { addLog('RENAME', `${f.name} → ${newName}`); count++; } }
+    }
+    toast(`${state.dryRun ? 'Would rename' : 'Renamed'} ${count} file(s)`, 'success');
+    if (!state.dryRun) await scanFolder();
+  };
+
+  confirmAction('Sequential Rename', `Rename ${files.length} file(s) to ${prefix}_001, ${prefix}_002, etc.`, files.length, 'rename', doIt);
+}
+
+// ── ARCHIVE OLD FILES ──
+function renderArchiveOld(c) {
+  c.innerHTML = `
+    <div class="fade-in">
+      ${folderStatusBar()}
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon" style="background:var(--warning-bg);color:var(--warning);">🗄️</div>
+          <div><h2>Archive Old Files</h2><p>Move files older than a threshold to an Archive folder</p></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="form-group">
+            <label>Older than</label>
+            <select id="archiveAge">
+              <option value="30">30 days</option>
+              <option value="90">90 days</option>
+              <option value="180">6 months</option>
+              <option value="365" selected>1 year</option>
+              <option value="730">2 years</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Archive folder name</label>
+            <input type="text" id="archiveFolder" value="Archive">
+          </div>
+        </div>
+        <span class="badge badge-info">${state.dryRun ? '🧪 Dry-Run' : '⚡ Live'}</span>
+        <div id="archivePreview"></div>
+        <div class="btn-group" style="margin-top:16px;">
+          <button class="btn btn-secondary" onclick="previewArchive()">👁️ Preview</button>
+          <button class="btn btn-primary" onclick="executeArchive()">🗄️ Archive</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function getOldFiles() {
+  const days = +document.getElementById('archiveAge').value;
+  const cutoff = Date.now() - days * 86400000;
+  return state.files.filter(f => f.modified < cutoff);
+}
+
+function previewArchive() {
+  const files = getOldFiles();
+  const totalSize = files.reduce((s, f) => s + f.size, 0);
+  document.getElementById('archivePreview').innerHTML = `
+    <p style="margin:12px 0;color:var(--text-secondary);">${files.length} file(s) found (${formatSize(totalSize)})</p>
+    <div style="max-height:250px;overflow-y:auto;">
+      <table class="results-table">
+        <thead><tr><th>File</th><th>Size</th><th>Modified</th></tr></thead>
+        <tbody>
+          ${files.slice(0, 50).map(f => `<tr><td>${esc(f.name)}</td><td>${formatSize(f.size)}</td><td>${formatDate(f.modified)}</td></tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+async function executeArchive() {
+  const files = getOldFiles();
+  const folderName = document.getElementById('archiveFolder').value || 'Archive';
+  if (!files.length) { toast('No old files found', 'info'); return; }
+
+  const doIt = async () => {
+    let count = 0;
+    for (const f of files) {
+      if (state.dryRun) { addLog('DRY-RUN', `Would archive: ${f.name} → ${folderName}/`); count++; }
+      else {
+        const dir = await getOrCreateSubDir(state.dirHandle, folderName);
+        if (await moveFile(f.handle, f.dirHandle, dir)) { addLog('ARCHIVE', `${f.name} → ${folderName}/`); count++; }
+      }
+    }
+    toast(`${state.dryRun ? 'Would archive' : 'Archived'} ${count} file(s)`, 'success');
+    if (!state.dryRun) await scanFolder();
+  };
+
+  confirmAction('Archive Old Files', `Move ${files.length} file(s) older than the threshold to ${folderName}/.`, files.length, 'archive', doIt);
+}
+
+// ── MOVE MEDIA BY DATE ──
+function renderMoveMedia(c) {
+  const media = state.files.filter(f => ['image', 'video', 'audio'].includes(f.type));
+  c.innerHTML = `
+    <div class="fade-in">
+      ${folderStatusBar()}
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon" style="background:var(--success-bg);color:#16a34a;">📸</div>
+          <div><h2>Sort Media by Date</h2><p>Organize photos, videos, and audio into date folders</p></div>
+        </div>
+        <p style="color:var(--text-secondary);margin-bottom:16px;">Found ${media.length} media files</p>
+        <div class="form-group">
+          <label>Folder structure</label>
+          <select id="mediaStructure">
+            <option value="ym">YYYY/MM (2026/05)</option>
+            <option value="ymd">YYYY/MM/DD (2026/05/20)</option>
+            <option value="type-date">Type/YYYY-MM (Photos/2026-05)</option>
+          </select>
+        </div>
+        <span class="badge badge-info">${state.dryRun ? '🧪 Dry-Run' : '⚡ Live'}</span>
+        <div class="btn-group" style="margin-top:16px;">
+          <button class="btn btn-primary" onclick="executeMoveMedia()">📸 Sort Media</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+async function executeMoveMedia() {
+  const media = state.files.filter(f => ['image', 'video', 'audio'].includes(f.type));
+  const structure = document.getElementById('mediaStructure').value;
+  if (!media.length) { toast('No media files found', 'info'); return; }
+
+  const doIt = async () => {
+    let count = 0;
+    for (const f of media) {
+      const d = new Date(f.modified);
+      const y = String(d.getFullYear()), m = String(d.getMonth() + 1).padStart(2, '0'), dd = String(d.getDate()).padStart(2, '0');
+      let parts;
+      if (structure === 'ym') parts = [y, m];
+      else if (structure === 'ymd') parts = [y, m, dd];
+      else parts = [f.type.charAt(0).toUpperCase() + f.type.slice(1) + 's', `${y}-${m}`];
+
+      if (state.dryRun) { addLog('DRY-RUN', `Would move ${f.name} → ${parts.join('/')}/`); count++; }
+      else {
+        let dir = state.dirHandle;
+        for (const p of parts) dir = await getOrCreateSubDir(dir, p);
+        if (await moveFile(f.handle, f.dirHandle, dir)) { addLog('MOVE', `${f.name} → ${parts.join('/')}/`); count++; }
+      }
+    }
+    toast(`${state.dryRun ? 'Would sort' : 'Sorted'} ${count} media file(s)`, 'success');
+    if (!state.dryRun) await scanFolder();
+  };
+
+  confirmAction('Sort Media by Date', `Sort ${media.length} media file(s) into date-based folders.`, media.length, 'move', doIt);
+}
+
+// ── SCREENSHOT ORGANIZER ──
+function renderScreenshotOrg(c) {
+  const ssPatterns = [/^screenshot/i, /^screen shot/i, /^scr_/i, /^capture/i, /^snip/i, /^clip_\d/i, /^screen\s?\d/i];
+  const screenshots = state.files.filter(f => f.type === 'image' && ssPatterns.some(p => p.test(f.name)));
+  c.innerHTML = `
+    <div class="fade-in">
+      ${folderStatusBar()}
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon" style="background:var(--info-bg);color:var(--info);">🖥️</div>
+          <div><h2>Screenshot Organizer</h2><p>Found ${screenshots.length} screenshots</p></div>
+        </div>
+        ${screenshots.length === 0 ? '<p style="color:var(--text-muted);text-align:center;padding:20px;">No screenshots detected. Looks for files starting with Screenshot, Capture, Snip, etc.</p>' : `
+          <div class="form-group">
+            <label>Organize into</label>
+            <select id="ssStructure">
+              <option value="flat">Screenshots/YYYY-MM/</option>
+              <option value="nested">Screenshots/YYYY/MM/</option>
+            </select>
+          </div>
+          <span class="badge badge-info">${state.dryRun ? '🧪 Dry-Run' : '⚡ Live'}</span>
+          <div class="btn-group" style="margin-top:16px;">
+            <button class="btn btn-primary" onclick="executeScreenshotOrg()">🖥️ Organize Screenshots</button>
+          </div>
+        `}
+      </div>
+    </div>`;
+}
+
+async function executeScreenshotOrg() {
+  const ssPatterns = [/^screenshot/i, /^screen shot/i, /^scr_/i, /^capture/i, /^snip/i, /^clip_\d/i, /^screen\s?\d/i];
+  const screenshots = state.files.filter(f => f.type === 'image' && ssPatterns.some(p => p.test(f.name)));
+  const structure = document.getElementById('ssStructure').value;
+
+  const doIt = async () => {
+    let count = 0;
+    for (const f of screenshots) {
+      const d = new Date(f.modified);
+      const y = String(d.getFullYear()), m = String(d.getMonth() + 1).padStart(2, '0');
+      const parts = structure === 'flat' ? ['Screenshots', `${y}-${m}`] : ['Screenshots', y, m];
+      if (state.dryRun) { addLog('DRY-RUN', `Would move ${f.name} → ${parts.join('/')}/`); count++; }
+      else {
+        let dir = state.dirHandle;
+        for (const p of parts) dir = await getOrCreateSubDir(dir, p);
+        if (await moveFile(f.handle, f.dirHandle, dir)) { addLog('MOVE', `${f.name} → ${parts.join('/')}/`); count++; }
+      }
+    }
+    toast(`${state.dryRun ? 'Would organize' : 'Organized'} ${count} screenshot(s)`, 'success');
+    if (!state.dryRun) await scanFolder();
+  };
+
+  confirmAction('Organize Screenshots', `Sort ${screenshots.length} screenshot(s) into date folders.`, screenshots.length, 'move', doIt);
+}
+
+// ── FILE SEARCH ──
+function renderFileSearch(c) {
+  c.innerHTML = `
+    <div class="fade-in">
+      ${folderStatusBar()}
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon" style="background:var(--primary-glow);color:var(--primary);">🔍</div>
+          <div><h2>File Search</h2><p>Search ${state.files.length} files by name, type, size, or date</p></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="form-group"><label>Filename contains</label><input type="text" id="searchName" placeholder="e.g. invoice, report" oninput="runFileSearch()"></div>
+          <div class="form-group"><label>Extension</label><input type="text" id="searchExt" placeholder=".pdf, .jpg" oninput="runFileSearch()"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+          <div class="form-group"><label>Type</label>
+            <select id="searchType" onchange="runFileSearch()"><option value="">All</option><option value="image">Images</option><option value="video">Videos</option><option value="audio">Audio</option><option value="document">Documents</option><option value="code">Code</option><option value="archive">Archives</option></select>
+          </div>
+          <div class="form-group"><label>Min size</label><input type="text" id="searchMinSize" placeholder="e.g. 1MB" oninput="runFileSearch()"></div>
+          <div class="form-group"><label>Max size</label><input type="text" id="searchMaxSize" placeholder="e.g. 100MB" oninput="runFileSearch()"></div>
+        </div>
+        <div id="searchResults"><p style="color:var(--text-muted);text-align:center;padding:20px;">Type to search…</p></div>
+      </div>
+    </div>`;
+}
+
+function parseHumanSize(s) {
+  if (!s) return null;
+  s = s.trim().toUpperCase();
+  const m = s.match(/^(\d+(?:\.\d+)?)\s*(B|KB|MB|GB|TB)?$/);
+  if (!m) return null;
+  const val = parseFloat(m[1]);
+  const units = { B: 1, KB: 1024, MB: 1048576, GB: 1073741824, TB: 1099511627776 };
+  return val * (units[m[2]] || units.MB);
+}
+
+function runFileSearch() {
+  const nameQ = document.getElementById('searchName').value.toLowerCase();
+  const extQ = document.getElementById('searchExt').value.trim().toLowerCase();
+  const typeQ = document.getElementById('searchType').value;
+  const minSize = parseHumanSize(document.getElementById('searchMinSize').value);
+  const maxSize = parseHumanSize(document.getElementById('searchMaxSize').value);
+
+  if (!nameQ && !extQ && !typeQ && minSize === null && maxSize === null) {
+    document.getElementById('searchResults').innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:20px;">Type to search…</p>';
+    return;
+  }
+
+  const exts = extQ ? extQ.split(',').map(e => e.trim().replace(/^\.?/, '.')) : null;
+  const results = state.files.filter(f => {
+    if (nameQ && !f.name.toLowerCase().includes(nameQ)) return false;
+    if (exts && !exts.includes(f.ext)) return false;
+    if (typeQ && f.type !== typeQ) return false;
+    if (minSize !== null && f.size < minSize) return false;
+    if (maxSize !== null && f.size > maxSize) return false;
+    return true;
+  });
+
+  const totalSize = results.reduce((s, f) => s + f.size, 0);
+  document.getElementById('searchResults').innerHTML = `
+    <p style="color:var(--text-secondary);margin:12px 0;font-weight:500;">${results.length} file(s) found (${formatSize(totalSize)})</p>
+    <div style="max-height:400px;overflow-y:auto;">
+      <table class="results-table">
+        <thead><tr><th>Name</th><th>Size</th><th>Type</th><th>Modified</th><th>Path</th></tr></thead>
+        <tbody>
+          ${results.slice(0, 200).map(f => `<tr><td>${esc(f.name)}</td><td>${formatSize(f.size)}</td><td><span class="badge badge-info">${esc(f.ext || 'none')}</span></td><td>${formatDate(f.modified)}</td><td title="${esc(f.path)}">${esc(f.parentDir)}</td></tr>`).join('')}
+          ${results.length > 200 ? `<tr><td colspan="5" style="color:var(--text-muted);">…and ${results.length - 200} more results</td></tr>` : ''}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+// ── DISK SPACE VISUALIZER ──
+function renderDiskViz(c) {
+  const folderSizes = {};
+  state.files.forEach(f => {
+    const parts = f.parentDir.split('/').filter(Boolean);
+    // Collect top-level and second-level folders
+    if (parts.length >= 1) {
+      const top = parts[0];
+      folderSizes[top] = (folderSizes[top] || 0) + f.size;
+    }
+  });
+
+  const sorted = Object.entries(folderSizes).sort((a, b) => b[1] - a[1]);
+  const maxSize = sorted.length ? sorted[0][1] : 1;
+  const colors = ['#667eea','#764ba2','#f093fb','#22c55e','#f59e0b','#ef4444','#3b82f6','#6366f1','#ec4899','#14b8a6','#f97316','#8b5cf6'];
+
+  // File type breakdown
+  const typeSizes = {};
+  state.files.forEach(f => { typeSizes[f.type] = (typeSizes[f.type] || 0) + f.size; });
+  const typeSorted = Object.entries(typeSizes).sort((a, b) => b[1] - a[1]);
+
+  // Largest files
+  const largest = [...state.files].sort((a, b) => b.size - a.size).slice(0, 15);
+
+  c.innerHTML = `
+    <div class="fade-in">
+      ${folderStatusBar()}
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon" style="background:var(--gradient);color:white;">📊</div>
+          <div><h2>Disk Space Map</h2><p>Visual breakdown of ${formatSize(state.totalSize)} across ${state.folders.length} folders</p></div>
+        </div>
+
+        <div class="tabs">
+          <button class="tab-btn active" onclick="showDiskTab('folders',this)">📁 Folders</button>
+          <button class="tab-btn" onclick="showDiskTab('types',this)">📂 File Types</button>
+          <button class="tab-btn" onclick="showDiskTab('largest',this)">🐘 Largest Files</button>
+        </div>
+
+        <div id="diskTab-folders">
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            ${sorted.slice(0, 20).map(([name, size], i) => {
+              const pct = state.totalSize ? (size / state.totalSize * 100).toFixed(1) : '0.0';
+              const barPct = maxSize ? (size / maxSize * 100).toFixed(0) : '0';
+              return `<div style="display:flex;align-items:center;gap:10px;">
+                <div style="width:140px;font-size:0.85rem;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(name)}">📁 ${esc(name)}</div>
+                <div style="flex:1;height:28px;background:var(--bg-input);border-radius:4px;overflow:hidden;position:relative;">
+                  <div style="height:100%;width:${barPct}%;background:${colors[i % colors.length]};border-radius:4px;transition:width 0.5s;"></div>
+                  <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:0.75rem;font-weight:600;color:var(--text-secondary);">${formatSize(size)}</span>
+                </div>
+                <div style="width:50px;text-align:right;font-size:0.78rem;color:var(--text-muted);">${pct}%</div>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>
+
+        <div id="diskTab-types" style="display:none;">
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            ${typeSorted.map(([type, size], i) => {
+              const pct = state.totalSize ? (size / state.totalSize * 100).toFixed(1) : '0.0';
+              const icons = {image:'🖼️',video:'🎬',audio:'🎵',document:'📄',code:'💻',archive:'📦',font:'🔤',executable:'⚙️',other:'📎'};
+              return `<div style="display:flex;align-items:center;gap:10px;">
+                <div style="width:140px;font-size:0.85rem;font-weight:500;">${icons[type]||'📎'} ${type.charAt(0).toUpperCase()+type.slice(1)}s</div>
+                <div style="flex:1;height:28px;background:var(--bg-input);border-radius:4px;overflow:hidden;position:relative;">
+                  <div style="height:100%;width:${pct}%;background:${colors[i % colors.length]};border-radius:4px;"></div>
+                  <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:0.75rem;font-weight:600;color:var(--text-secondary);">${formatSize(size)}</span>
+                </div>
+                <div style="width:50px;text-align:right;font-size:0.78rem;color:var(--text-muted);">${pct}%</div>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>
+
+        <div id="diskTab-largest" style="display:none;">
+          <table class="results-table">
+            <thead><tr><th>#</th><th>File</th><th>Size</th><th>Type</th><th>Path</th></tr></thead>
+            <tbody>
+              ${largest.map((f, i) => `<tr><td>${i+1}</td><td>${esc(f.name)}</td><td><strong>${formatSize(f.size)}</strong></td><td><span class="badge badge-info">${esc(f.ext)}</span></td><td>${esc(f.parentDir)}</td></tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>`;
+}
+
+function showDiskTab(tab, btn) {
+  ['folders','types','largest'].forEach(t => {
+    const el = document.getElementById('diskTab-' + t);
+    if (el) el.style.display = t === tab ? '' : 'none';
+  });
+  btn.parentElement.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// ── FILE TIMELINE ──
+function renderTimeline(c) {
+  // Group files by month
+  const months = {};
+  state.files.forEach(f => {
+    const d = new Date(f.modified);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    if (!months[key]) months[key] = { count: 0, size: 0 };
+    months[key].count++;
+    months[key].size += f.size;
+  });
+
+  const sortedMonths = Object.entries(months).sort();
+  const maxCount = sortedMonths.length ? Math.max(...sortedMonths.map(([, v]) => v.count)) : 1;
+
+  c.innerHTML = `
+    <div class="fade-in">
+      ${folderStatusBar()}
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon" style="background:var(--primary-glow);color:var(--primary);">📅</div>
+          <div><h2>File Timeline</h2><p>When files were last modified — ${sortedMonths.length} months of activity</p></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;max-height:500px;overflow-y:auto;">
+          ${sortedMonths.map(([month, data]) => {
+            const barPct = (data.count / maxCount * 100).toFixed(0);
+            return `<div style="display:flex;align-items:center;gap:10px;">
+              <div style="width:80px;font-size:0.82rem;color:var(--text-muted);font-family:var(--font-display);text-align:right;">${month}</div>
+              <div style="flex:1;height:24px;background:var(--bg-input);border-radius:4px;overflow:hidden;position:relative;">
+                <div style="height:100%;width:${barPct}%;background:var(--gradient);border-radius:4px;transition:width 0.3s;"></div>
+              </div>
+              <div style="width:120px;font-size:0.78rem;color:var(--text-secondary);text-align:right;">${data.count} files • ${formatSize(data.size)}</div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>`;
+}
+
+// ── SMART CLEANUP (one-click presets) ──
+function renderSmartCleanup(c) {
+  const temps = state.files.filter(f => isTemp(f.name));
+  const zeros = state.files.filter(f => f.size === 0);
+  const backups = state.files.filter(f => isBackup(f.name));
+  const emptyDirs = state.folders.filter(f => f.fileCount === 0);
+  const oldFiles = state.files.filter(f => f.modified < Date.now() - 365 * 86400000);
+  const totalJunk = temps.length + zeros.length + backups.length + emptyDirs.length;
+  const junkSize = [...temps, ...zeros, ...backups].reduce((s, f) => s + f.size, 0);
+
+  c.innerHTML = `
+    <div class="fade-in">
+      ${folderStatusBar()}
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon" style="background:var(--gradient);color:white;">✨</div>
+          <div><h2>Smart Cleanup</h2><p>One-click cleanup presets</p></div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;">
+          <div class="home-tool-card" onclick="runSmartPreset('junk')" style="text-align:left;padding:18px;">
+            <div style="font-size:1.3rem;margin-bottom:6px;">🧹</div>
+            <div class="htc-title">Clean Junk Files</div>
+            <div class="htc-desc">${temps.length} temp + ${zeros.length} empty + ${backups.length} backup files<br><strong style="color:var(--primary);">${formatSize(junkSize)} reclaimable</strong></div>
+          </div>
+          <div class="home-tool-card" onclick="runSmartPreset('empty')" style="text-align:left;padding:18px;">
+            <div style="font-size:1.3rem;margin-bottom:6px;">📂</div>
+            <div class="htc-title">Remove Empty Folders</div>
+            <div class="htc-desc">${emptyDirs.length} empty folder(s) found</div>
+          </div>
+          <div class="home-tool-card" onclick="runSmartPreset('downloads')" style="text-align:left;padding:18px;">
+            <div style="font-size:1.3rem;margin-bottom:6px;">⬇️</div>
+            <div class="htc-title">Sort by Type</div>
+            <div class="htc-desc">Organize all ${state.files.length} files into type folders</div>
+          </div>
+          <div class="home-tool-card" onclick="runSmartPreset('archive')" style="text-align:left;padding:18px;">
+            <div style="font-size:1.3rem;margin-bottom:6px;">🗄️</div>
+            <div class="htc-title">Archive Old Files</div>
+            <div class="htc-desc">${oldFiles.length} file(s) older than 1 year</div>
+          </div>
+          <div class="home-tool-card" onclick="runSmartPreset('screenshots')" style="text-align:left;padding:18px;">
+            <div style="font-size:1.3rem;margin-bottom:6px;">🖥️</div>
+            <div class="htc-title">Organize Screenshots</div>
+            <div class="htc-desc">Sort screenshots into date folders</div>
+          </div>
+          <div class="home-tool-card" onclick="runSmartPreset('media')" style="text-align:left;padding:18px;">
+            <div style="font-size:1.3rem;margin-bottom:6px;">📸</div>
+            <div class="htc-title">Sort Media by Date</div>
+            <div class="htc-desc">Organize photos, videos, audio</div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+async function runSmartPreset(preset) {
+  const presetMap = {
+    'junk': () => {
+      const items = state.files.filter(f => isTemp(f.name) || f.size === 0 || isBackup(f.name));
+      const doIt = async () => {
+        let count = 0;
+        for (const f of items) {
+          if (state.dryRun) { addLog('DRY-RUN', `Would delete: ${f.path}`); count++; }
+          else { if (await safeDelete(f.handle, f.dirHandle)) { addLog('DELETE', `Cleaned: ${f.path}`); count++; } }
+        }
+        toast(`${state.dryRun ? 'Would clean' : 'Cleaned'} ${count} junk file(s)`, 'success');
+        if (!state.dryRun) await scanFolder();
+      };
+      confirmAction('Clean Junk Files', `Remove ${items.length} temp, empty, and backup files.`, items.length, 'delete', doIt);
+    },
+    'empty': () => showTool('empty-folders'),
+    'downloads': () => showTool('sort-downloads'),
+    'archive': () => showTool('archive-old'),
+    'screenshots': () => showTool('screenshot-org'),
+    'media': () => showTool('move-media'),
+  };
+  (presetMap[preset] || (() => {}))();
+}
+
+// ── PREPARE FOR SHARING ──
+function renderPrepShare(c) {
+  const temps = state.files.filter(f => isTemp(f.name));
+  const zeros = state.files.filter(f => f.size === 0);
+  const hiddenFiles = state.files.filter(f => f.name.startsWith('.'));
+  const backups = state.files.filter(f => isBackup(f.name));
+  const issues = temps.length + zeros.length + hiddenFiles.length + backups.length;
+
+  c.innerHTML = `
+    <div class="fade-in">
+      ${folderStatusBar()}
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon" style="background:var(--success-bg);color:#16a34a;">📤</div>
+          <div><h2>Prepare for Sharing</h2><p>Clean this folder before sending to someone</p></div>
+        </div>
+        <p style="color:var(--text-secondary);margin-bottom:16px;">Removes junk, hidden files, and normalizes filenames so the folder is clean for USB drives, client delivery, or school submissions.</p>
+
+        <div style="margin-bottom:16px;">
+          <label><input type="checkbox" id="prepTemp" checked> 🗑️ Remove temp files (${temps.length})</label><br>
+          <label><input type="checkbox" id="prepZero" checked> ⚠️ Remove zero-byte files (${zeros.length})</label><br>
+          <label><input type="checkbox" id="prepHidden" checked> 👁️ Remove hidden files (${hiddenFiles.length})</label><br>
+          <label><input type="checkbox" id="prepBackup" checked> 💾 Remove backups (${backups.length})</label><br>
+          <label><input type="checkbox" id="prepNormalize"> 🔤 Normalize filenames</label><br>
+        </div>
+
+        <span class="badge ${issues > 0 ? 'badge-warning' : 'badge-success'}">${issues > 0 ? issues + ' issues found' : '✨ Folder looks clean!'}</span>
+
+        <div class="btn-group" style="margin-top:16px;">
+          <button class="btn btn-primary" onclick="executePrepShare()">📤 ${state.dryRun ? 'Preview Cleanup' : 'Clean for Sharing'}</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+async function executePrepShare() {
+  const doTemp = document.getElementById('prepTemp').checked;
+  const doZero = document.getElementById('prepZero').checked;
+  const doHidden = document.getElementById('prepHidden').checked;
+  const doBackup = document.getElementById('prepBackup').checked;
+  const doNorm = document.getElementById('prepNormalize').checked;
+
+  let targets = [];
+  if (doTemp) targets.push(...state.files.filter(f => isTemp(f.name)));
+  if (doZero) targets.push(...state.files.filter(f => f.size === 0));
+  if (doHidden) targets.push(...state.files.filter(f => f.name.startsWith('.')));
+  if (doBackup) targets.push(...state.files.filter(f => isBackup(f.name)));
+  // Deduplicate
+  const seen = new Set();
+  targets = targets.filter(f => { if (seen.has(f.path)) return false; seen.add(f.path); return true; });
+
+  const renameTargets = doNorm ? state.files.map(f => ({ f, newName: normalizeFileName(f.name) })).filter(c => c.newName !== c.f.name) : [];
+  const total = targets.length + renameTargets.length;
+
+  const doIt = async () => {
+    let count = 0;
+    for (const f of targets) {
+      if (state.dryRun) { addLog('DRY-RUN', `Would remove: ${f.path}`); count++; }
+      else { if (await safeDelete(f.handle, f.dirHandle)) { addLog('CLEAN', `Removed for sharing: ${f.path}`); count++; } }
+    }
+    for (const { f, newName } of renameTargets) {
+      if (state.dryRun) { addLog('DRY-RUN', `Would normalize: ${f.name} → ${newName}`); count++; }
+      else { if (await renameFile(f.handle, f.dirHandle, newName)) { addLog('RENAME', `Normalized: ${f.name} → ${newName}`); count++; } }
+    }
+    toast(`${state.dryRun ? 'Would apply' : 'Applied'} ${count} change(s) for sharing`, 'success');
+    if (!state.dryRun) await scanFolder();
+  };
+
+  confirmAction('Prepare for Sharing', `Apply ${total} cleanup action(s) to prepare this folder.`, total, 'delete', doIt);
+}
+
+// ── PRIVACY SCANNER ──
+function renderPrivacyScan(c) {
+  c.innerHTML = `
+    <div class="fade-in">
+      ${folderStatusBar()}
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon" style="background:var(--danger-bg);color:var(--danger);">🛡️</div>
+          <div><h2>Privacy Scanner</h2><p>Scan filenames for potentially sensitive patterns</p></div>
+        </div>
+        <p style="color:var(--text-secondary);margin-bottom:16px;">Scans filenames for patterns that may indicate sensitive documents: SSNs, credit cards, passports, tax forms, medical records, etc. All processing is local.</p>
+        <div id="privacyResults"></div>
+        <button class="btn btn-primary" onclick="runPrivacyScan()">🛡️ Scan for Sensitive Files</button>
+      </div>
+    </div>`;
+}
+
+function runPrivacyScan() {
+  const patterns = [
+    { label: '🔢 SSN / National ID', regex: /ssn|social.?security|national.?id/i },
+    { label: '💳 Credit Card', regex: /credit.?card|visa|mastercard|amex/i },
+    { label: '🛂 Passport', regex: /passport/i },
+    { label: '📋 Tax Document', regex: /tax.?return|w-?2|1099|w-?9|1040|tax.?form/i },
+    { label: '🏥 Medical', regex: /medical|health.?record|diagnosis|prescription|hipaa/i },
+    { label: '🔑 Password / Key', regex: /password|\.pem$|\.key$|\.env$|credentials|secret|api.?key/i },
+    { label: '💰 Financial', regex: /bank.?statement|invoice|salary|payroll|routing.?number/i },
+    { label: '📝 Legal', regex: /contract|nda|agreement|settlement|court|subpoena/i },
+    { label: '🪪 Identity', regex: /driver.?license|birth.?certificate|id.?card|license\.?/i },
+  ];
+
+  const findings = [];
+  for (const p of patterns) {
+    const matches = state.files.filter(f => p.regex.test(f.name) || p.regex.test(f.path));
+    if (matches.length > 0) {
+      findings.push({ ...p, files: matches });
+    }
+  }
+
+  const el = document.getElementById('privacyResults');
+  if (findings.length === 0) {
+    el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--success);">✅ No sensitive patterns found in filenames.</div>';
+    return;
+  }
+
+  const totalFiles = findings.reduce((s, f) => s + f.files.length, 0);
+  el.innerHTML = `
+    <div class="summary-grid" style="margin-bottom:16px;">
+      <div class="summary-stat"><div class="stat-value" style="color:var(--danger);">${totalFiles}</div><div class="stat-label">Sensitive File(s)</div></div>
+      <div class="summary-stat"><div class="stat-value" style="color:var(--warning);">${findings.length}</div><div class="stat-label">Categories</div></div>
+    </div>
+    ${findings.map(f => `
+      <div style="margin-bottom:14px;padding:12px;background:var(--bg-input);border-radius:var(--radius-sm);border-left:3px solid var(--danger);">
+        <strong>${f.label}</strong> — ${f.files.length} file(s)
+        <div style="max-height:150px;overflow-y:auto;margin-top:8px;font-size:0.85rem;">
+          ${f.files.map(fi => `<div style="padding:2px 0;color:var(--text-secondary);">${esc(fi.path)}</div>`).join('')}
+        </div>
+      </div>
+    `).join('')}
+    <p style="font-size:0.82rem;color:var(--text-muted);margin-top:12px;">⚠️ This scans filenames and paths only — not file contents. Consider encrypting or relocating flagged files.</p>`;
+}
+
+// ── DUPLICATE FOLDER MERGER ──
+function renderDupeFolders(c) {
+  // Find folders with similar names
+  const groups = {};
+  state.folders.forEach(f => {
+    const normalized = f.name.toLowerCase().replace(/[\s_\-]+/g, '').replace(/\(?\d+\)?$/, '').replace(/final|copy|backup|old|new/gi, '').trim();
+    if (!normalized) return;
+    if (!groups[normalized]) groups[normalized] = [];
+    groups[normalized].push(f);
+  });
+
+  const dupeGroups = Object.values(groups).filter(g => g.length > 1);
+
+  c.innerHTML = `
+    <div class="fade-in">
+      ${folderStatusBar()}
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon" style="background:var(--warning-bg);color:var(--warning);">📂</div>
+          <div><h2>Merge Duplicate Folders</h2><p>Found ${dupeGroups.length} group(s) of similar folders</p></div>
+        </div>
+        ${dupeGroups.length === 0 ? '<p style="color:var(--text-muted);text-align:center;padding:20px;">No duplicate folder names detected ✨</p>' : `
+          <p style="color:var(--text-secondary);margin-bottom:16px;">These folders have similar names and may contain related files. Select a target folder to merge into.</p>
+          ${dupeGroups.map((group, gi) => `
+            <div style="margin-bottom:16px;padding:14px;background:var(--bg-input);border-radius:var(--radius-sm);border:1px solid var(--border);">
+              <strong style="font-size:0.88rem;">Group ${gi + 1}</strong> — ${group.length} similar folders
+              <table class="results-table" style="margin-top:8px;">
+                <thead><tr><th>Merge into</th><th>Folder</th><th>Files</th><th>Path</th></tr></thead>
+                <tbody>
+                  ${group.map((f, fi) => `
+                    <tr>
+                      <td><input type="radio" name="merge_${gi}" value="${fi}" ${fi === 0 ? 'checked' : ''}></td>
+                      <td>${esc(f.name)}</td>
+                      <td>${f.fileCount}</td>
+                      <td>${esc(f.path)}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          `).join('')}
+          <span class="badge badge-info">${state.dryRun ? '🧪 Dry-Run' : '⚡ Live'}</span>
+          <div class="btn-group" style="margin-top:12px;">
+            <button class="btn btn-primary" onclick="executeMergeFolders()">📂 Merge Selected Groups</button>
+          </div>
+        `}
+      </div>
+    </div>`;
+
+  state._dupeGroups_folders = dupeGroups;
+}
+
+async function executeMergeFolders() {
+  if (!state._dupeGroups_folders) return;
+  const groups = state._dupeGroups_folders;
+
+  let totalMoves = 0;
+  groups.forEach(g => { totalMoves += g.reduce((s, f) => s + f.fileCount, 0); });
+
+  const doIt = async () => {
+    let count = 0;
+    for (let gi = 0; gi < groups.length; gi++) {
+      const group = groups[gi];
+      const keepIdx = +(document.querySelector(`input[name="merge_${gi}"]:checked`)?.value || 0);
+      const targetDir = group[keepIdx].handle;
+
+      for (let fi = 0; fi < group.length; fi++) {
+        if (fi === keepIdx) continue;
+        const sourceDir = group[fi].handle;
+        try {
+          for await (const entry of sourceDir.values()) {
+            if (entry.kind === 'file') {
+              if (state.dryRun) { addLog('DRY-RUN', `Would merge: ${entry.name} → ${group[keepIdx].name}/`); count++; }
+              else {
+                if (await moveFile(entry, sourceDir, targetDir)) { addLog('MERGE', `${entry.name} → ${group[keepIdx].name}/`); count++; }
+              }
+            }
+          }
+        } catch (e) { /* skip */ }
+      }
+    }
+    toast(`${state.dryRun ? 'Would merge' : 'Merged'} ${count} file(s)`, 'success');
+    if (!state.dryRun) await scanFolder();
+  };
+
+  confirmAction('Merge Duplicate Folders', `Merge files from ${groups.length} folder group(s).`, totalMoves, 'move', doIt);
+}
+
+// ── ACTIVITY LOG ──
+function renderActivityLog(c) {
+  c.innerHTML = `
+    <div class="fade-in">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon" style="background:var(--primary-glow);color:var(--primary);">📝</div>
+          <div><h2>Activity Log</h2><p>${state.log.length} entries</p></div>
+        </div>
+        ${state.log.length === 0 ? '<p style="color:var(--text-muted);text-align:center;padding:20px;">No activity yet.</p>' : `
+          <div class="log-entries">
+            ${state.log.map(l => `
+              <div class="log-entry">
+                <span class="log-time">${l.time}</span>
+                <span class="log-action">${esc(l.action)}</span>
+                <span class="log-detail">${esc(l.detail)}</span>
+              </div>
+            `).join('')}
+          </div>
+          <div style="margin-top:12px;">
+            <button class="btn btn-secondary btn-sm" onclick="exportLog()">📥 Export Log</button>
+            <button class="btn btn-danger btn-sm" onclick="state.log=[];renderCurrentTool();">🗑️ Clear</button>
+          </div>
+        `}
+      </div>
+    </div>`;
+}
+
+function exportLog() {
+  const text = state.log.map(l => `${l.time}\t${l.action}\t${l.detail}`).join('\n');
+  const blob = new Blob([text], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `file-workspace-log-${new Date().toISOString().slice(0, 10)}.txt`;
+  a.click();
+  toast('Log exported', 'success');
+}
+
+// ── HELPERS ──
+function toggleAllChecks(master, className) {
+  document.querySelectorAll('.' + className).forEach(cb => cb.checked = master.checked);
+}
+
+function folderStatusBar() {
+  if (!state.dirHandle) return '';
+  if (state.scanning) {
+    return `
+      <div class="status-bar">
+        <span class="status-dot scanning"></span>
+        <strong>${esc(state.dirHandle.name)}</strong>
+        <span style="color:var(--text-muted);">•</span>
+        <span id="scanProgress">Scanning…</span>
+        <span style="flex:1;"></span>
+        <button class="btn btn-danger btn-sm" onclick="state.scanCancelled=true">✕ Cancel</button>
+      </div>
+      <div class="progress-bar"><div class="fill" style="width:100%;animation:pulse 1s ease infinite;"></div></div>`;
+  }
+  return `
+    <div class="status-bar">
+      <span class="status-dot"></span>
+      <strong>${esc(state.dirHandle.name)}</strong>
+      <span style="color:var(--text-muted);">•</span>
+      ${state.files.length} files • ${state.folders.length} folders • ${formatSize(state.totalSize)}
+      <span style="flex:1;"></span>
+      <button class="btn btn-secondary btn-sm" onclick="pickFolder()">📂 Change</button>
+      <button class="btn btn-secondary btn-sm" onclick="scanFolder()">🔄 Rescan</button>
+    </div>`;
+}
+
+// ── INIT ──
+if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+  document.documentElement.setAttribute('data-theme', 'dark');
+}
+</script>
+</body>
+</html>

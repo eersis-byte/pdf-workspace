@@ -104,6 +104,14 @@
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500;700&display=swap" rel="stylesheet">
     
     <link rel="stylesheet" href="styles.css">
+    
+    <!-- Workspace Switcher Styles (cross-links between PDF & File Workspace) -->
+    <style>
+    .workspace-switcher{display:flex;gap:4px;padding:10px 12px;border-bottom:1px solid var(--color-border, #e8e8f0);}
+    .workspace-switcher a{display:flex;align-items:center;gap:6px;padding:7px 12px;border-radius:8px;font-size:0.8rem;font-weight:500;font-family:var(--font-body, 'DM Sans', sans-serif);text-decoration:none;color:var(--color-text-muted, #9999b8);transition:all 0.15s;white-space:nowrap;}
+    .workspace-switcher a:hover{background:var(--color-bg-hover, #f0f2f8);color:var(--color-text, #1a1a2e);}
+    .workspace-switcher a.active-ws{background:var(--color-primary-glow, rgba(102,126,234,0.15));color:var(--color-primary, #667eea);font-weight:600;}
+    </style>
 </head>
 <body>
     <!-- Enhancement #10: Loading skeleton -->
@@ -232,6 +240,10 @@
             <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle tool sidebar">🔧</button>
             
             <aside class="tool-sidebar" id="toolSidebar">
+                <div class="workspace-switcher">
+                    <a href="index.html" class="active-ws">📄 PDF Workspace</a>
+                    <a href="file-workspace.html">📁 File Workspace</a>
+                </div>
                 <button class="home-button" id="homeButton" aria-label="Return to home">
                     <span class="home-button-icon">🏠</span>
                     <span class="home-button-label">Home — All Tools</span>
@@ -408,6 +420,8 @@
                 <span class="footer-sep">•</span>
                 <span>49 Tools</span>
                 <span class="footer-sep">•</span>
+                <a href="file-workspace.html">📁 File Workspace</a>
+                <span class="footer-sep">•</span>
                 <a href="#" id="footerHomeLink">🏠 Home</a>
                 <span class="footer-sep">•</span>
                 <a href="#" id="footerAboutLink">ℹ️ About & Privacy</a>
@@ -435,6 +449,10 @@
                 <div class="about-section">
                     <h3>🍪 No Cookies, No Tracking</h3>
                     <p>PDF Workspace uses localStorage only for your preferences (dark mode, favorites, tool settings). There are no analytics, no cookies, no fingerprinting, and no advertising.</p>
+                </div>
+                <div class="about-section">
+                    <h3>🛠️ Other Workspace Tools</h3>
+                    <p><a href="file-workspace.html" style="color:var(--color-primary); font-weight:600;">📁 File Workspace</a> — 25 free file organization tools. Cleanup, rename, sort, deduplicate, and organize files locally. Same privacy-first, browser-based approach.</p>
                 </div>
                 <div class="about-section">
                     <h3>📋 Open Source</h3>
